@@ -12,7 +12,7 @@ import { PwaRegister } from "@/components/pwa-register";
 
 type ActionType = "start" | "complete" | "postpone";
 type SyncState = "idle" | "queued" | "syncing" | "error";
-type ViewFilter = "all" | "group" | "personal";
+type ScreenMode = "home" | "manage";
 
 type Toast = {
   id: number;
@@ -109,8 +109,7 @@ export function TaskBoard({
       : null) ??
     sessionUser?.displayName ??
     "";
-  const [viewFilter, setViewFilter] = useState<ViewFilter>("all");
-  const [selectedGroupId, setSelectedGroupId] = useState<string>("all");
+  const [screenMode, setScreenMode] = useState<ScreenMode>("home");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [inviteLinks, setInviteLinks] = useState<Record<string, string>>({});
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
@@ -131,23 +130,10 @@ export function TaskBoard({
     groupId: "",
   });
 
-  const sortedTasks = useMemo(() => {
-    let tasks = state.tasks.filter((task) => !task.deleted_at);
-
-    if (viewFilter === "group") {
-      tasks = tasks.filter((task) => task.visibility_type === "group");
-    }
-
-    if (viewFilter === "personal") {
-      tasks = tasks.filter((task) => task.visibility_type === "personal");
-    }
-
-    if (selectedGroupId !== "all") {
-      tasks = tasks.filter((task) => task.group_id === selectedGroupId);
-    }
-
-    return sortTasks(tasks);
-  }, [selectedGroupId, state.tasks, viewFilter]);
+  const sortedTasks = useMemo(
+    () => sortTasks(state.tasks.filter((task) => !task.deleted_at)),
+    [state.tasks],
+  );
 
   const counts = useMemo(
     () => ({
@@ -639,59 +625,12 @@ export function TaskBoard({
             <h1 className="mt-2 font-[family-name:var(--font-heading)] text-[2rem] leading-none tracking-[-0.03em]">
               今日のタスク
             </h1>
-            <p className="mt-2 text-sm text-[var(--muted)]">
-              {state.workspace?.name} / {state.appUser.display_name}
-            </p>
           </div>
           <div className="flex gap-2">
             <button className={primaryIconButtonClass} onClick={openCreateTask} type="button">
               +
             </button>
-            <button
-              className={secondaryButtonClass}
-              onClick={handleLogout}
-              type="button"
-              disabled={isSubmitting}
-            >
-              ログアウト
-            </button>
           </div>
-        </div>
-
-        <div className="mt-4 flex gap-2">
-          {[
-            { key: "all", label: "すべて" },
-            { key: "group", label: "共有" },
-            { key: "personal", label: "個人" },
-          ].map((item) => (
-            <button
-              key={item.key}
-              className={`rounded-full px-4 py-2 text-sm font-semibold ${
-                viewFilter === item.key
-                  ? "bg-[var(--brand)] text-white"
-                  : "bg-[var(--chip)] text-[var(--ink-soft)]"
-              }`}
-              onClick={() => setViewFilter(item.key as ViewFilter)}
-              type="button"
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-3">
-          <select
-            className={inputClass}
-            value={selectedGroupId}
-            onChange={(event) => setSelectedGroupId(event.target.value)}
-          >
-            <option value="all">全グループ</option>
-            {state.groups.map((group) => (
-              <option key={group.id} value={group.id}>
-                {group.name}
-              </option>
-            ))}
-          </select>
         </div>
 
         <div className="mt-4 grid grid-cols-3 gap-3">
@@ -712,7 +651,28 @@ export function TaskBoard({
         </div>
       </Card>
 
-      <section className="grid gap-4">
+      {state.appUser.role === "admin" && state.pendingRequests.length > 0 ? (
+        <Card>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-[var(--danger)]">承認待ち申請があります</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                {state.pendingRequests.length}件の申請が管理画面で承認待ちです。
+              </p>
+            </div>
+            <button
+              className={secondaryButtonClass}
+              onClick={() => setScreenMode("manage")}
+              type="button"
+            >
+              確認
+            </button>
+          </div>
+        </Card>
+      ) : null}
+
+      {screenMode === "home" ? (
+        <section className="grid gap-4">
         {sortedTasks.map((task) => (
           <Card key={task.id}>
             <div className="flex items-start justify-between gap-3">
@@ -777,9 +737,11 @@ export function TaskBoard({
             </div>
           </Card>
         ))}
-      </section>
+        </section>
+      ) : null}
 
-      <Card title="通知">
+      {screenMode === "home" ? (
+        <Card title="通知">
         <div className="flex flex-col gap-3">
           {state.logs.map((log) => (
             <div key={log.id} className="rounded-2xl bg-[var(--chip)] px-4 py-3">
@@ -790,10 +752,30 @@ export function TaskBoard({
             </div>
           ))}
         </div>
-      </Card>
+        </Card>
+      ) : null}
 
-      {state.appUser.role === "admin" ? (
+      {screenMode === "manage" && state.appUser.role === "admin" ? (
         <>
+          <Card>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
+                  管理画面
+                </h2>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  メンバー承認、招待、削除をここで行います。
+                </p>
+              </div>
+              <button
+                className={secondaryButtonClass}
+                onClick={() => setScreenMode("home")}
+                type="button"
+              >
+                戻る
+              </button>
+            </div>
+          </Card>
           <Card title="承認待ち申請">
             {state.pendingRequests.length === 0 ? (
               <p className="text-sm text-[var(--muted)]">承認待ちはありません。</p>
@@ -837,7 +819,8 @@ export function TaskBoard({
         </>
       ) : null}
 
-      <Card title="グループ招待">
+      {screenMode === "manage" ? (
+        <Card title="グループ招待">
         <div className="flex flex-col gap-4">
           {state.groups.map((group) => (
             <div key={group.id} className="rounded-2xl bg-[var(--chip)] px-4 py-4">
@@ -862,9 +845,38 @@ export function TaskBoard({
             </div>
           ))}
         </div>
-      </Card>
+        </Card>
+      ) : null}
 
-      <Footer appVersion={appVersion} commitSha={commitSha} />
+      <Card>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs text-[var(--muted)]">ワークスペース</p>
+            <p className="font-semibold">{state.workspace?.name}</p>
+          </div>
+          <div className="flex gap-2">
+            {state.appUser.role === "admin" ? (
+              <button
+                className={secondaryButtonClass}
+                onClick={() =>
+                  setScreenMode((current) => (current === "home" ? "manage" : "home"))
+                }
+                type="button"
+              >
+                {screenMode === "home" ? "管理" : "ホーム"}
+              </button>
+            ) : null}
+            <button
+              className={secondaryButtonClass}
+              onClick={handleLogout}
+              type="button"
+              disabled={isSubmitting}
+            >
+              ログアウト
+            </button>
+          </div>
+        </div>
+      </Card>
 
       {createTaskOpen ? (
         <TaskModal
