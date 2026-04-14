@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
+import { sendTaskActionNotification } from "@/lib/notifications/web-push";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 type ActionType = "start" | "complete" | "pause" | "postpone";
@@ -86,6 +87,25 @@ export async function POST(
     action_type: actionType,
     before_value: beforeResult.data,
     after_value: updateResult.data,
+  });
+
+  const actionLabel =
+    body.action === "start"
+      ? "開始"
+      : body.action === "complete"
+        ? "完了"
+        : body.action === "pause"
+          ? "中断"
+          : "翌日に回す";
+
+  await sendTaskActionNotification({
+    workspaceId: beforeResult.data.workspace_id,
+    actorUserId: actorResult.data.id,
+    actorName: actorResult.data.display_name ?? "誰か",
+    taskTitle: beforeResult.data.title,
+    actionLabel,
+    groupId: beforeResult.data.group_id,
+    baseUrl: new URL("/", request.url).toString(),
   });
 
   return NextResponse.json({ ok: true, task: updateResult.data });

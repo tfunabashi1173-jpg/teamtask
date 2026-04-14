@@ -200,11 +200,14 @@ create table if not exists public.task_activity_logs (
 create index if not exists task_activity_logs_task_created_at_idx
   on public.task_activity_logs (task_id, created_at desc);
 
-create table if not exists public.device_push_tokens (
+create table if not exists public.push_subscriptions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.app_users(id) on delete cascade,
   device_label text,
-  push_token text not null unique,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  user_agent text,
   platform text not null check (platform in ('ios', 'android', 'web')),
   is_active boolean not null default true,
   last_seen_at timestamptz not null default now(),
@@ -272,7 +275,7 @@ create trigger set_recurrence_rules_updated_at
 before update on public.recurrence_rules
 for each row execute function public.set_updated_at();
 
-drop trigger if exists set_device_push_tokens_updated_at on public.device_push_tokens;
-create trigger set_device_push_tokens_updated_at
-before update on public.device_push_tokens
+drop trigger if exists set_push_subscriptions_updated_at on public.push_subscriptions;
+create trigger set_push_subscriptions_updated_at
+before update on public.push_subscriptions
 for each row execute function public.set_updated_at();

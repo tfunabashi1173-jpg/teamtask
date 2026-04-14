@@ -5,6 +5,7 @@ import type {
   AppState,
   Group,
   MembershipRequestRecord,
+  TaskPhotoRecord,
   TaskLogRecord,
   TaskRecord,
 } from "@/lib/app-data";
@@ -214,6 +215,7 @@ export function TaskBoard({
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
   const [copySourceTaskId, setCopySourceTaskId] = useState<string>("");
   const [bootstrapForm, setBootstrapForm] = useState({
     workspaceName: "",
@@ -613,6 +615,104 @@ export function TaskBoard({
     }
   }
 
+  async function handlePhotoUpload(taskId: string, file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch(`/api/tasks/${taskId}/photos`, {
+        method: "POST",
+        body: formData,
+      });
+      const json = (await response.json().catch(() => null)) as
+        | { photo?: TaskPhotoRecord }
+        | { error?: string }
+        | null;
+
+      if (!response.ok || !json || !("photo" in json) || !json.photo) {
+        pushToast("error", "写真の保存に失敗しました。");
+        return;
+      }
+
+      const createdPhoto = json.photo as TaskPhotoRecord;
+
+      setState((current) => ({
+        ...current,
+        tasks: current.tasks.map((task) =>
+          task.id === taskId
+            ? { ...task, photos: [...(task.photos ?? []), createdPhoto].slice(0, 3) }
+            : task,
+        ),
+      }));
+      pushToast("success", "写真を保存しました。");
+    } catch {
+      pushToast("error", "写真の保存に失敗しました。");
+    }
+  }
+
+  async function handlePhotoDelete(taskId: string, photoId: string) {
+    const result = await callJson(`/api/tasks/${taskId}/photos/${photoId}`, { method: "DELETE" });
+    if (!result.ok) {
+      pushToast("error", "写真の削除に失敗しました。");
+      return;
+    }
+
+    setState((current) => ({
+      ...current,
+      tasks: current.tasks.map((task) =>
+        task.id === taskId
+          ? { ...task, photos: (task.photos ?? []).filter((photo) => photo.id !== photoId) }
+          : task,
+      ),
+    }));
+    if (previewPhotoUrl) {
+      const target = selectedTask?.photos?.find((photo) => photo.id === photoId);
+      if (target?.preview_url === previewPhotoUrl) {
+        setPreviewPhotoUrl(null);
+      }
+    }
+    pushToast("success", "写真を削除しました。");
+  }
+
+  async function handlePhotoReplace(taskId: string, photoId: string, file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch(`/api/tasks/${taskId}/photos/${photoId}`, {
+        method: "PATCH",
+        body: formData,
+      });
+      const json = (await response.json().catch(() => null)) as
+        | { photo?: TaskPhotoRecord }
+        | { error?: string }
+        | null;
+
+      if (!response.ok || !json || !("photo" in json) || !json.photo) {
+        pushToast("error", "写真の更新に失敗しました。");
+        return;
+      }
+
+      const updatedPhoto = json.photo as TaskPhotoRecord;
+      setState((current) => ({
+        ...current,
+        tasks: current.tasks.map((task) =>
+          task.id === taskId
+            ? {
+                ...task,
+                photos: (task.photos ?? []).map((photo) =>
+                  photo.id === photoId ? updatedPhoto : photo,
+                ),
+              }
+            : task,
+        ),
+      }));
+      pushToast("success", "写真を更新しました。");
+    } catch {
+      pushToast("error", "写真の更新に失敗しました。");
+    }
+  }
+
   async function performTaskAction(task: TaskRecord, action: ActionType) {
     if (action === "postpone" && task.priority === "high") {
       pushToast("error", "最優先タスクは翌日に回せません。");
@@ -811,7 +911,12 @@ export function TaskBoard({
   }
 
   return (
-    <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts}>
+    <Shell
+      appVersion={appVersion}
+      commitSha={commitSha}
+      toasts={toasts}
+      enablePushPrompt
+    >
       <Card>
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -1206,7 +1311,15 @@ export function TaskBoard({
           onClose={() => setSelectedTaskId(null)}
           onCopyText={copyText}
           onAction={(action) => void performTaskAction(selectedTask, action)}
+          onPhotoUpload={(file) => void handlePhotoUpload(selectedTask.id, file)}
+          onPhotoDelete={(photoId) => void handlePhotoDelete(selectedTask.id, photoId)}
+          onPhotoReplace={(photoId, file) => void handlePhotoReplace(selectedTask.id, photoId, file)}
+          onPreview={(url) => setPreviewPhotoUrl(url)}
         />
+      ) : null}
+
+      {previewPhotoUrl ? (
+        <ImagePreviewModal imageUrl={previewPhotoUrl} onClose={() => setPreviewPhotoUrl(null)} />
       ) : null}
     </Shell>
   );
@@ -1217,15 +1330,17 @@ function Shell({
   appVersion,
   commitSha,
   toasts,
+  enablePushPrompt = false,
 }: {
   children: React.ReactNode;
   appVersion: string;
   commitSha: string;
   toasts: Toast[];
+  enablePushPrompt?: boolean;
 }) {
   return (
     <>
-      <PwaRegister />
+      <PwaRegister enablePushPrompt={enablePushPrompt} />
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-[var(--surface)] px-5 pb-8 pt-4 text-[var(--ink)]">
         <div className="mx-auto mb-4 h-1.5 w-20 rounded-full bg-black/10" />
         <div className="flex flex-col gap-4">{children}</div>
@@ -1668,12 +1783,22 @@ function TaskDetailModal({
   onClose,
   onCopyText,
   onAction,
+  onPhotoUpload,
+  onPhotoDelete,
+  onPhotoReplace,
+  onPreview,
 }: {
   task: TaskRecord;
   onClose: () => void;
   onCopyText: (label: string, value: string) => Promise<void>;
   onAction: (action: ActionType) => void;
+  onPhotoUpload: (file: File) => void;
+  onPhotoDelete: (photoId: string) => void;
+  onPhotoReplace: (photoId: string, file: File) => void;
+  onPreview: (url: string) => void;
 }) {
+  const [isPhotoSubmitting, setIsPhotoSubmitting] = useState(false);
+
   return (
     <div
       className="fixed inset-0 z-40 flex items-end justify-center bg-black/35 p-4"
@@ -1746,6 +1871,94 @@ function TaskDetailModal({
               </p>
             </div>
           ) : null}
+
+          {task.status === "done" ? (
+            <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-[var(--ink)]">完了写真</p>
+                  <p className="mt-1 text-xs text-[var(--muted)]">
+                    最大3枚まで登録できます。
+                  </p>
+                </div>
+                {(task.photos?.length ?? 0) < 3 ? (
+                  <label className={secondaryButtonClass}>
+                    写真追加
+                    <input
+                      className="hidden"
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      disabled={isPhotoSubmitting}
+                      onChange={async (event) => {
+                        const file = event.target.files?.[0];
+                        event.currentTarget.value = "";
+                        if (!file) return;
+                        setIsPhotoSubmitting(true);
+                        await Promise.resolve(onPhotoUpload(file));
+                        setIsPhotoSubmitting(false);
+                      }}
+                    />
+                  </label>
+                ) : (
+                  <span className="text-xs font-semibold text-[var(--muted)]">3 / 3枚</span>
+                )}
+              </div>
+
+              {task.photos?.length ? (
+                <div className="mt-4 grid grid-cols-3 gap-3">
+                  {task.photos.map((photo) => (
+                    <div key={photo.id} className="relative">
+                      <button
+                        className="block aspect-square w-full overflow-hidden rounded-2xl bg-white"
+                        onClick={() => photo.preview_url && onPreview(photo.preview_url)}
+                        type="button"
+                      >
+                        {photo.preview_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            alt={photo.file_name}
+                            className="h-full w-full object-cover"
+                            src={photo.preview_url}
+                          />
+                        ) : (
+                          <span className="flex h-full items-center justify-center text-xs text-[var(--muted)]">
+                            画像
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--danger)]"
+                        onClick={() => onPhotoDelete(photo.id)}
+                        type="button"
+                      >
+                        削除
+                      </button>
+                      <label className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--ink-soft)]">
+                        更新
+                        <input
+                          className="hidden"
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={async (event) => {
+                            const file = event.target.files?.[0];
+                            event.currentTarget.value = "";
+                            if (!file) return;
+                            setIsPhotoSubmitting(true);
+                            await Promise.resolve(onPhotoReplace(photo.id, file));
+                            setIsPhotoSubmitting(false);
+                          }}
+                        />
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-4 text-sm text-[var(--muted)]">写真はまだありません。</p>
+              )}
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-5 flex flex-wrap gap-2">
@@ -1768,6 +1981,36 @@ function TaskDetailModal({
           ) : null}
         </div>
       </div>
+    </div>
+  );
+}
+
+function ImagePreviewModal({
+  imageUrl,
+  onClose,
+}: {
+  imageUrl: string;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <button className="absolute right-4 top-4 z-10 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-[var(--ink-soft)]" onClick={onClose} type="button">
+        閉じる
+      </button>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        alt="完了写真プレビュー"
+        className="max-h-full max-w-full rounded-3xl object-contain"
+        onMouseDown={(event) => event.stopPropagation()}
+        src={imageUrl}
+      />
     </div>
   );
 }

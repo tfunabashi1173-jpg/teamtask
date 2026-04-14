@@ -1,5 +1,6 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { purgeExpiredCompletedTasks } from "@/lib/tasks/cleanup";
+import { getTaskPhotoBucketName } from "@/lib/tasks/photos";
 
 export type AppUser = {
   id: string;
@@ -36,6 +37,7 @@ export type TaskRecord = {
   group_id: string | null;
   owner_user_id: string | null;
   deleted_at: string | null;
+  photos?: TaskPhotoRecord[];
   recurrence_rule_id?: string | null;
   recurrence?: {
     frequency: "daily" | "weekly" | "monthly";
@@ -46,6 +48,16 @@ export type TaskRecord = {
     end_date: string | null;
     is_active: boolean;
   } | null;
+};
+
+export type TaskPhotoRecord = {
+  id: string;
+  task_id: string;
+  file_name: string;
+  mime_type: string;
+  storage_path: string;
+  preview_url: string | null;
+  created_at: string;
 };
 
 export type TaskLogRecord = {
@@ -275,14 +287,37 @@ export async function getAppState({
 
   if (baseTasks.length > 0) {
     const taskIds = baseTasks.map((task) => task.id);
+    const bucket = getTaskPhotoBucketName();
     const sourceResult = await supabase
       .from("generated_task_sources")
       .select("task_id,recurrence_rule_id")
       .in("task_id", taskIds);
+    const photoResult = await supabase
+      .from("task_photos")
+      .select("id,task_id,file_name,mime_type,storage_path,created_at")
+      .in("task_id", taskIds)
+      .order("created_at");
 
     const sourceRows =
       (sourceResult.data as { task_id: string; recurrence_rule_id: string }[] | null) ?? [];
+    const photoRows =
+      (photoResult.data as
+        | {
+            id: string;
+            task_id: string;
+            file_name: string;
+            mime_type: string;
+            storage_path: string;
+            created_at: string;
+          }[]
+        | null) ?? [];
     const recurrenceRuleIds = Array.from(new Set(sourceRows.map((row) => row.recurrence_rule_id)));
+    const signedUrlResult =
+      photoRows.length > 0
+        ? await supabase.storage
+            .from(bucket)
+            .createSignedUrls(photoRows.map((photo) => photo.storage_path), 60 * 60)
+        : { data: [] };
 
     let recurrenceMap = new Map<
       string,
@@ -322,10 +357,28 @@ export async function getAppState({
     }
 
     const sourceMap = new Map(sourceRows.map((row) => [row.task_id, row.recurrence_rule_id]));
+    const photoUrlMap = new Map(
+      (((signedUrlResult.data as { signedUrl: string | null }[] | null) ?? []).map((item, index) => [
+        photoRows[index]?.storage_path,
+        item?.signedUrl ?? null,
+      ])),
+    );
+    const photoMap = new Map<string, TaskPhotoRecord[]>();
+
+    for (const photo of photoRows) {
+      const current = photoMap.get(photo.task_id) ?? [];
+      current.push({
+        ...photo,
+        preview_url: photoUrlMap.get(photo.storage_path) ?? null,
+      });
+      photoMap.set(photo.task_id, current);
+    }
+
     tasks = baseTasks.map((task) => {
       const recurrenceRuleId = sourceMap.get(task.id) ?? null;
       return {
         ...task,
+        photos: photoMap.get(task.id) ?? [],
         recurrence_rule_id: recurrenceRuleId,
         recurrence: recurrenceRuleId ? recurrenceMap.get(recurrenceRuleId) ?? null : null,
       };

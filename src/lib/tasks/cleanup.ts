@@ -1,10 +1,7 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { getTaskPhotoBucketName } from "@/lib/tasks/photos";
 
 const COMPLETED_TASK_RETENTION_DAYS = 7;
-
-function getTaskPhotoBucketName() {
-  return process.env.SUPABASE_TASK_PHOTO_BUCKET || "task-photos";
-}
 
 export async function purgeExpiredCompletedTasks(workspaceId: string) {
   const supabase = createSupabaseAdminClient();
