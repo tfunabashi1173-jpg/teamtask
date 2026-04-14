@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   AppState,
   Group,
@@ -1669,7 +1669,7 @@ function TaskModal({
                       }
                     >
                       <option value="daily">毎日</option>
-                      <option value="weekly">毎週</option>
+                      <option value="weekly">曜日指定（毎週）</option>
                       <option value="monthly">毎月</option>
                     </select>
                   </FormField>
@@ -1708,7 +1708,13 @@ function TaskModal({
                       }
                     />
                   </FormField>
-                </div>
+              </div>
+
+              {form.recurrenceFrequency === "weekly" ? (
+                <p className="text-xs text-[var(--muted)]">
+                  曜日指定で繰り返すには、下の曜日ボタンを選択してください。
+                </p>
+              ) : null}
 
                 {form.recurrenceFrequency === "weekly" ? (
                   <FormField label="曜日">
@@ -1798,6 +1804,15 @@ function TaskDetailModal({
   onPreview: (url: string) => void;
 }) {
   const [isPhotoSubmitting, setIsPhotoSubmitting] = useState(false);
+  const addPhotoInputRef = useRef<HTMLInputElement | null>(null);
+  const shouldOpenPhotoPickerOnDoneRef = useRef(false);
+
+  useEffect(() => {
+    if (!shouldOpenPhotoPickerOnDoneRef.current || task.status !== "done") return;
+
+    addPhotoInputRef.current?.click();
+    shouldOpenPhotoPickerOnDoneRef.current = false;
+  }, [task.status]);
 
   return (
     <div
@@ -1872,6 +1887,15 @@ function TaskDetailModal({
             </div>
           ) : null}
 
+          {task.status !== "done" ? (
+            <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
+              <p className="text-sm font-semibold text-[var(--ink)]">完了写真</p>
+              <p className="mt-2 text-sm text-[var(--ink-soft)]">
+                完了後に最大3枚まで登録できます。完了と同時に写真登録へ進むこともできます。
+              </p>
+            </div>
+          ) : null}
+
           {task.status === "done" ? (
             <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
               <div className="flex items-center justify-between gap-3">
@@ -1885,6 +1909,7 @@ function TaskDetailModal({
                   <label className={secondaryButtonClass}>
                     写真追加
                     <input
+                      ref={addPhotoInputRef}
                       className="hidden"
                       type="file"
                       accept="image/*"
@@ -1967,6 +1992,16 @@ function TaskDetailModal({
           ) : null}
           {task.status !== "done" ? (
             <ActionButton label="完了" onClick={() => onAction("complete")} tone="success" />
+          ) : null}
+          {task.status !== "done" ? (
+            <ActionButton
+              label="完了して写真"
+              onClick={() => {
+                shouldOpenPhotoPickerOnDoneRef.current = true;
+                onAction("complete");
+              }}
+              tone="success"
+            />
           ) : null}
           {task.status === "in_progress" ? (
             <ActionButton label="中断" onClick={() => onAction("pause")} tone="neutral" />
