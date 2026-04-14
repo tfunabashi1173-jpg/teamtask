@@ -10,7 +10,7 @@ import type {
 } from "@/lib/app-data";
 import { PwaRegister } from "@/components/pwa-register";
 
-type ActionType = "start" | "complete" | "postpone";
+type ActionType = "start" | "complete" | "pause" | "postpone";
 type SyncState = "idle" | "queued" | "syncing" | "error";
 type ScreenMode = "home" | "tasks" | "manage";
 
@@ -31,8 +31,82 @@ type SessionUser = {
   displayName: string | null;
 } | null;
 
+type TaskFormState = {
+  title: string;
+  description: string;
+  priority: TaskRecord["priority"];
+  scheduledDate: string;
+  scheduledTime: string;
+  recurrenceEnabled: boolean;
+  recurrenceFrequency: "daily" | "weekly" | "monthly";
+  recurrenceInterval: number;
+  recurrenceEndDate: string;
+  recurrenceDaysOfWeek: number[];
+  recurrenceDayOfMonth: number;
+};
+
 const QUEUE_STORAGE_KEY = "team-task.queue.v2";
 const MEMBER_NAME_STORAGE_KEY = "team-task.member-name";
+const WEEKDAY_OPTIONS = [
+  { value: 0, label: "日" },
+  { value: 1, label: "月" },
+  { value: 2, label: "火" },
+  { value: 3, label: "水" },
+  { value: 4, label: "木" },
+  { value: 5, label: "金" },
+  { value: 6, label: "土" },
+];
+
+function getDateStringWithOffset(days = 0) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function weekdayFromDate(value: string) {
+  return new Date(`${value}T00:00:00`).getDay();
+}
+
+function dayOfMonthFromDate(value: string) {
+  return new Date(`${value}T00:00:00`).getDate();
+}
+
+function createDefaultTaskForm(): TaskFormState {
+  const scheduledDate = getDateStringWithOffset(0);
+  return {
+    title: "",
+    description: "",
+    priority: "medium",
+    scheduledDate,
+    scheduledTime: "09:00",
+    recurrenceEnabled: false,
+    recurrenceFrequency: "daily",
+    recurrenceInterval: 1,
+    recurrenceEndDate: "",
+    recurrenceDaysOfWeek: [weekdayFromDate(scheduledDate)],
+    recurrenceDayOfMonth: dayOfMonthFromDate(scheduledDate),
+  };
+}
+
+function buildTaskFormFromTask(task: TaskRecord): TaskFormState {
+  const scheduledDate = task.scheduled_date;
+  return {
+    title: task.title,
+    description: task.description ?? "",
+    priority: task.priority,
+    scheduledDate,
+    scheduledTime: task.scheduled_time?.slice(0, 5) ?? "09:00",
+    recurrenceEnabled: Boolean(task.recurrence_rule_id && task.recurrence?.is_active),
+    recurrenceFrequency: task.recurrence?.frequency ?? "daily",
+    recurrenceInterval: task.recurrence?.interval_value ?? 1,
+    recurrenceEndDate: task.recurrence?.end_date ?? "",
+    recurrenceDaysOfWeek: task.recurrence?.days_of_week?.length
+      ? task.recurrence.days_of_week
+      : [weekdayFromDate(scheduledDate)],
+    recurrenceDayOfMonth:
+      task.recurrence?.day_of_month ?? dayOfMonthFromDate(scheduledDate),
+  };
+}
 
 function formatPriorityIcon(priority: TaskRecord["priority"]) {
   if (priority === "high") return "🔴";
@@ -64,6 +138,9 @@ function logMessage(log: TaskLogRecord) {
 
   if (log.action_type === "started") return `${actor}さんが「${title}」を開始しました`;
   if (log.action_type === "completed") return `${actor}さんが「${title}」を完了しました`;
+  if (log.action_type === "status_changed") {
+    return `${actor}さんが「${title}」を中断しました`;
+  }
   if (log.action_type === "postponed_to_next_day") {
     return `${actor}さんが「${title}」を翌日に回しました`;
   }
@@ -122,14 +199,8 @@ export function TaskBoard({
     displayName: sessionUser?.displayName ?? "",
   });
   const [requestName, setRequestName] = useState("");
-  const [taskForm, setTaskForm] = useState({
-    title: "",
-    description: "",
-    priority: "medium" as TaskRecord["priority"],
-    scheduledDate: new Date().toISOString().slice(0, 10),
-    scheduledTime: "09:00",
-  });
-  const [rangeStart, setRangeStart] = useState(new Date().toISOString().slice(0, 10));
+  const [taskForm, setTaskForm] = useState<TaskFormState>(createDefaultTaskForm);
+  const [rangeStart, setRangeStart] = useState(getDateStringWithOffset(0));
   const [rangeEnd, setRangeEnd] = useState(() => {
     const date = new Date();
     date.setMonth(date.getMonth() + 1);
@@ -393,11 +464,7 @@ export function TaskBoard({
     setEditingTaskId(task.id);
     setCopySourceTaskId("");
     setTaskForm({
-      title: task.title,
-      description: task.description ?? "",
-      priority: task.priority,
-      scheduledDate: task.scheduled_date,
-      scheduledTime: task.scheduled_time?.slice(0, 5) ?? "09:00",
+      ...buildTaskFormFromTask(task),
     });
     setCreateTaskOpen(true);
   }
@@ -405,13 +472,7 @@ export function TaskBoard({
   function openCreateTask() {
     setEditingTaskId(null);
     setCopySourceTaskId("");
-    setTaskForm({
-      title: "",
-      description: "",
-      priority: "medium",
-      scheduledDate: new Date().toISOString().slice(0, 10),
-      scheduledTime: "09:00",
-    });
+    setTaskForm(createDefaultTaskForm());
     setCreateTaskOpen(true);
   }
 
@@ -420,19 +481,48 @@ export function TaskBoard({
     const sourceTask = state.tasks.find((task) => task.id === taskId);
     if (!sourceTask) return;
 
-    setEditingTaskId(null);
-    setTaskForm({
-      title: sourceTask.title,
-      description: sourceTask.description ?? "",
-      priority: sourceTask.priority,
-      scheduledDate: new Date().toISOString().slice(0, 10),
-      scheduledTime: sourceTask.scheduled_time?.slice(0, 5) ?? "09:00",
-    });
+    setTaskForm((current) => ({
+      ...current,
+      ...buildTaskFormFromTask(sourceTask),
+      scheduledDate: current.scheduledDate,
+      recurrenceEndDate:
+        sourceTask.recurrence?.end_date && sourceTask.recurrence.end_date >= current.scheduledDate
+          ? sourceTask.recurrence.end_date
+          : "",
+      recurrenceDaysOfWeek:
+        sourceTask.recurrence?.days_of_week?.length
+          ? sourceTask.recurrence.days_of_week
+          : [weekdayFromDate(current.scheduledDate)],
+      recurrenceDayOfMonth: dayOfMonthFromDate(current.scheduledDate),
+    }));
   }
 
   async function handleSaveTask() {
     if (!state.workspace || !taskForm.title.trim()) {
       pushToast("error", "タイトルを入力してください。");
+      return;
+    }
+
+    if (taskForm.recurrenceEnabled && !taskForm.recurrenceEndDate) {
+      pushToast("error", "繰り返しタスクは終了日を設定してください。");
+      return;
+    }
+
+    if (
+      taskForm.recurrenceEnabled &&
+      taskForm.recurrenceEndDate &&
+      taskForm.recurrenceEndDate < taskForm.scheduledDate
+    ) {
+      pushToast("error", "期間の終了日は実行日以降にしてください。");
+      return;
+    }
+
+    if (
+      taskForm.recurrenceEnabled &&
+      taskForm.recurrenceFrequency === "weekly" &&
+      taskForm.recurrenceDaysOfWeek.length === 0
+    ) {
+      pushToast("error", "毎週の繰り返しは曜日を1つ以上選択してください。");
       return;
     }
 
@@ -445,6 +535,14 @@ export function TaskBoard({
       scheduledTime: taskForm.scheduledTime,
       visibilityType: "group",
       groupId: currentGroupId,
+      recurrence: {
+        enabled: taskForm.recurrenceEnabled,
+        frequency: taskForm.recurrenceFrequency,
+        interval: taskForm.recurrenceInterval,
+        endDate: taskForm.recurrenceEndDate,
+        daysOfWeek: taskForm.recurrenceDaysOfWeek,
+        dayOfMonth: taskForm.recurrenceDayOfMonth,
+      },
     };
 
     const result = editingTaskId
@@ -497,6 +595,7 @@ export function TaskBoard({
       if (item.id !== task.id) return item;
       if (action === "start") return { ...item, status: "in_progress" as const };
       if (action === "complete") return { ...item, status: "done" as const };
+      if (action === "pause") return { ...item, status: "pending" as const };
       return item;
     });
 
@@ -507,7 +606,9 @@ export function TaskBoard({
           ? "started"
           : action === "complete"
             ? "completed"
-            : "postponed_to_next_day",
+            : action === "pause"
+              ? "status_changed"
+              : "postponed_to_next_day",
       created_at: new Date().toISOString(),
       actor: { display_name: memberName || sessionUser?.displayName || "誰か" },
       task: { title: task.title },
@@ -546,7 +647,9 @@ export function TaskBoard({
         ? `「${task.title}」を開始しました。`
         : action === "complete"
           ? `「${task.title}」を完了しました。`
-          : `「${task.title}」を翌日に回しました。`,
+          : action === "pause"
+            ? `「${task.title}」を中断しました。`
+            : `「${task.title}」を翌日に回しました。`,
     );
   }
 
@@ -688,9 +791,6 @@ export function TaskBoard({
             <h1 className="mt-2 font-[family-name:var(--font-heading)] text-[2rem] leading-none tracking-[-0.03em]">
               今日のタスク
             </h1>
-            <p className="mt-2 text-sm text-[var(--muted)]">
-              {state.groups.find((group) => group.id === currentGroupId)?.name ?? "グループ未設定"}
-            </p>
           </div>
           <div className="flex gap-2">
             <button className={primaryIconButtonClass} onClick={openCreateTask} type="button">
@@ -726,16 +826,17 @@ export function TaskBoard({
           </button>
         </div>
 
-        <div className="mt-4 rounded-2xl bg-[var(--chip)] px-4 py-3 text-sm text-[var(--ink-soft)]">
-          {isOnline ? "オンライン" : "圏外"} / 同期状態:{" "}
-          {syncState === "idle"
-            ? "待機中"
-            : syncState === "queued"
-              ? `保留 ${queue.length}件`
-              : syncState === "syncing"
-                ? "同期中"
-                : "要再試行"}
-        </div>
+        {!isOnline || syncState !== "idle" ? (
+          <div className="mt-4 rounded-2xl bg-[var(--chip)] px-4 py-3 text-sm text-[var(--ink-soft)]">
+            {!isOnline
+              ? "圏外のため操作は端末に保留されます"
+              : syncState === "queued"
+                ? `保留 ${queue.length}件を同期待ちです`
+                : syncState === "syncing"
+                  ? "保留中の操作を同期しています"
+                  : "同期に失敗しました。通信状態を確認してください"}
+          </div>
+        ) : null}
       </Card>
 
       {state.appUser.role === "admin" && state.pendingRequests.length > 0 ? (
@@ -784,90 +885,87 @@ export function TaskBoard({
 
       {screenMode === "home" ? (
         <section className="grid gap-4">
-        {sortedTasks.map((task) => (
-          <Card key={task.id}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-start gap-2">
-                  <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
-                    {task.status !== "done" ? `${formatPriorityIcon(task.priority)} ` : ""}
-                    {task.status === "done" ? "✅ " : ""}
-                    {task.title}
-                  </h2>
+          {sortedTasks.map((task) => (
+            <Card key={task.id}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-start gap-2">
+                    <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
+                      {task.status !== "done" ? `${formatPriorityIcon(task.priority)} ` : ""}
+                      {task.status === "done" ? "✅ " : ""}
+                      {task.title}
+                    </h2>
+                    <button
+                      className={iconButtonClass}
+                      onClick={() => copyText("タイトル", task.title)}
+                      type="button"
+                      aria-label="タイトルをコピー"
+                    >
+                      ⧉
+                    </button>
+                  </div>
+                  <p className="mt-2 text-base font-medium">
+                    {task.scheduled_time?.slice(0, 5) ?? "時刻未設定"}
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--muted)]">
+                    状態: {formatStatus(task.status)}
+                  </p>
+                </div>
+              </div>
+
+              {task.description ? (
+                <div className="mt-4 flex items-start gap-2">
+                  <p className="flex-1 text-sm leading-7 text-[var(--ink-soft)]">
+                    {task.description}
+                  </p>
                   <button
                     className={iconButtonClass}
-                    onClick={() => copyText("タイトル", task.title)}
+                    onClick={() => copyText("説明", task.description ?? "")}
                     type="button"
-                    aria-label="タイトルをコピー"
+                    aria-label="説明をコピー"
                   >
                     ⧉
                   </button>
                 </div>
-                <p className="mt-2 text-base font-medium">
-                  {task.scheduled_time?.slice(0, 5) ?? "時刻未設定"}
-                </p>
-                <p className="mt-1 text-sm text-[var(--muted)]">状態: {formatStatus(task.status)}</p>
-              </div>
-              <button
-                className={secondaryButtonClass}
-                onClick={() => openEditTask(task)}
-                type="button"
-              >
-                編集
-              </button>
-            </div>
+              ) : null}
 
-            {task.description ? (
-              <div className="mt-4 flex items-start gap-2">
-                <p className="flex-1 text-sm leading-7 text-[var(--ink-soft)]">{task.description}</p>
-                <button
-                  className={iconButtonClass}
-                  onClick={() => copyText("説明", task.description ?? "")}
-                  type="button"
-                  aria-label="説明をコピー"
-                >
-                  ⧉
-                </button>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {task.status === "pending" ? (
+                  <ActionButton
+                    label="開始"
+                    onClick={() => performTaskAction(task, "start")}
+                    tone="warning"
+                  />
+                ) : null}
+                {task.status !== "done" ? (
+                  <ActionButton
+                    label="完了"
+                    onClick={() => performTaskAction(task, "complete")}
+                    tone="success"
+                  />
+                ) : null}
+                {task.status === "in_progress" ? (
+                  <ActionButton
+                    label="中断"
+                    onClick={() => performTaskAction(task, "pause")}
+                    tone="neutral"
+                  />
+                ) : null}
+                {task.status !== "done" && task.priority !== "high" ? (
+                  <ActionButton
+                    label="翌日に回す"
+                    onClick={() => performTaskAction(task, "postpone")}
+                    tone="neutral"
+                  />
+                ) : null}
+                {task.status !== "done" && task.priority === "high" ? (
+                  <span className="inline-flex items-center rounded-2xl border border-dashed border-[var(--danger)] px-4 py-3 text-sm font-semibold text-[var(--danger)]">
+                    最優先のため延期不可
+                  </span>
+                ) : null}
               </div>
-            ) : null}
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              {task.status === "pending" ? (
-                <ActionButton
-                  label="開始"
-                  onClick={() => performTaskAction(task, "start")}
-                  tone="warning"
-                />
-              ) : null}
-              {task.status !== "done" ? (
-                <ActionButton
-                  label="完了"
-                  onClick={() => performTaskAction(task, "complete")}
-                  tone="success"
-                />
-              ) : null}
-              {task.status !== "done" && task.priority !== "high" ? (
-                <ActionButton
-                  label="翌日に回す"
-                  onClick={() => performTaskAction(task, "postpone")}
-                  tone="neutral"
-                />
-              ) : null}
-              {task.status !== "done" && task.priority === "high" ? (
-                <span className="inline-flex items-center rounded-2xl border border-dashed border-[var(--danger)] px-4 py-3 text-sm font-semibold text-[var(--danger)]">
-                  最優先のため延期不可
-                </span>
-              ) : null}
-              <button
-                className="rounded-2xl border border-[var(--danger)] px-4 py-3 text-sm font-semibold text-[var(--danger)]"
-                onClick={() => handleDeleteTask(task.id)}
-                type="button"
-              >
-                削除
-              </button>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          ))}
         </section>
       ) : null}
 
@@ -943,6 +1041,13 @@ export function TaskBoard({
                       type="button"
                     >
                       コピー
+                    </button>
+                    <button
+                      className="rounded-2xl border border-[var(--danger)] px-4 py-3 text-sm font-semibold text-[var(--danger)]"
+                      onClick={() => handleDeleteTask(task.id)}
+                      type="button"
+                    >
+                      削除
                     </button>
                   </div>
                 </div>
@@ -1301,35 +1406,31 @@ function TaskModal({
   currentGroupName: string;
   availableCopyTasks: TaskRecord[];
   copySourceTaskId: string;
-  form: {
-    title: string;
-    description: string;
-    priority: TaskRecord["priority"];
-    scheduledDate: string;
-    scheduledTime: string;
-  };
-  setForm: React.Dispatch<
-    React.SetStateAction<{
-      title: string;
-      description: string;
-      priority: TaskRecord["priority"];
-      scheduledDate: string;
-      scheduledTime: string;
-    }>
-  >;
+  form: TaskFormState;
+  setForm: React.Dispatch<React.SetStateAction<TaskFormState>>;
   onClose: () => void;
   onSave: () => void;
   isEditing: boolean;
   onCopySourceChange: (taskId: string) => void;
 }) {
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/35 p-4">
-      <div className="w-full max-w-md rounded-t-[32px] bg-white px-5 py-5 shadow-2xl">
+    <div
+      className="fixed inset-0 z-40 flex items-end justify-center bg-black/35 p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        className="w-full max-w-md rounded-t-[32px] bg-white px-5 py-5 shadow-2xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <h3 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
           {isEditing ? "タスク編集" : "新しいタスク"}
         </h3>
         <div className="mt-4 grid gap-3">
-          {!isEditing && availableCopyTasks.length > 0 ? (
+          {availableCopyTasks.length > 0 ? (
             <FormField label="既存タスクをコピー">
               <select
                 className={inputClass}
@@ -1394,6 +1495,11 @@ function TaskModal({
                   setForm((current) => ({
                     ...current,
                     scheduledDate: event.target.value,
+                    recurrenceDaysOfWeek:
+                      current.recurrenceFrequency === "weekly"
+                        ? [weekdayFromDate(event.target.value)]
+                        : current.recurrenceDaysOfWeek,
+                    recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
                   }))
                 }
               />
@@ -1411,6 +1517,147 @@ function TaskModal({
                 }
               />
             </FormField>
+          </div>
+          <div className="rounded-3xl bg-[var(--surface)] px-4 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-[var(--ink)]">繰り返し</p>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  期間内の繰り返しタスクをまとめて作成します。
+                </p>
+              </div>
+              <label className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--ink-soft)]">
+                <input
+                  type="checkbox"
+                  checked={form.recurrenceEnabled}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      recurrenceEnabled: event.target.checked,
+                      recurrenceEndDate:
+                        event.target.checked && !current.recurrenceEndDate
+                          ? current.scheduledDate
+                          : current.recurrenceEndDate,
+                    }))
+                  }
+                />
+                有効
+              </label>
+            </div>
+
+            {form.recurrenceEnabled ? (
+              <div className="mt-4 grid gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField label="繰り返し">
+                    <select
+                      className={inputClass}
+                      value={form.recurrenceFrequency}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          recurrenceFrequency: event.target.value as TaskFormState["recurrenceFrequency"],
+                          recurrenceDaysOfWeek:
+                            event.target.value === "weekly"
+                              ? [weekdayFromDate(current.scheduledDate)]
+                              : current.recurrenceDaysOfWeek,
+                        }))
+                      }
+                    >
+                      <option value="daily">毎日</option>
+                      <option value="weekly">毎週</option>
+                      <option value="monthly">毎月</option>
+                    </select>
+                  </FormField>
+                  <FormField label="間隔">
+                    <input
+                      className={inputClass}
+                      type="number"
+                      min={1}
+                      value={form.recurrenceInterval}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          recurrenceInterval: Math.max(1, Number(event.target.value || 1)),
+                        }))
+                      }
+                    />
+                  </FormField>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField label="期間開始">
+                    <div className={`${inputClass} bg-[var(--chip)] text-[var(--ink-soft)]`}>
+                      {form.scheduledDate}
+                    </div>
+                  </FormField>
+                  <FormField label="期間終了">
+                    <input
+                      className={inputClass}
+                      type="date"
+                      value={form.recurrenceEndDate}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          recurrenceEndDate: event.target.value,
+                        }))
+                      }
+                    />
+                  </FormField>
+                </div>
+
+                {form.recurrenceFrequency === "weekly" ? (
+                  <FormField label="曜日">
+                    <div className="flex flex-wrap gap-2">
+                      {WEEKDAY_OPTIONS.map((option) => {
+                        const checked = form.recurrenceDaysOfWeek.includes(option.value);
+                        return (
+                          <button
+                            key={option.value}
+                            className={`rounded-2xl border px-4 py-2 text-sm font-semibold ${
+                              checked
+                                ? "border-[var(--brand)] bg-[var(--brand)] text-white"
+                                : "border-black/10 bg-white text-[var(--ink-soft)]"
+                            }`}
+                            onClick={() =>
+                              setForm((current) => ({
+                                ...current,
+                                recurrenceDaysOfWeek: checked
+                                  ? current.recurrenceDaysOfWeek.filter((day) => day !== option.value)
+                                  : [...current.recurrenceDaysOfWeek, option.value].sort((a, b) => a - b),
+                              }))
+                            }
+                            type="button"
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </FormField>
+                ) : null}
+
+                {form.recurrenceFrequency === "monthly" ? (
+                  <FormField label="毎月の日">
+                    <input
+                      className={inputClass}
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={form.recurrenceDayOfMonth}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          recurrenceDayOfMonth: Math.min(
+                            31,
+                            Math.max(1, Number(event.target.value || dayOfMonthFromDate(current.scheduledDate))),
+                          ),
+                        }))
+                      }
+                    />
+                  </FormField>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
         <div className="mt-5 flex gap-2">

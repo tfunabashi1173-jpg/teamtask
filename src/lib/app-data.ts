@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { purgeExpiredCompletedTasks } from "@/lib/tasks/cleanup";
 
 export type AppUser = {
   id: string;
@@ -35,6 +36,16 @@ export type TaskRecord = {
   group_id: string | null;
   owner_user_id: string | null;
   deleted_at: string | null;
+  recurrence_rule_id?: string | null;
+  recurrence?: {
+    frequency: "daily" | "weekly" | "monthly";
+    interval_value: number;
+    days_of_week: number[] | null;
+    day_of_month: number | null;
+    start_date: string;
+    end_date: string | null;
+    is_active: boolean;
+  } | null;
 };
 
 export type TaskLogRecord = {
@@ -214,6 +225,8 @@ export async function getAppState({
     };
   }
 
+  await purgeExpiredCompletedTasks(workspace.id);
+
   const [groupsResult, tasksResult, logsResult, membersResult, pendingRequestsResult] =
     await Promise.all([
       supabase
@@ -257,6 +270,68 @@ export async function getAppState({
         : Promise.resolve({ data: [] }),
     ]);
 
+  const baseTasks = (tasksResult.data as TaskRecord[] | null) ?? [];
+  let tasks = baseTasks;
+
+  if (baseTasks.length > 0) {
+    const taskIds = baseTasks.map((task) => task.id);
+    const sourceResult = await supabase
+      .from("generated_task_sources")
+      .select("task_id,recurrence_rule_id")
+      .in("task_id", taskIds);
+
+    const sourceRows =
+      (sourceResult.data as { task_id: string; recurrence_rule_id: string }[] | null) ?? [];
+    const recurrenceRuleIds = Array.from(new Set(sourceRows.map((row) => row.recurrence_rule_id)));
+
+    let recurrenceMap = new Map<
+      string,
+      {
+        frequency: "daily" | "weekly" | "monthly";
+        interval_value: number;
+        days_of_week: number[] | null;
+        day_of_month: number | null;
+        start_date: string;
+        end_date: string | null;
+        is_active: boolean;
+      }
+    >();
+
+    if (recurrenceRuleIds.length > 0) {
+      const recurrenceResult = await supabase
+        .from("recurrence_rules")
+        .select("id,frequency,interval_value,days_of_week,day_of_month,start_date,end_date,is_active")
+        .in("id", recurrenceRuleIds);
+
+      recurrenceMap = new Map(
+        (
+          (recurrenceResult.data as
+            | {
+                id: string;
+                frequency: "daily" | "weekly" | "monthly";
+                interval_value: number;
+                days_of_week: number[] | null;
+                day_of_month: number | null;
+                start_date: string;
+                end_date: string | null;
+                is_active: boolean;
+              }[]
+            | null) ?? []
+        ).map((rule) => [rule.id, rule]),
+      );
+    }
+
+    const sourceMap = new Map(sourceRows.map((row) => [row.task_id, row.recurrence_rule_id]));
+    tasks = baseTasks.map((task) => {
+      const recurrenceRuleId = sourceMap.get(task.id) ?? null;
+      return {
+        ...task,
+        recurrence_rule_id: recurrenceRuleId,
+        recurrence: recurrenceRuleId ? recurrenceMap.get(recurrenceRuleId) ?? null : null,
+      };
+    });
+  }
+
   const members =
     appUser.role === "admin"
       ? ((membersResult.data ?? [])
@@ -268,7 +343,7 @@ export async function getAppState({
     appUser,
     workspace,
     groups: (groupsResult.data as Group[] | null) ?? [],
-    tasks: (tasksResult.data as TaskRecord[] | null) ?? [],
+    tasks,
     logs: (logsResult.data as TaskLogRecord[] | null) ?? [],
     members,
     pendingRequests:

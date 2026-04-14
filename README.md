@@ -28,6 +28,9 @@ npm run lint
 - `LINE_CHANNEL_ID`
 - `LINE_CHANNEL_SECRET`
 - `LINE_REDIRECT_URI`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_TASK_PHOTO_BUCKET` 省略時は `task-photos`
 - `APP_SESSION_SECRET` 任意
 
 ## 実装済みのプロトタイプ範囲
@@ -36,6 +39,7 @@ npm run lint
 - `開始` `完了` `翌日に回す`
 - 最優先タスクは延期不可
 - 完了済みは `✅` 表示
+- 完了から7日を過ぎたタスクは、保存画像を含めて自動削除
 - オフライン検知
 - オフライン時の操作キュー保存
 - 操作失敗時のエラー表示

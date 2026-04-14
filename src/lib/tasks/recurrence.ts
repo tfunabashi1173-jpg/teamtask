@@ -1,0 +1,103 @@
+export type RecurrenceFrequency = "daily" | "weekly" | "monthly";
+
+export type RecurrenceInput = {
+  frequency: RecurrenceFrequency;
+  interval: number;
+  startDate: string;
+  endDate: string;
+  daysOfWeek?: number[];
+  dayOfMonth?: number | null;
+};
+
+function toUtcDate(value: string) {
+  return new Date(`${value}T00:00:00Z`);
+}
+
+function formatUtcDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function addUtcDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function addUtcMonths(date: Date, months: number) {
+  const next = new Date(date);
+  next.setUTCMonth(next.getUTCMonth() + months);
+  return next;
+}
+
+function dayOfWeekFromDate(value: string) {
+  return toUtcDate(value).getUTCDay();
+}
+
+export function normalizeRecurrence(input: RecurrenceInput): RecurrenceInput {
+  const interval = Number.isFinite(input.interval) ? Math.max(1, Math.trunc(input.interval)) : 1;
+  const daysOfWeek =
+    input.frequency === "weekly"
+      ? Array.from(new Set((input.daysOfWeek ?? [dayOfWeekFromDate(input.startDate)]).sort()))
+      : undefined;
+  const dayOfMonth =
+    input.frequency === "monthly"
+      ? Math.min(31, Math.max(1, input.dayOfMonth ?? toUtcDate(input.startDate).getUTCDate()))
+      : null;
+
+  return {
+    frequency: input.frequency,
+    interval,
+    startDate: input.startDate,
+    endDate: input.endDate,
+    daysOfWeek,
+    dayOfMonth,
+  };
+}
+
+export function generateFutureOccurrenceDates(input: RecurrenceInput) {
+  const rule = normalizeRecurrence(input);
+  const start = toUtcDate(rule.startDate);
+  const end = toUtcDate(rule.endDate);
+  const dates: string[] = [];
+
+  if (end < start) {
+    return dates;
+  }
+
+  if (rule.frequency === "daily") {
+    for (let cursor = addUtcDays(start, rule.interval); cursor <= end; cursor = addUtcDays(cursor, rule.interval)) {
+      dates.push(formatUtcDate(cursor));
+    }
+    return dates;
+  }
+
+  if (rule.frequency === "weekly") {
+    const days = rule.daysOfWeek?.length ? rule.daysOfWeek : [start.getUTCDay()];
+
+    for (let cursor = addUtcDays(start, 1); cursor <= end; cursor = addUtcDays(cursor, 1)) {
+      const diffDays = Math.floor((cursor.getTime() - start.getTime()) / 86_400_000);
+      const weekOffset = Math.floor(diffDays / 7);
+      if (weekOffset % rule.interval !== 0) continue;
+      if (!days.includes(cursor.getUTCDay())) continue;
+      dates.push(formatUtcDate(cursor));
+    }
+
+    return dates;
+  }
+
+  const targetDay = rule.dayOfMonth ?? start.getUTCDate();
+  for (
+    let monthCursor = addUtcMonths(start, rule.interval);
+    monthCursor <= end;
+    monthCursor = addUtcMonths(monthCursor, rule.interval)
+  ) {
+    const year = monthCursor.getUTCFullYear();
+    const month = monthCursor.getUTCMonth();
+    const candidate = new Date(Date.UTC(year, month, targetDay));
+    if (candidate.getUTCMonth() !== month) continue;
+    if (candidate <= start || candidate > end) continue;
+    dates.push(formatUtcDate(candidate));
+  }
+
+  return dates;
+}

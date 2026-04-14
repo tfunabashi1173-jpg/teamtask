@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
-type ActionType = "start" | "complete" | "postpone";
+type ActionType = "start" | "complete" | "pause" | "postpone";
 
 export async function POST(
   request: NextRequest,
@@ -55,6 +55,11 @@ export async function POST(
     patch.status = "done";
     patch.completed_at = new Date().toISOString();
     actionType = "completed";
+  }
+
+  if (body.action === "pause") {
+    patch.status = "pending";
+    actionType = "status_changed";
   }
 
   if (body.action === "postpone") {
