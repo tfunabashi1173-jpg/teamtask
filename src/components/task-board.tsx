@@ -12,7 +12,7 @@ import { PwaRegister } from "@/components/pwa-register";
 
 type ActionType = "start" | "complete" | "postpone";
 type SyncState = "idle" | "queued" | "syncing" | "error";
-type ScreenMode = "home" | "manage";
+type ScreenMode = "home" | "tasks" | "manage";
 
 type Toast = {
   id: number;
@@ -110,10 +110,12 @@ export function TaskBoard({
     sessionUser?.displayName ??
     "";
   const [screenMode, setScreenMode] = useState<ScreenMode>("home");
+  const [currentGroupId, setCurrentGroupId] = useState(() => initialState.groups[0]?.id ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [inviteLinks, setInviteLinks] = useState<Record<string, string>>({});
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [copySourceTaskId, setCopySourceTaskId] = useState<string>("");
   const [bootstrapForm, setBootstrapForm] = useState({
     workspaceName: "",
     groupName: "",
@@ -126,13 +128,52 @@ export function TaskBoard({
     priority: "medium" as TaskRecord["priority"],
     scheduledDate: new Date().toISOString().slice(0, 10),
     scheduledTime: "09:00",
-    visibilityType: "group" as TaskRecord["visibility_type"],
-    groupId: "",
+  });
+  const [rangeStart, setRangeStart] = useState(new Date().toISOString().slice(0, 10));
+  const [rangeEnd, setRangeEnd] = useState(() => {
+    const date = new Date();
+    date.setMonth(date.getMonth() + 1);
+    return date.toISOString().slice(0, 10);
+  });
+  const [isPwaMode] = useState(() => {
+    if (typeof window === "undefined") return false;
+
+    return (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.matchMedia("(display-mode: fullscreen)").matches ||
+      (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+    );
+  });
+  const [showPwaGuide, setShowPwaGuide] = useState(true);
+  const [isIosLike] = useState(() => {
+    if (typeof window === "undefined") return false;
+
+    const ua = window.navigator.userAgent;
+    const iOSDevice = /iPhone|iPad|iPod/i.test(ua);
+    const iPadOnMac = /Macintosh/i.test(ua) && "ontouchend" in document;
+    return iOSDevice || iPadOnMac;
   });
 
   const sortedTasks = useMemo(
-    () => sortTasks(state.tasks.filter((task) => !task.deleted_at)),
-    [state.tasks],
+    () =>
+      sortTasks(
+        state.tasks.filter(
+          (task) => !task.deleted_at && (!currentGroupId || task.group_id === currentGroupId),
+        ),
+      ),
+    [currentGroupId, state.tasks],
+  );
+
+  const rangedTasks = useMemo(
+    () =>
+      sortTasks(
+        state.tasks.filter((task) => {
+          if (task.deleted_at) return false;
+          if (task.group_id !== currentGroupId) return false;
+          return task.scheduled_date >= rangeStart && task.scheduled_date <= rangeEnd;
+        }),
+      ),
+    [currentGroupId, rangeEnd, rangeStart, state.tasks],
   );
 
   const counts = useMemo(
@@ -350,30 +391,43 @@ export function TaskBoard({
 
   function openEditTask(task: TaskRecord) {
     setEditingTaskId(task.id);
+    setCopySourceTaskId("");
     setTaskForm({
       title: task.title,
       description: task.description ?? "",
       priority: task.priority,
       scheduledDate: task.scheduled_date,
       scheduledTime: task.scheduled_time?.slice(0, 5) ?? "09:00",
-      visibilityType: task.visibility_type,
-      groupId: task.group_id ?? state.groups[0]?.id ?? "",
     });
     setCreateTaskOpen(true);
   }
 
   function openCreateTask() {
     setEditingTaskId(null);
+    setCopySourceTaskId("");
     setTaskForm({
       title: "",
       description: "",
       priority: "medium",
       scheduledDate: new Date().toISOString().slice(0, 10),
       scheduledTime: "09:00",
-      visibilityType: "group",
-      groupId: state.groups[0]?.id ?? "",
     });
     setCreateTaskOpen(true);
+  }
+
+  function handleCopySourceChange(taskId: string) {
+    setCopySourceTaskId(taskId);
+    const sourceTask = state.tasks.find((task) => task.id === taskId);
+    if (!sourceTask) return;
+
+    setEditingTaskId(null);
+    setTaskForm({
+      title: sourceTask.title,
+      description: sourceTask.description ?? "",
+      priority: sourceTask.priority,
+      scheduledDate: new Date().toISOString().slice(0, 10),
+      scheduledTime: sourceTask.scheduled_time?.slice(0, 5) ?? "09:00",
+    });
   }
 
   async function handleSaveTask() {
@@ -389,8 +443,8 @@ export function TaskBoard({
       priority: taskForm.priority,
       scheduledDate: taskForm.scheduledDate,
       scheduledTime: taskForm.scheduledTime,
-      visibilityType: taskForm.visibilityType,
-      groupId: taskForm.visibilityType === "group" ? taskForm.groupId : null,
+      visibilityType: "group",
+      groupId: currentGroupId,
     };
 
     const result = editingTaskId
@@ -422,6 +476,15 @@ export function TaskBoard({
 
     pushToast("success", "タスクを削除しました。");
     window.location.reload();
+  }
+
+  async function copyText(label: string, value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      pushToast("success", `${label}をコピーしました。`);
+    } catch {
+      pushToast("error", `${label}のコピーに失敗しました。`);
+    }
   }
 
   async function performTaskAction(task: TaskRecord, action: ActionType) {
@@ -625,6 +688,9 @@ export function TaskBoard({
             <h1 className="mt-2 font-[family-name:var(--font-heading)] text-[2rem] leading-none tracking-[-0.03em]">
               今日のタスク
             </h1>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              {state.groups.find((group) => group.id === currentGroupId)?.name ?? "グループ未設定"}
+            </p>
           </div>
           <div className="flex gap-2">
             <button className={primaryIconButtonClass} onClick={openCreateTask} type="button">
@@ -637,6 +703,27 @@ export function TaskBoard({
           <SummaryCard label="未着手" value={counts.pending} tone="default" />
           <SummaryCard label="作業中" value={counts.inProgress} tone="warning" />
           <SummaryCard label="完了" value={counts.done} tone="success" />
+        </div>
+
+        <div className="mt-4 flex gap-2">
+          <select
+            className={inputClass}
+            value={currentGroupId}
+            onChange={(event) => setCurrentGroupId(event.target.value)}
+          >
+            {state.groups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.name}
+              </option>
+            ))}
+          </select>
+          <button
+            className={secondaryButtonClass}
+            onClick={() => setScreenMode("tasks")}
+            type="button"
+          >
+            一覧
+          </button>
         </div>
 
         <div className="mt-4 rounded-2xl bg-[var(--chip)] px-4 py-3 text-sm text-[var(--ink-soft)]">
@@ -671,17 +758,51 @@ export function TaskBoard({
         </Card>
       ) : null}
 
+      {!isPwaMode && showPwaGuide && screenMode !== "manage" ? (
+        <Card>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-[var(--brand)]">
+                通知を受けるにはPWA登録が必要です
+              </p>
+              <p className="mt-2 text-sm leading-7 text-[var(--muted)]">
+                {isIosLike
+                  ? "Safariの共有メニューから「ホーム画面に追加」を行ってください。ホーム画面から起動すると通知とPWA機能を使えます。"
+                  : "このページをホーム画面に追加してください。PWAとして起動すると通知とオフライン機能を使えます。"}
+              </p>
+            </div>
+            <button
+              className={secondaryButtonClass}
+              onClick={() => setShowPwaGuide(false)}
+              type="button"
+            >
+              閉じる
+            </button>
+          </div>
+        </Card>
+      ) : null}
+
       {screenMode === "home" ? (
         <section className="grid gap-4">
         {sortedTasks.map((task) => (
           <Card key={task.id}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
-                  {task.status !== "done" ? `${formatPriorityIcon(task.priority)} ` : ""}
-                  {task.status === "done" ? "✅ " : ""}
-                  {task.title}
-                </h2>
+                <div className="flex items-start gap-2">
+                  <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
+                    {task.status !== "done" ? `${formatPriorityIcon(task.priority)} ` : ""}
+                    {task.status === "done" ? "✅ " : ""}
+                    {task.title}
+                  </h2>
+                  <button
+                    className={iconButtonClass}
+                    onClick={() => copyText("タイトル", task.title)}
+                    type="button"
+                    aria-label="タイトルをコピー"
+                  >
+                    ⧉
+                  </button>
+                </div>
                 <p className="mt-2 text-base font-medium">
                   {task.scheduled_time?.slice(0, 5) ?? "時刻未設定"}
                 </p>
@@ -697,7 +818,17 @@ export function TaskBoard({
             </div>
 
             {task.description ? (
-              <p className="mt-4 text-sm leading-7 text-[var(--ink-soft)]">{task.description}</p>
+              <div className="mt-4 flex items-start gap-2">
+                <p className="flex-1 text-sm leading-7 text-[var(--ink-soft)]">{task.description}</p>
+                <button
+                  className={iconButtonClass}
+                  onClick={() => copyText("説明", task.description ?? "")}
+                  type="button"
+                  aria-label="説明をコピー"
+                >
+                  ⧉
+                </button>
+              </div>
             ) : null}
 
             <div className="mt-4 flex flex-wrap gap-2">
@@ -738,6 +869,87 @@ export function TaskBoard({
           </Card>
         ))}
         </section>
+      ) : null}
+
+      {screenMode === "tasks" ? (
+        <>
+          <Card>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
+                  タスク一覧
+                </h2>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  期間を指定してタスクを確認します。
+                </p>
+              </div>
+              <button
+                className={secondaryButtonClass}
+                onClick={() => setScreenMode("home")}
+                type="button"
+              >
+                戻る
+              </button>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <FormField label="開始日">
+                <input
+                  className={inputClass}
+                  type="date"
+                  value={rangeStart}
+                  onChange={(event) => setRangeStart(event.target.value)}
+                />
+              </FormField>
+              <FormField label="終了日">
+                <input
+                  className={inputClass}
+                  type="date"
+                  value={rangeEnd}
+                  onChange={(event) => setRangeEnd(event.target.value)}
+                />
+              </FormField>
+            </div>
+          </Card>
+
+          <section className="grid gap-4">
+            {rangedTasks.map((task) => (
+              <Card key={task.id}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
+                      {task.status !== "done" ? `${formatPriorityIcon(task.priority)} ` : ""}
+                      {task.status === "done" ? "✅ " : ""}
+                      {task.title}
+                    </h2>
+                    <p className="mt-2 text-sm text-[var(--muted)]">
+                      {task.scheduled_date} {task.scheduled_time?.slice(0, 5) ?? ""}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      className={secondaryButtonClass}
+                      onClick={() => openEditTask(task)}
+                      type="button"
+                    >
+                      編集
+                    </button>
+                    <button
+                      className={secondaryButtonClass}
+                      onClick={() => {
+                        setScreenMode("home");
+                        openCreateTask();
+                        handleCopySourceChange(task.id);
+                      }}
+                      type="button"
+                    >
+                      コピー
+                    </button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </section>
+        </>
       ) : null}
 
       {screenMode === "home" ? (
@@ -848,41 +1060,54 @@ export function TaskBoard({
         </Card>
       ) : null}
 
-      <Card>
+      <section className="rounded-[28px] bg-white px-4 py-4 shadow-[0_12px_30px_rgba(31,41,51,0.06)]">
         <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs text-[var(--muted)]">ワークスペース</p>
-            <p className="font-semibold">{state.workspace?.name}</p>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold tracking-[0.08em] text-[var(--muted)]">
+              WORKSPACE
+            </p>
+            <p className="mt-1 truncate text-sm font-semibold text-[var(--ink)]">
+              {state.workspace?.name}
+            </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             {state.appUser.role === "admin" ? (
               <button
-                className={secondaryButtonClass}
+                className={toolbarButtonClass}
                 onClick={() =>
                   setScreenMode((current) => (current === "home" ? "manage" : "home"))
                 }
                 type="button"
               >
-                {screenMode === "home" ? "管理" : "ホーム"}
+                <span className="text-base">{screenMode === "home" ? "⚙" : "⌂"}</span>
+                <span>{screenMode === "home" ? "管理" : "今日"}</span>
               </button>
             ) : null}
             <button
-              className={secondaryButtonClass}
+              className={toolbarDangerButtonClass}
               onClick={handleLogout}
               type="button"
               disabled={isSubmitting}
             >
-              ログアウト
+              <span className="text-base">⇥</span>
+              <span>{isSubmitting ? "処理中" : "退出"}</span>
             </button>
           </div>
         </div>
-      </Card>
+      </section>
 
       {createTaskOpen ? (
         <TaskModal
-          groups={state.groups}
+          currentGroupName={
+            state.groups.find((group) => group.id === currentGroupId)?.name ?? "グループ未設定"
+          }
+          availableCopyTasks={state.tasks.filter(
+            (task) => !task.deleted_at && task.group_id === currentGroupId,
+          )}
+          copySourceTaskId={copySourceTaskId}
           form={taskForm}
           isEditing={Boolean(editingTaskId)}
+          onCopySourceChange={handleCopySourceChange}
           onClose={() => setCreateTaskOpen(false)}
           onSave={handleSaveTask}
           setForm={setTaskForm}
@@ -1063,22 +1288,25 @@ function PendingRequestCard({
 }
 
 function TaskModal({
-  groups,
+  currentGroupName,
+  availableCopyTasks,
+  copySourceTaskId,
   form,
   setForm,
   onClose,
   onSave,
   isEditing,
+  onCopySourceChange,
 }: {
-  groups: Group[];
+  currentGroupName: string;
+  availableCopyTasks: TaskRecord[];
+  copySourceTaskId: string;
   form: {
     title: string;
     description: string;
     priority: TaskRecord["priority"];
     scheduledDate: string;
     scheduledTime: string;
-    visibilityType: TaskRecord["visibility_type"];
-    groupId: string;
   };
   setForm: React.Dispatch<
     React.SetStateAction<{
@@ -1087,13 +1315,12 @@ function TaskModal({
       priority: TaskRecord["priority"];
       scheduledDate: string;
       scheduledTime: string;
-      visibilityType: TaskRecord["visibility_type"];
-      groupId: string;
     }>
   >;
   onClose: () => void;
   onSave: () => void;
   isEditing: boolean;
+  onCopySourceChange: (taskId: string) => void;
 }) {
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/35 p-4">
@@ -1102,6 +1329,22 @@ function TaskModal({
           {isEditing ? "タスク編集" : "新しいタスク"}
         </h3>
         <div className="mt-4 grid gap-3">
+          {!isEditing && availableCopyTasks.length > 0 ? (
+            <FormField label="既存タスクをコピー">
+              <select
+                className={inputClass}
+                value={copySourceTaskId}
+                onChange={(event) => onCopySourceChange(event.target.value)}
+              >
+                <option value="">選択しない</option>
+                {availableCopyTasks.map((task) => (
+                  <option key={task.id} value={task.id}>
+                    {task.title}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+          ) : null}
           <FormField label="タイトル">
             <input
               className={inputClass}
@@ -1120,6 +1363,11 @@ function TaskModal({
               }
             />
           </FormField>
+          <FormField label="追加先グループ">
+            <div className={`${inputClass} bg-[var(--chip)] text-[var(--ink-soft)]`}>
+              {currentGroupName}
+            </div>
+          </FormField>
           <FormField label="優先度">
             <select
               className={inputClass}
@@ -1136,38 +1384,6 @@ function TaskModal({
               <option value="low">低</option>
             </select>
           </FormField>
-          <FormField label="公開範囲">
-            <select
-              className={inputClass}
-              value={form.visibilityType}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  visibilityType: event.target.value as TaskRecord["visibility_type"],
-                }))
-              }
-            >
-              <option value="group">共有</option>
-              <option value="personal">個人</option>
-            </select>
-          </FormField>
-          {form.visibilityType === "group" ? (
-            <FormField label="グループ">
-              <select
-                className={inputClass}
-                value={form.groupId}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, groupId: event.target.value }))
-                }
-              >
-                {groups.map((group) => (
-                  <option key={group.id} value={group.id}>
-                    {group.name}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-          ) : null}
           <div className="grid grid-cols-2 gap-3">
             <FormField label="実行日">
               <input
@@ -1262,3 +1478,9 @@ const secondaryButtonClass =
   "rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]";
 const secondaryDangerClass =
   "rounded-2xl border border-[var(--danger)] bg-white px-4 py-3 text-sm font-semibold text-[var(--danger)]";
+const toolbarButtonClass =
+  "inline-flex items-center gap-2 rounded-2xl bg-[var(--chip)] px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]";
+const toolbarDangerButtonClass =
+  "inline-flex items-center gap-2 rounded-2xl border border-[var(--danger)]/25 bg-[#FFF8F7] px-4 py-3 text-sm font-semibold text-[var(--danger)]";
+const iconButtonClass =
+  "flex h-8 w-8 items-center justify-center rounded-xl border border-black/10 bg-white text-sm text-[var(--ink-soft)]";
