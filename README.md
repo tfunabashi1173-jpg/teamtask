@@ -31,6 +31,11 @@ npm run lint
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `SUPABASE_TASK_PHOTO_BUCKET` 省略時は `task-photos`
+- `NEXT_PUBLIC_VAPID_PUBLIC_KEY`
+- `VAPID_PUBLIC_KEY`
+- `VAPID_PRIVATE_KEY`
+- `VAPID_SUBJECT`
+- `CRON_SECRET`
 - `APP_SESSION_SECRET` 任意
 
 ## 実装済みのプロトタイプ範囲
@@ -44,7 +49,18 @@ npm run lint
 - オフライン時の操作キュー保存
 - 操作失敗時のエラー表示
 - manifest / service worker による PWA 基盤
+- Web Push 購読登録
+- タスク操作時のプッシュ通知
 - アプリ版とコミットSHA表示の土台
+
+## Morning Notifications
+
+Vercel Hobby では高頻度 Cron を使えないため、朝通知の定期実行は GitHub Actions で行う。
+
+必要な GitHub Secrets:
+
+- `APP_BASE_URL` 例: `https://teamtask-nexus.vercel.app`
+- `CRON_SECRET` Vercel 側と同じ値
 
 ## 注意
 
