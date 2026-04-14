@@ -150,6 +150,27 @@ function logMessage(log: TaskLogRecord) {
   return `${actor}さんが「${title}」を更新しました`;
 }
 
+function formatRecurrenceSummary(task: TaskRecord) {
+  if (!task.recurrence?.is_active) return null;
+
+  const interval = Math.max(1, task.recurrence.interval_value ?? 1);
+  const intervalText = interval === 1 ? "" : `${interval}`;
+
+  if (task.recurrence.frequency === "daily") {
+    return `毎${intervalText}日`;
+  }
+
+  if (task.recurrence.frequency === "weekly") {
+    const days = (task.recurrence.days_of_week ?? [])
+      .map((day) => WEEKDAY_OPTIONS.find((option) => option.value === day)?.label)
+      .filter(Boolean)
+      .join("・");
+    return `毎${intervalText}週 / ${days || "曜日未設定"}`;
+  }
+
+  return `毎${intervalText}か月 / ${task.recurrence.day_of_month ?? "?"}日`;
+}
+
 export function TaskBoard({
   appVersion,
   commitSha,
@@ -192,6 +213,7 @@ export function TaskBoard({
   const [inviteLinks, setInviteLinks] = useState<Record<string, string>>({});
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [copySourceTaskId, setCopySourceTaskId] = useState<string>("");
   const [bootstrapForm, setBootstrapForm] = useState({
     workspaceName: "",
@@ -256,6 +278,8 @@ export function TaskBoard({
     }),
     [state.tasks],
   );
+  const selectedTask =
+    selectedTaskId ? state.tasks.find((task) => task.id === selectedTaskId) ?? null : null;
 
   function pushToast(tone: Toast["tone"], message: string) {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -474,6 +498,10 @@ export function TaskBoard({
     setCopySourceTaskId("");
     setTaskForm(createDefaultTaskForm());
     setCreateTaskOpen(true);
+  }
+
+  function openTaskDetail(task: TaskRecord) {
+    setSelectedTaskId(task.id);
   }
 
   function handleCopySourceChange(taskId: string) {
@@ -886,85 +914,38 @@ export function TaskBoard({
       {screenMode === "home" ? (
         <section className="grid gap-4">
           {sortedTasks.map((task) => (
-            <Card key={task.id}>
+            <button
+              key={task.id}
+              className="w-full rounded-[28px] bg-white px-5 py-5 text-left shadow-[0_12px_30px_rgba(31,41,51,0.08)]"
+              onClick={() => openTaskDetail(task)}
+              type="button"
+            >
               <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-start gap-2">
-                    <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
-                      {task.status !== "done" ? `${formatPriorityIcon(task.priority)} ` : ""}
-                      {task.status === "done" ? "✅ " : ""}
-                      {task.title}
-                    </h2>
-                    <button
-                      className={iconButtonClass}
-                      onClick={() => copyText("タイトル", task.title)}
-                      type="button"
-                      aria-label="タイトルをコピー"
-                    >
-                      ⧉
-                    </button>
-                  </div>
-                  <p className="mt-2 text-base font-medium">
-                    {task.scheduled_time?.slice(0, 5) ?? "時刻未設定"}
-                  </p>
-                  <p className="mt-1 text-sm text-[var(--muted)]">
+                <div className="min-w-0">
+                  <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
+                    {task.status !== "done" ? `${formatPriorityIcon(task.priority)} ` : ""}
+                    {task.status === "done" ? "✅ " : ""}
+                    {task.title}
+                  </h2>
+                  <p className="mt-2 text-sm text-[var(--muted)]">
                     状態: {formatStatus(task.status)}
                   </p>
+                  {task.recurrence?.is_active ? (
+                    <p className="mt-1 text-sm text-[var(--muted)]">
+                      繰り返し: {formatRecurrenceSummary(task)}
+                    </p>
+                  ) : null}
                 </div>
+                <span className="rounded-xl bg-[var(--chip)] px-3 py-2 text-xs font-semibold text-[var(--ink-soft)]">
+                  詳細
+                </span>
               </div>
-
               {task.description ? (
-                <div className="mt-4 flex items-start gap-2">
-                  <p className="flex-1 text-sm leading-7 text-[var(--ink-soft)]">
-                    {task.description}
-                  </p>
-                  <button
-                    className={iconButtonClass}
-                    onClick={() => copyText("説明", task.description ?? "")}
-                    type="button"
-                    aria-label="説明をコピー"
-                  >
-                    ⧉
-                  </button>
-                </div>
+                <p className="mt-4 line-clamp-2 text-sm leading-7 text-[var(--ink-soft)]">
+                  {task.description}
+                </p>
               ) : null}
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                {task.status === "pending" ? (
-                  <ActionButton
-                    label="開始"
-                    onClick={() => performTaskAction(task, "start")}
-                    tone="warning"
-                  />
-                ) : null}
-                {task.status !== "done" ? (
-                  <ActionButton
-                    label="完了"
-                    onClick={() => performTaskAction(task, "complete")}
-                    tone="success"
-                  />
-                ) : null}
-                {task.status === "in_progress" ? (
-                  <ActionButton
-                    label="中断"
-                    onClick={() => performTaskAction(task, "pause")}
-                    tone="neutral"
-                  />
-                ) : null}
-                {task.status !== "done" && task.priority !== "high" ? (
-                  <ActionButton
-                    label="翌日に回す"
-                    onClick={() => performTaskAction(task, "postpone")}
-                    tone="neutral"
-                  />
-                ) : null}
-                {task.status !== "done" && task.priority === "high" ? (
-                  <span className="inline-flex items-center rounded-2xl border border-dashed border-[var(--danger)] px-4 py-3 text-sm font-semibold text-[var(--danger)]">
-                    最優先のため延期不可
-                  </span>
-                ) : null}
-              </div>
-            </Card>
+            </button>
           ))}
         </section>
       ) : null}
@@ -1216,6 +1197,15 @@ export function TaskBoard({
           onClose={() => setCreateTaskOpen(false)}
           onSave={handleSaveTask}
           setForm={setTaskForm}
+        />
+      ) : null}
+
+      {selectedTask ? (
+        <TaskDetailModal
+          task={selectedTask}
+          onClose={() => setSelectedTaskId(null)}
+          onCopyText={copyText}
+          onAction={(action) => void performTaskAction(selectedTask, action)}
         />
       ) : null}
     </Shell>
@@ -1667,6 +1657,115 @@ function TaskModal({
           <button className={primaryButtonClass} onClick={onSave} type="button">
             保存
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TaskDetailModal({
+  task,
+  onClose,
+  onCopyText,
+  onAction,
+}: {
+  task: TaskRecord;
+  onClose: () => void;
+  onCopyText: (label: string, value: string) => Promise<void>;
+  onAction: (action: ActionType) => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-end justify-center bg-black/35 p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        className="w-full max-w-md rounded-t-[32px] bg-white px-5 py-5 shadow-2xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
+              {task.status !== "done" ? `${formatPriorityIcon(task.priority)} ` : ""}
+              {task.status === "done" ? "✅ " : ""}
+              {task.title}
+            </h3>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              {task.scheduled_date} {task.scheduled_time?.slice(0, 5) ?? "時刻未設定"}
+            </p>
+            <p className="mt-1 text-sm text-[var(--muted)]">状態: {formatStatus(task.status)}</p>
+          </div>
+          <button className={secondaryButtonClass} onClick={onClose} type="button">
+            閉じる
+          </button>
+        </div>
+
+        <div className="mt-4 grid gap-3">
+          <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-[var(--ink)]">タイトル</p>
+              <button
+                className={iconButtonClass}
+                onClick={() => void onCopyText("タイトル", task.title)}
+                type="button"
+                aria-label="タイトルをコピー"
+              >
+                ⧉
+              </button>
+            </div>
+            <p className="mt-2 text-sm leading-7 text-[var(--ink-soft)]">{task.title}</p>
+          </div>
+
+          {task.description ? (
+            <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-[var(--ink)]">説明</p>
+                <button
+                  className={iconButtonClass}
+                  onClick={() => void onCopyText("説明", task.description ?? "")}
+                  type="button"
+                  aria-label="説明をコピー"
+                >
+                  ⧉
+                </button>
+              </div>
+              <p className="mt-2 text-sm leading-7 text-[var(--ink-soft)]">{task.description}</p>
+            </div>
+          ) : null}
+
+          {task.recurrence?.is_active ? (
+            <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
+              <p className="text-sm font-semibold text-[var(--ink)]">繰り返し</p>
+              <p className="mt-2 text-sm text-[var(--ink-soft)]">{formatRecurrenceSummary(task)}</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                期間: {task.recurrence.start_date} - {task.recurrence.end_date ?? "終了日なし"}
+              </p>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          {task.status === "pending" ? (
+            <ActionButton label="開始" onClick={() => onAction("start")} tone="warning" />
+          ) : null}
+          {task.status !== "done" ? (
+            <ActionButton label="完了" onClick={() => onAction("complete")} tone="success" />
+          ) : null}
+          {task.status === "in_progress" ? (
+            <ActionButton label="中断" onClick={() => onAction("pause")} tone="neutral" />
+          ) : null}
+          {task.status !== "done" && task.priority !== "high" ? (
+            <ActionButton label="翌日に回す" onClick={() => onAction("postpone")} tone="neutral" />
+          ) : null}
+          {task.status !== "done" && task.priority === "high" ? (
+            <span className="inline-flex items-center rounded-2xl border border-dashed border-[var(--danger)] px-4 py-3 text-sm font-semibold text-[var(--danger)]">
+              最優先のため延期不可
+            </span>
+          ) : null}
         </div>
       </div>
     </div>
