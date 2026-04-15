@@ -1987,8 +1987,8 @@ export function TaskBoard({
     >
       <Card>
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold tracking-[0.08em] text-[var(--muted)]">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand)]/60">
               TASK BOARD
             </p>
             <div
@@ -2001,21 +2001,21 @@ export function TaskBoard({
                     : "home-date-slide-reset"
               }`}
             >
-              <h1 className="mt-2 font-[family-name:var(--font-heading)] text-[2rem] leading-none tracking-[-0.03em]">
+              <h1 className="mt-1.5 font-[family-name:var(--font-heading)] text-[1.85rem] leading-none tracking-[-0.03em]">
                 {formatHomeHeadingDate(homeDate)}
               </h1>
-              {currentGroup ? (
-                <div className="mt-3 inline-flex items-center rounded-full bg-[var(--brand)] px-4 py-2 text-xs font-semibold text-white">
-                  {currentGroup.name}
-                </div>
-              ) : null}
+              <p className="mt-1.5 text-xs font-medium text-[var(--muted)]">
+                {homeDateOffset === 0
+                  ? "本日"
+                  : homeDateOffset > 0
+                    ? `${homeDateOffset}日後`
+                    : `${Math.abs(homeDateOffset)}日前`}
+              </p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <button className={primaryIconButtonClass} onClick={openCreateTask} type="button">
-              +
-            </button>
-          </div>
+          <button className={primaryIconButtonClass} onClick={openCreateTask} type="button">
+            +
+          </button>
         </div>
 
         <div className="mt-4 grid grid-cols-4 gap-2">
@@ -2025,7 +2025,7 @@ export function TaskBoard({
           <SummaryCard label="完了" value={counts.done} tone="success" />
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className="mt-3 grid grid-cols-3 gap-1.5">
           <button
             className={homeDateOffset < 0 ? segmentedActiveButtonClass : segmentedButtonClass}
             onClick={() => moveHomeDate(-1)}
@@ -2049,9 +2049,9 @@ export function TaskBoard({
           </button>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-2">
+        <div className="mt-3 flex items-center gap-2">
           <select
-            className={selectCardClass}
+            className={`${selectCardClass} flex-1`}
             value={activeGroupId}
             onChange={(event) => setCurrentGroupId(event.target.value)}
           >
@@ -2061,14 +2061,22 @@ export function TaskBoard({
               </option>
             ))}
           </select>
-        </div>
-        <div className="mt-2 grid grid-cols-[1fr_1fr] gap-2">
           <button
-            className={wideUtilityButtonClass}
+            className={squareUtilityButtonClass}
             onClick={() => setScreenMode("tasks")}
             type="button"
           >
-            期間一覧
+            <span className="text-base leading-none">≡</span>
+            <span>一覧</span>
+          </button>
+          <button
+            className={squareUtilityButtonClass}
+            onClick={() => setScreenMode("group")}
+            type="button"
+            disabled={!currentGroup}
+          >
+            <span className="text-base leading-none">⌘</span>
+            <span>詳細</span>
           </button>
         </div>
 
@@ -2160,7 +2168,7 @@ export function TaskBoard({
               {sortedTasks.map((task) => (
                 <button
                   key={task.id}
-                  className="w-full rounded-[24px] bg-[var(--surface)] px-4 py-4 text-left"
+                  className="w-full rounded-[24px] border border-black/5 bg-[var(--surface)] px-4 py-4 text-left transition-transform active:scale-[0.99]"
                   onClick={() => openTaskDetail(task)}
                   type="button"
                 >
@@ -2743,16 +2751,16 @@ function Shell({
   return (
     <>
       <PwaRegister enablePushPrompt={enablePushPrompt} />
-      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-[var(--surface)] px-5 pb-8 pt-4 text-[var(--ink)]">
-        <div className="mx-auto mb-4 h-1.5 w-20 rounded-full bg-black/10" />
-        <div className="flex flex-col gap-4">{children}</div>
+      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-transparent px-5 pb-10 pt-5 text-[var(--ink)]">
+        <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-[var(--brand)]/20" />
+        <div className="flex flex-col gap-5">{children}</div>
         <Footer appVersion={appVersion} commitSha={commitSha} />
       </div>
       <div className="pointer-events-none fixed inset-x-0 top-4 z-50 mx-auto flex w-full max-w-md flex-col gap-2 px-4">
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`rounded-2xl px-4 py-3 text-sm font-medium text-white shadow-[0_16px_30px_rgba(15,23,42,0.18)] ${
+            className={`rounded-2xl px-4 py-3.5 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(15,23,42,0.20)] ${
               toast.tone === "success"
                 ? "bg-[var(--brand)]"
                 : toast.tone === "info"
@@ -2784,7 +2792,7 @@ function LoginScreen({
   return (
     <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts}>
       <Card>
-        <p className="text-sm font-semibold tracking-[0.08em] text-[var(--brand)]">TEAM TASK</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--brand)]">TEAM TASK</p>
         <h1 className="mt-3 font-[family-name:var(--font-heading)] text-[2.3rem] leading-none tracking-[-0.05em]">
           チームの今日を
           <br />
@@ -2794,7 +2802,7 @@ function LoginScreen({
           LINEでログインして、オフライン対応のPWAとして利用します。
         </p>
         <button
-          className="mt-8 flex h-14 items-center justify-center rounded-2xl bg-[var(--brand)] text-base font-semibold text-white"
+          className="mt-8 flex h-14 items-center justify-center rounded-2xl bg-[var(--brand)] text-base font-semibold text-white shadow-[0_6px_18px_rgba(79,70,229,0.32)] transition-transform active:scale-[0.98]"
           onClick={onStartLineLogin}
           type="button"
         >
@@ -2818,7 +2826,7 @@ function Card({
   title?: string;
 }) {
   return (
-    <section className="rounded-[28px] bg-white px-5 py-5 shadow-[0_12px_30px_rgba(31,41,51,0.08)]">
+    <section className="rounded-[28px] bg-white px-5 py-5 shadow-[0_8px_24px_rgba(15,23,42,0.07)]">
       {title ? (
         <h2 className="mb-4 font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
           {title}
@@ -3690,7 +3698,7 @@ function Footer({
   commitSha: string;
 }) {
   return (
-    <footer className="mt-6 rounded-[28px] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-[0_12px_30px_rgba(31,41,51,0.06)]">
+    <footer className="mt-6 rounded-[28px] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
       <div className="flex items-center justify-between">
         <span>アプリ版</span>
         <span className="font-medium text-[var(--ink)]">
@@ -3730,7 +3738,7 @@ const toolbarButtonClass =
 const toolbarDangerButtonClass =
   "inline-flex items-center gap-2 rounded-2xl border border-[var(--danger)]/20 bg-[#FEF2F2] px-5 py-3 text-sm font-semibold text-[var(--danger)] shadow-[0_4px_12px_rgba(220,38,38,0.08)]";
 const bottomActionButtonClass =
-  "w-full rounded-[22px] border border-black/8 bg-white px-4 py-4 text-sm font-semibold text-[var(--brand)] shadow-[0_8px_18px_rgba(31,41,51,0.05)]";
+  "w-full rounded-[22px] border border-[var(--brand)]/15 bg-white px-4 py-4 text-sm font-semibold text-[var(--brand)] shadow-[0_4px_12px_rgba(79,70,229,0.06)]";
 const iconButtonClass =
   "flex h-8 w-8 items-center justify-center rounded-xl border border-black/10 bg-white text-sm text-[var(--ink-soft)]";
 const modalPrimaryButtonClass =
