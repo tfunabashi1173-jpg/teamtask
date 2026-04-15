@@ -14,7 +14,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type ActionType = "start" | "complete" | "pause" | "postpone";
 type SyncState = "idle" | "queued" | "syncing" | "error";
-type ScreenMode = "home" | "tasks" | "manage" | "group";
+type ScreenMode = "home" | "tasks" | "manage" | "group" | "bulk";
 
 type Toast = {
   id: number;
@@ -45,6 +45,15 @@ type TaskFormState = {
   recurrenceEndDate: string;
   recurrenceDaysOfWeek: number[];
   recurrenceDayOfMonth: number;
+};
+
+type BatchTaskRow = {
+  id: string;
+  scheduledDate: string;
+  scheduledTime: string;
+  title: string;
+  description: string;
+  priority: TaskRecord["priority"];
 };
 
 const QUEUE_STORAGE_KEY = "team-task.queue.v2";
@@ -113,6 +122,43 @@ function createDefaultTaskForm(): TaskFormState {
   };
 }
 
+function createBatchTaskRow(date = getDateStringWithOffset(0)): BatchTaskRow {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    scheduledDate: date,
+    scheduledTime: "09:00",
+    title: "",
+    description: "",
+    priority: "medium",
+  };
+}
+
+function normalizeBatchPriority(value: string): TaskRecord["priority"] {
+  const normalized = value.trim().toLowerCase();
+  if (["緊急", "urgent", "u"].includes(normalized)) return "urgent";
+  if (["高", "high", "h"].includes(normalized)) return "high";
+  if (["低", "low", "l"].includes(normalized)) return "low";
+  return "medium";
+}
+
+function parseBatchTaskRows(raw: string, fallbackDate: string) {
+  return raw
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter(Boolean)
+    .map((line) => {
+      const [scheduledDate, scheduledTime, title, description, priority] = line.split("\t");
+      return {
+        ...createBatchTaskRow(fallbackDate),
+        scheduledDate: scheduledDate?.trim() || fallbackDate,
+        scheduledTime: scheduledTime?.trim() || "09:00",
+        title: title?.trim() || "",
+        description: description?.trim() || "",
+        priority: normalizeBatchPriority(priority ?? ""),
+      };
+    });
+}
+
 function buildTaskFormFromTask(task: TaskRecord): TaskFormState {
   const scheduledDate = task.scheduled_date;
   return {
@@ -151,6 +197,15 @@ function sortTasks(tasks: TaskRecord[]) {
   const rank = { urgent: 0, high: 1, medium: 2, low: 3 };
 
   return [...tasks].sort((a, b) => {
+    const aIsActiveUrgent = a.priority === "urgent" && a.status !== "done";
+    const bIsActiveUrgent = b.priority === "urgent" && b.status !== "done";
+
+    if (aIsActiveUrgent && !bIsActiveUrgent) return -1;
+    if (!aIsActiveUrgent && bIsActiveUrgent) return 1;
+    if (aIsActiveUrgent && bIsActiveUrgent) {
+      return (a.scheduled_time ?? "").localeCompare(b.scheduled_time ?? "");
+    }
+
     if (a.status === "done" && b.status !== "done") return 1;
     if (a.status !== "done" && b.status === "done") return -1;
     if (rank[a.priority] !== rank[b.priority]) return rank[a.priority] - rank[b.priority];
@@ -254,6 +309,10 @@ export function TaskBoard({
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
   const [copySourceTaskId, setCopySourceTaskId] = useState<string>("");
   const [showAllLogs, setShowAllLogs] = useState(false);
+  const [batchRows, setBatchRows] = useState<BatchTaskRow[]>(() =>
+    Array.from({ length: 8 }, () => createBatchTaskRow()),
+  );
+  const [batchPasteValue, setBatchPasteValue] = useState("");
   const [bootstrapForm, setBootstrapForm] = useState({
     workspaceName: "",
     groupName: "",
@@ -834,6 +893,39 @@ export function TaskBoard({
     setSelectedTaskId(task.id);
   }
 
+  function updateBatchRow(rowId: string, patch: Partial<BatchTaskRow>) {
+    setBatchRows((current) =>
+      current.map((row) => (row.id === rowId ? { ...row, ...patch } : row)),
+    );
+  }
+
+  function appendBatchRows(count = 5) {
+    setBatchRows((current) => [
+      ...current,
+      ...Array.from({ length: count }, () => createBatchTaskRow(homeDate)),
+    ]);
+  }
+
+  function removeEmptyBatchRows() {
+    setBatchRows((current) => {
+      const filtered = current.filter(
+        (row) => row.title.trim() || row.description.trim() || row.scheduledTime !== "09:00",
+      );
+      return filtered.length > 0 ? filtered : [createBatchTaskRow(homeDate)];
+    });
+  }
+
+  function applyBatchPaste() {
+    const parsedRows = parseBatchTaskRows(batchPasteValue, homeDate).filter((row) => row.title.trim());
+    if (parsedRows.length === 0) {
+      pushToast("error", "貼り付けデータにタイトル列がありません。");
+      return;
+    }
+
+    setBatchRows(parsedRows);
+    pushToast("success", `${parsedRows.length}件の行を読み込みました。`);
+  }
+
   function handleCopySourceChange(taskId: string) {
     setCopySourceTaskId(taskId);
     const sourceTask = state.tasks.find((task) => task.id === taskId);
@@ -920,6 +1012,55 @@ export function TaskBoard({
 
     pushToast("success", editingTaskId ? "タスクを更新しました。" : "タスクを作成しました。");
     setCreateTaskOpen(false);
+    window.location.reload();
+  }
+
+  async function handleBatchSaveTasks() {
+    if (!state.workspace || !activeGroupId) {
+      pushToast("error", "登録先グループが選択されていません。");
+      return;
+    }
+
+    const rows = batchRows.filter((row) => row.title.trim());
+    if (rows.length === 0) {
+      pushToast("error", "登録するタスク行がありません。");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const failures: number[] = [];
+
+    for (const [index, row] of rows.entries()) {
+      const result = await callJson("/api/tasks", {
+        method: "POST",
+        body: JSON.stringify({
+          workspaceId: state.workspace.id,
+          title: row.title.trim(),
+          description: row.description.trim(),
+          priority: row.priority,
+          scheduledDate: row.scheduledDate,
+          scheduledTime: row.scheduledTime || null,
+          visibilityType: "group",
+          groupId: activeGroupId,
+        }),
+      });
+
+      if (!result.ok) {
+        failures.push(index + 1);
+      }
+    }
+
+    setIsSubmitting(false);
+
+    if (failures.length > 0) {
+      pushToast("error", `一括登録に失敗した行があります: ${failures.join(", ")}`);
+      return;
+    }
+
+    pushToast("success", `${rows.length}件のタスクを一括登録しました。`);
+    setBatchRows(Array.from({ length: 8 }, () => createBatchTaskRow(homeDate)));
+    setBatchPasteValue("");
+    setScreenMode("tasks");
     window.location.reload();
   }
 
@@ -1614,6 +1755,15 @@ export function TaskBoard({
                 戻る
               </button>
             </div>
+            <div className="mt-4 flex gap-2">
+              <button
+                className={secondaryButtonClass}
+                onClick={() => setScreenMode("bulk")}
+                type="button"
+              >
+                一括登録
+              </button>
+            </div>
             <div className="mt-4 grid grid-cols-2 gap-3">
               <FormField label="開始日">
                 <input
@@ -1679,6 +1829,138 @@ export function TaskBoard({
               </Card>
             ))}
           </section>
+        </>
+      ) : null}
+
+      {screenMode === "bulk" ? (
+        <>
+          <Card>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
+                  一括登録
+                </h2>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  PC向けの表形式で複数タスクをまとめて登録します。
+                </p>
+              </div>
+              <button
+                className={secondaryButtonClass}
+                onClick={() => setScreenMode("tasks")}
+                type="button"
+              >
+                戻る
+              </button>
+            </div>
+            <div className="mt-4 rounded-2xl bg-[var(--chip)] px-4 py-4 text-sm text-[var(--ink-soft)]">
+              登録先グループ: {currentGroup?.name ?? "グループ未設定"}
+            </div>
+            <div className="mt-4 grid gap-3">
+              <FormField label="表データを貼り付け">
+                <textarea
+                  className={`${inputClass} min-h-28`}
+                  placeholder={"列順: 実行日\t時間\tタイトル\t説明\t優先度"}
+                  value={batchPasteValue}
+                  onChange={(event) => setBatchPasteValue(event.target.value)}
+                />
+              </FormField>
+              <div className="flex flex-wrap gap-2">
+                <button className={secondaryButtonClass} onClick={applyBatchPaste} type="button">
+                  貼り付け反映
+                </button>
+                <button className={secondaryButtonClass} onClick={() => appendBatchRows(5)} type="button">
+                  行を5件追加
+                </button>
+                <button className={secondaryButtonClass} onClick={removeEmptyBatchRows} type="button">
+                  空行を整理
+                </button>
+              </div>
+            </div>
+          </Card>
+
+          <Card title="登録テーブル">
+            <div className="overflow-x-auto">
+              <div className="min-w-[900px]">
+                <div className="grid grid-cols-[120px_110px_220px_1fr_120px] gap-2 px-1 pb-2 text-xs font-semibold tracking-[0.06em] text-[var(--muted)]">
+                  <span>実行日</span>
+                  <span>時間</span>
+                  <span>タイトル</span>
+                  <span>説明</span>
+                  <span>優先度</span>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {batchRows.map((row) => (
+                    <div
+                      key={row.id}
+                      className="grid grid-cols-[120px_110px_220px_1fr_120px] gap-2"
+                    >
+                      <input
+                        className={inputClass}
+                        type="date"
+                        value={row.scheduledDate}
+                        onChange={(event) =>
+                          updateBatchRow(row.id, { scheduledDate: event.target.value })
+                        }
+                      />
+                      <input
+                        className={inputClass}
+                        type="time"
+                        value={row.scheduledTime}
+                        onChange={(event) =>
+                          updateBatchRow(row.id, { scheduledTime: event.target.value })
+                        }
+                      />
+                      <input
+                        className={inputClass}
+                        value={row.title}
+                        placeholder="タスク名"
+                        onChange={(event) => updateBatchRow(row.id, { title: event.target.value })}
+                      />
+                      <input
+                        className={inputClass}
+                        value={row.description}
+                        placeholder="説明"
+                        onChange={(event) =>
+                          updateBatchRow(row.id, { description: event.target.value })
+                        }
+                      />
+                      <select
+                        className={inputClass}
+                        value={row.priority}
+                        onChange={(event) =>
+                          updateBatchRow(row.id, {
+                            priority: event.target.value as TaskRecord["priority"],
+                          })
+                        }
+                      >
+                        <option value="urgent">緊急</option>
+                        <option value="high">高</option>
+                        <option value="medium">中</option>
+                        <option value="low">低</option>
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                className={primaryButtonClass}
+                onClick={handleBatchSaveTasks}
+                type="button"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "登録中..." : "一括登録する"}
+              </button>
+              <button
+                className={secondaryButtonClass}
+                onClick={() => setBatchRows(Array.from({ length: 8 }, () => createBatchTaskRow(homeDate)))}
+                type="button"
+              >
+                表をリセット
+              </button>
+            </div>
+          </Card>
         </>
       ) : null}
 
