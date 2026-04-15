@@ -334,6 +334,7 @@ export function TaskBoard({
   const [notificationTime, setNotificationTime] = useState(
     initialState.workspace?.notification_time?.slice(0, 5) ?? "08:00",
   );
+  const [isSendingTestNotification, setIsSendingTestNotification] = useState(false);
   const [homeDate, setHomeDate] = useState(getDateStringWithOffset(0));
   const [homeDateMotion, setHomeDateMotion] = useState<"prev" | "next" | "reset">("reset");
   const [homeDateMotionKey, setHomeDateMotionKey] = useState(0);
@@ -1046,6 +1047,34 @@ export function TaskBoard({
 
     setState((current) => ({ ...current, workspace }));
     pushToast("success", "朝通知の時刻を更新しました。");
+  }
+
+  async function handleSendDelayedTestNotification() {
+    setIsSendingTestNotification(true);
+    pushToast("info", "10秒後にテスト通知を送ります。端末をスリープして確認してください。");
+
+    const result = await callJson("/api/push/test", {
+      method: "POST",
+      body: JSON.stringify({ delaySeconds: 10 }),
+    });
+
+    setIsSendingTestNotification(false);
+
+    if (!result.ok) {
+      const errorCode =
+        result.json && typeof result.json === "object" && "error" in result.json
+          ? result.json.error
+          : null;
+      pushToast(
+        "error",
+        errorCode === "NO_ACTIVE_SUBSCRIPTION"
+          ? "この端末の通知登録が見つかりません。PWAで通知許可を確認してください。"
+          : "テスト通知の送信に失敗しました。",
+      );
+      return;
+    }
+
+    pushToast("success", "テスト通知を送信しました。");
   }
 
   function openEditTask(task: TaskRecord) {
@@ -2327,6 +2356,14 @@ export function TaskBoard({
                 type="button"
               >
                 通知時刻を保存
+              </button>
+              <button
+                className={secondaryButtonClass}
+                disabled={isSendingTestNotification}
+                onClick={handleSendDelayedTestNotification}
+                type="button"
+              >
+                {isSendingTestNotification ? "テスト通知送信中..." : "10秒後にテスト通知"}
               </button>
             </div>
           </Card>
