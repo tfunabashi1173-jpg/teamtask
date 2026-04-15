@@ -2922,9 +2922,13 @@ function NotificationBubble({
 
   return (
     <div className="relative overflow-hidden rounded-[24px]">
-      <div className="absolute inset-y-0 right-0 flex items-center pr-2">
+      <div
+        className={`pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 transition-opacity duration-200 ${
+          isOpen ? "opacity-100" : "opacity-0"
+        }`}
+      >
         <button
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--danger)] text-lg text-white shadow-[0_8px_18px_rgba(31,41,51,0.08)]"
+          className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-[var(--danger)]/18 bg-white text-lg text-[var(--danger)] shadow-[0_8px_18px_rgba(31,41,51,0.08)]"
           onClick={onDismiss}
           type="button"
           aria-label="通知を削除"
