@@ -3141,16 +3141,13 @@ function TaskModal({
   onCopySourceChange: (taskId: string) => void;
 }) {
   const selectedSlot = scheduledTimeToSlot(form.scheduledTime);
-  const [showReferencePicker, setShowReferencePicker] = useState(false);
-  const cameraInputRef = useRef<HTMLInputElement | null>(null);
-  const libraryInputRef = useRef<HTMLInputElement | null>(null);
+  const referenceInputRef = useRef<HTMLInputElement | null>(null);
 
   function appendReferenceFiles(fileList: FileList | null) {
     if (!fileList?.length) return;
     const files = Array.from(fileList).filter((file) => file.type.startsWith("image/"));
     if (files.length === 0) return;
     setPendingReferenceFiles((current) => [...current, ...files].slice(0, 2));
-    setShowReferencePicker(false);
   }
 
   return (
@@ -3221,7 +3218,7 @@ function TaskModal({
             </div>
             <button
               className="rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]"
-              onClick={() => setShowReferencePicker(true)}
+              onClick={() => referenceInputRef.current?.click()}
               type="button"
             >
               追加
@@ -3457,26 +3454,8 @@ function TaskModal({
             {isEditing ? "更新" : "登録"}
           </button>
         </div>
-        {showReferencePicker ? (
-          <PickerSheet
-            onCamera={() => cameraInputRef.current?.click()}
-            onClose={() => setShowReferencePicker(false)}
-            onLibrary={() => libraryInputRef.current?.click()}
-          />
-        ) : null}
         <input
-          ref={cameraInputRef}
-          className="hidden"
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={(event) => {
-            appendReferenceFiles(event.target.files);
-            event.currentTarget.value = "";
-          }}
-        />
-        <input
-          ref={libraryInputRef}
+          ref={referenceInputRef}
           className="hidden"
           type="file"
           accept="image/*"
@@ -3519,16 +3498,12 @@ function TaskDetailModal({
   const [isPhotoSubmitting, setIsPhotoSubmitting] = useState(false);
   const [isReferencePhotoSubmitting, setIsReferencePhotoSubmitting] = useState(false);
   const shouldOpenPhotoPickerOnDoneRef = useRef(false);
-  const [showReferencePicker, setShowReferencePicker] = useState(false);
-  const [showPhotoPicker, setShowPhotoPicker] = useState(false);
-  const cameraReferenceInputRef = useRef<HTMLInputElement | null>(null);
-  const libraryReferenceInputRef = useRef<HTMLInputElement | null>(null);
-  const cameraPhotoInputRef = useRef<HTMLInputElement | null>(null);
-  const libraryPhotoInputRef = useRef<HTMLInputElement | null>(null);
+  const referencePhotoInputRef = useRef<HTMLInputElement | null>(null);
+  const completePhotoInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!shouldOpenPhotoPickerOnDoneRef.current || task.status !== "done") return;
-    setShowPhotoPicker(true);
+    completePhotoInputRef.current?.click();
     shouldOpenPhotoPickerOnDoneRef.current = false;
   }, [task.status]);
 
@@ -3583,7 +3558,11 @@ function TaskDetailModal({
                 <p className="text-xs font-semibold text-[var(--ink)]">説明画像</p>
               </div>
               {(task.reference_photos?.length ?? 0) < 2 ? (
-                <button className={secondaryButtonClass} onClick={() => setShowReferencePicker(true)} type="button">
+                <button
+                  className={secondaryButtonClass}
+                  onClick={() => referencePhotoInputRef.current?.click()}
+                  type="button"
+                >
                   追加
                 </button>
               ) : (
@@ -3673,7 +3652,11 @@ function TaskDetailModal({
                   </p>
                 </div>
                 {(task.photos?.length ?? 0) < 3 ? (
-                  <button className={secondaryButtonClass} onClick={() => setShowPhotoPicker(true)} type="button">
+                  <button
+                    className={secondaryButtonClass}
+                    onClick={() => completePhotoInputRef.current?.click()}
+                    type="button"
+                  >
                     写真追加
                   </button>
                 ) : (
@@ -3782,30 +3765,14 @@ function TaskDetailModal({
             閉じる
           </button>
         </div>
-        {showReferencePicker ? (
-          <PickerSheet
-            onCamera={() => cameraReferenceInputRef.current?.click()}
-            onClose={() => setShowReferencePicker(false)}
-            onLibrary={() => libraryReferenceInputRef.current?.click()}
-          />
-        ) : null}
-        {showPhotoPicker ? (
-          <PickerSheet
-            onCamera={() => cameraPhotoInputRef.current?.click()}
-            onClose={() => setShowPhotoPicker(false)}
-            onLibrary={() => libraryPhotoInputRef.current?.click()}
-          />
-        ) : null}
         <input
-          ref={cameraReferenceInputRef}
+          ref={referencePhotoInputRef}
           className="hidden"
           type="file"
           accept="image/*"
-          capture="environment"
           onChange={async (event) => {
             const file = event.target.files?.[0];
             event.currentTarget.value = "";
-            setShowReferencePicker(false);
             if (!file) return;
             setIsReferencePhotoSubmitting(true);
             await Promise.resolve(onReferencePhotoUpload(file));
@@ -3813,45 +3780,13 @@ function TaskDetailModal({
           }}
         />
         <input
-          ref={libraryReferenceInputRef}
+          ref={completePhotoInputRef}
           className="hidden"
           type="file"
           accept="image/*"
           onChange={async (event) => {
             const file = event.target.files?.[0];
             event.currentTarget.value = "";
-            setShowReferencePicker(false);
-            if (!file) return;
-            setIsReferencePhotoSubmitting(true);
-            await Promise.resolve(onReferencePhotoUpload(file));
-            setIsReferencePhotoSubmitting(false);
-          }}
-        />
-        <input
-          ref={cameraPhotoInputRef}
-          className="hidden"
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={async (event) => {
-            const file = event.target.files?.[0];
-            event.currentTarget.value = "";
-            setShowPhotoPicker(false);
-            if (!file) return;
-            setIsPhotoSubmitting(true);
-            await Promise.resolve(onPhotoUpload(file));
-            setIsPhotoSubmitting(false);
-          }}
-        />
-        <input
-          ref={libraryPhotoInputRef}
-          className="hidden"
-          type="file"
-          accept="image/*"
-          onChange={async (event) => {
-            const file = event.target.files?.[0];
-            event.currentTarget.value = "";
-            setShowPhotoPicker(false);
             if (!file) return;
             setIsPhotoSubmitting(true);
             await Promise.resolve(onPhotoUpload(file));
@@ -3889,38 +3824,6 @@ function ImagePreviewModal({
         onMouseDown={(event) => event.stopPropagation()}
         src={imageUrl}
       />
-    </div>
-  );
-}
-
-function PickerSheet({
-  onCamera,
-  onLibrary,
-  onClose,
-}: {
-  onCamera: () => void;
-  onLibrary: () => void;
-  onClose: () => void;
-}) {
-  return (
-    <div className="absolute inset-0 z-10 flex items-end bg-black/20" onMouseDown={onClose}>
-      <div
-        className="w-full rounded-t-[28px] bg-white px-5 py-4 shadow-2xl"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-black/10" />
-        <div className="grid gap-3">
-          <button className={modalPrimaryButtonClass} onClick={onCamera} type="button">
-            カメラ
-          </button>
-          <button className={modalSecondaryButtonClass} onClick={onLibrary} type="button">
-            写真を選ぶ
-          </button>
-          <button className={closeWideButtonClass} onClick={onClose} type="button">
-            閉じる
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
