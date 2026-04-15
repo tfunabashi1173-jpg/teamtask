@@ -81,10 +81,6 @@ export async function POST(
     return NextResponse.json({ error: insertResult.error.message }, { status: 500 });
   }
 
-  const signedUrlResult = await supabase.storage
-    .from(getTaskPhotoBucketName())
-    .createSignedUrl(storagePath, 60 * 60);
-
   await supabase.from("task_activity_logs").insert({
     task_id: id,
     actor_user_id: actorResult.data.id,
@@ -96,7 +92,7 @@ export async function POST(
     ok: true,
     photo: {
       ...insertResult.data,
-      preview_url: signedUrlResult.data?.signedUrl ?? null,
+      preview_url: `/api/task-photos/${insertResult.data.id}`,
     },
   });
 }

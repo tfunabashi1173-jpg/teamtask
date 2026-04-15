@@ -217,6 +217,7 @@ export function TaskBoard({
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
   const [copySourceTaskId, setCopySourceTaskId] = useState<string>("");
+  const [showAllLogs, setShowAllLogs] = useState(false);
   const [bootstrapForm, setBootstrapForm] = useState({
     workspaceName: "",
     groupName: "",
@@ -224,6 +225,9 @@ export function TaskBoard({
   });
   const [requestName, setRequestName] = useState("");
   const [taskForm, setTaskForm] = useState<TaskFormState>(createDefaultTaskForm);
+  const [notificationTime, setNotificationTime] = useState(
+    initialState.workspace?.notification_time?.slice(0, 5) ?? "08:00",
+  );
   const [rangeStart, setRangeStart] = useState(getDateStringWithOffset(0));
   const [rangeEnd, setRangeEnd] = useState(() => {
     const date = new Date();
@@ -282,6 +286,8 @@ export function TaskBoard({
   );
   const selectedTask =
     selectedTaskId ? state.tasks.find((task) => task.id === selectedTaskId) ?? null : null;
+  const latestLog = state.logs[0] ?? null;
+  const olderLogs = state.logs.slice(1);
 
   function pushToast(tone: Toast["tone"], message: string) {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -484,6 +490,27 @@ export function TaskBoard({
 
     pushToast("success", "メンバーを削除しました。履歴は保持されます。");
     window.location.reload();
+  }
+
+  async function handleSaveWorkspaceSettings() {
+    const result = await callJson("/api/workspace/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ notificationTime }),
+    });
+
+    if (!result.ok || !result.json || typeof result.json !== "object") {
+      pushToast("error", "通知時刻の保存に失敗しました。");
+      return;
+    }
+
+    const workspace = (result.json as { workspace?: AppState["workspace"] }).workspace;
+    if (!workspace) {
+      pushToast("error", "通知時刻の保存に失敗しました。");
+      return;
+    }
+
+    setState((current) => ({ ...current, workspace }));
+    pushToast("success", "朝通知の時刻を更新しました。");
   }
 
   function openEditTask(task: TaskRecord) {
@@ -1145,16 +1172,42 @@ export function TaskBoard({
 
       {screenMode === "home" ? (
         <Card title="通知">
-        <div className="flex flex-col gap-3">
-          {state.logs.map((log) => (
-            <div key={log.id} className="rounded-2xl bg-[var(--chip)] px-4 py-3">
-              <p className="text-sm leading-6">{logMessage(log)}</p>
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                {new Date(log.created_at).toLocaleString("ja-JP")}
-              </p>
-            </div>
-          ))}
-        </div>
+          <div className="flex flex-col gap-3">
+            {latestLog ? (
+              <div className="rounded-2xl bg-[var(--chip)] px-4 py-3">
+                <p className="text-sm leading-6">{logMessage(latestLog)}</p>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  {new Date(latestLog.created_at).toLocaleString("ja-JP")}
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--muted)]">通知はまだありません。</p>
+            )}
+
+            {olderLogs.length > 0 ? (
+              <>
+                <button
+                  className={secondaryButtonClass}
+                  onClick={() => setShowAllLogs((current) => !current)}
+                  type="button"
+                >
+                  {showAllLogs ? "過去の通知を閉じる" : `過去の通知 ${olderLogs.length} 件`}
+                </button>
+                {showAllLogs ? (
+                  <div className="flex flex-col gap-3">
+                    {olderLogs.map((log) => (
+                      <div key={log.id} className="rounded-2xl bg-[var(--surface)] px-4 py-3">
+                        <p className="text-sm leading-6">{logMessage(log)}</p>
+                        <p className="mt-1 text-xs text-[var(--muted)]">
+                          {new Date(log.created_at).toLocaleString("ja-JP")}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+          </div>
         </Card>
       ) : null}
 
@@ -1217,6 +1270,29 @@ export function TaskBoard({
                   </button>
                 </div>
               ))}
+            </div>
+          </Card>
+
+          <Card title="通知設定">
+            <div className="grid gap-3">
+              <FormField label="朝通知時刻">
+                <input
+                  className={inputClass}
+                  type="time"
+                  value={notificationTime}
+                  onChange={(event) => setNotificationTime(event.target.value)}
+                />
+              </FormField>
+              <p className="text-xs text-[var(--muted)]">
+                現在のタイムゾーン: {state.workspace?.timezone ?? "Asia/Tokyo"}
+              </p>
+              <button
+                className={primaryButtonClass}
+                onClick={handleSaveWorkspaceSettings}
+                type="button"
+              >
+                通知時刻を保存
+              </button>
             </div>
           </Card>
         </>
@@ -2079,14 +2155,6 @@ function Footer({
         <span className="font-medium text-[var(--ink)]">
           {appVersion} ({commitSha})
         </span>
-      </div>
-      <div className="mt-2 flex items-center justify-between">
-        <span>ログイン状態</span>
-        <span>14日アクセスなしで自動ログアウト</span>
-      </div>
-      <div className="mt-2 flex items-center justify-between">
-        <span>通知音</span>
-        <span>端末標準音</span>
       </div>
     </footer>
   );

@@ -74,10 +74,6 @@ export async function PATCH(
     .from(getTaskPhotoBucketName())
     .remove([photoResult.data.storage_path]);
 
-  const signedUrlResult = await supabase.storage
-    .from(getTaskPhotoBucketName())
-    .createSignedUrl(nextStoragePath, 60 * 60);
-
   await supabase.from("task_activity_logs").insert({
     task_id: id,
     actor_user_id: actorResult.data.id,
@@ -90,7 +86,7 @@ export async function PATCH(
     ok: true,
     photo: {
       ...updateResult.data,
-      preview_url: signedUrlResult.data?.signedUrl ?? null,
+      preview_url: `/api/task-photos/${updateResult.data.id}`,
     },
   });
 }

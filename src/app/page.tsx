@@ -4,7 +4,10 @@ import { getAppState } from "@/lib/app-data";
 import { readSessionUser } from "@/lib/auth/server-session";
 
 const commitSha =
-  process.env.NEXT_PUBLIC_APP_COMMIT_SHA?.slice(0, 7) ?? "devbuild";
+  process.env.NEXT_PUBLIC_APP_COMMIT_SHA?.slice(0, 7) ??
+  process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ??
+  process.env.GITHUB_SHA?.slice(0, 7) ??
+  "devbuild";
 
 export default async function Home({
   searchParams,
