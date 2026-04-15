@@ -13,6 +13,7 @@ create table if not exists public.app_users (
   id uuid primary key default gen_random_uuid(),
   line_user_id text not null unique,
   display_name text not null,
+  line_picture_url text,
   email text,
   phone_number text,
   role text not null default 'member' check (role in ('admin', 'member')),

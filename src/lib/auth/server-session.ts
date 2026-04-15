@@ -19,6 +19,7 @@ export async function readSessionUser() {
   return {
     lineUserId: session.lineUserId,
     displayName: session.displayName,
+    pictureUrl: session.pictureUrl ?? null,
   };
 }
 

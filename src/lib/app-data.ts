@@ -5,6 +5,7 @@ export type AppUser = {
   id: string;
   line_user_id: string;
   display_name: string;
+  line_picture_url?: string | null;
   role: "admin" | "member";
   is_active: boolean;
 };
@@ -69,6 +70,7 @@ export type TaskLogRecord = {
   } | null;
   actor: {
     display_name: string;
+    line_picture_url?: string | null;
   } | null;
   task: {
     title: string;
@@ -95,6 +97,7 @@ export type MembershipRequestRecord = {
 export type MemberRecord = {
   id: string;
   display_name: string;
+  line_picture_url?: string | null;
   role: "admin" | "member";
   is_active: boolean;
 };
@@ -155,7 +158,7 @@ export async function getAppState({
   if (sessionLineUserId) {
     const appUserResult = await supabase
       .from("app_users")
-      .select("id,line_user_id,display_name,role,is_active")
+      .select("id,line_user_id,display_name,line_picture_url,role,is_active")
       .eq("line_user_id", sessionLineUserId)
       .maybeSingle();
 
@@ -290,7 +293,7 @@ export async function getAppState({
       supabase
         .from("task_activity_logs")
         .select(
-          "id,action_type,created_at,before_value,actor:app_users!task_activity_logs_actor_user_id_fkey(display_name),task:tasks!task_activity_logs_task_id_fkey(title)",
+          "id,action_type,created_at,before_value,actor:app_users!task_activity_logs_actor_user_id_fkey(display_name,line_picture_url),task:tasks!task_activity_logs_task_id_fkey(title)",
         )
         .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
         .order("created_at", { ascending: false })
@@ -299,7 +302,7 @@ export async function getAppState({
         ? supabase
             .from("workspace_members")
             .select(
-              "user:app_users!workspace_members_user_id_fkey(id,display_name,role,is_active)",
+              "user:app_users!workspace_members_user_id_fkey(id,display_name,line_picture_url,role,is_active)",
             )
             .eq("workspace_id", workspace.id)
             .eq("is_active", true)

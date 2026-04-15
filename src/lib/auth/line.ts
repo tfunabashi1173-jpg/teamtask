@@ -11,11 +11,13 @@ type TokenResponse = {
 type VerifyResponse = {
   sub: string;
   name?: string;
+  picture?: string;
 };
 
 type ProfileResponse = {
   userId: string;
   displayName: string;
+  pictureUrl?: string;
 };
 
 function getRequiredEnv(name: string) {

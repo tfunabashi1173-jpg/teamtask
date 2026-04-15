@@ -44,12 +44,13 @@ export async function POST(request: NextRequest) {
 
   const userResult = await supabase
     .from("app_users")
-    .insert({
-      line_user_id: sessionUser.lineUserId,
-      display_name: displayName,
-      role: "admin",
-      is_active: true,
-    })
+      .insert({
+        line_user_id: sessionUser.lineUserId,
+        display_name: displayName,
+        line_picture_url: sessionUser.pictureUrl ?? null,
+        role: "admin",
+        is_active: true,
+      })
     .select("id")
     .single();
 

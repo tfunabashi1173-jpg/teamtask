@@ -7,11 +7,13 @@ const FOURTEEN_DAYS_IN_SECONDS = 60 * 60 * 24 * 14;
 export type SessionUser = {
   lineUserId: string;
   displayName: string | null;
+  pictureUrl?: string | null;
 };
 
 type SessionPayload = {
   lineUserId: string;
   displayName: string | null;
+  pictureUrl?: string | null;
   issuedAt: number;
   expiresAt: number;
 };
@@ -94,6 +96,7 @@ export function createSessionCookieValue(user: SessionUser) {
   const signed = encodeSignedValue({
     lineUserId: user.lineUserId,
     displayName: user.displayName,
+    pictureUrl: user.pictureUrl ?? null,
     issuedAt: now,
     expiresAt: now + FOURTEEN_DAYS_IN_SECONDS,
   });
@@ -114,6 +117,7 @@ export function parseSessionCookieValue(rawValue: string | undefined) {
   return {
     lineUserId: parsed.lineUserId,
     displayName: parsed.displayName,
+    pictureUrl: parsed.pictureUrl ?? null,
     issuedAt: parsed.issuedAt,
     expiresAt: parsed.expiresAt,
   };

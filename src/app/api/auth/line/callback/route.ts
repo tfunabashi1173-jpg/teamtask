@@ -10,6 +10,7 @@ import {
   getLineStateCookieName,
   verifySignedState,
 } from "@/lib/auth/session";
+import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 function redirectWithError(request: NextRequest, message: string) {
   const url = new URL("/", request.url);
@@ -42,26 +43,36 @@ export async function GET(request: NextRequest) {
     const tokens = await exchangeCodeForTokens(code);
     let displayName: string | null = null;
     let lineUserId: string | null = null;
+    let pictureUrl: string | null = null;
 
     if (tokens.id_token) {
       const verifiedToken = await verifyIdToken(tokens.id_token);
       displayName = verifiedToken.name ?? null;
       lineUserId = verifiedToken.sub;
+      pictureUrl = verifiedToken.picture ?? null;
     }
 
-    if (!lineUserId) {
-      const profile = await fetchLineProfile(tokens.access_token);
-      lineUserId = profile.userId;
-      displayName = displayName ?? profile.displayName;
-    }
+    const profile = await fetchLineProfile(tokens.access_token);
+    lineUserId = lineUserId ?? profile.userId;
+    displayName = displayName ?? profile.displayName;
+    pictureUrl = pictureUrl ?? profile.pictureUrl ?? null;
 
     if (!lineUserId) {
       return redirectWithError(request, "LINEユーザー情報を取得できませんでした。");
     }
 
+    const supabase = createSupabaseAdminClient();
+    await supabase
+      .from("app_users")
+      .update({
+        line_picture_url: pictureUrl,
+      })
+      .eq("line_user_id", lineUserId);
+
     await writeSessionCookie({
       lineUserId,
       displayName,
+      pictureUrl,
     });
 
     const response = NextResponse.redirect(new URL("/", request.url));

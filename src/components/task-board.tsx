@@ -263,6 +263,11 @@ function formatRecurrenceSummary(task: TaskRecord) {
   return `毎${intervalText}か月 / ${task.recurrence.day_of_month ?? "?"}日`;
 }
 
+function actorInitial(name: string | null | undefined) {
+  const trimmed = name?.trim();
+  return trimmed ? trimmed.slice(0, 1) : "?";
+}
+
 export function TaskBoard({
   appVersion,
   commitSha,
@@ -2032,12 +2037,7 @@ export function TaskBoard({
         <Card title="通知">
           <div className="flex flex-col gap-3">
             {latestLog ? (
-              <div className="rounded-2xl bg-[var(--chip)] px-4 py-3">
-                <p className="text-sm leading-6">{logMessage(latestLog)}</p>
-                <p className="mt-1 text-xs text-[var(--muted)]">
-                  {new Date(latestLog.created_at).toLocaleString("ja-JP")}
-                </p>
-              </div>
+              <NotificationBubble log={latestLog} />
             ) : (
               <p className="text-sm text-[var(--muted)]">通知はまだありません。</p>
             )}
@@ -2054,12 +2054,7 @@ export function TaskBoard({
                 {showAllLogs ? (
                   <div className="flex flex-col gap-3">
                     {olderLogs.map((log) => (
-                      <div key={log.id} className="rounded-2xl bg-[var(--surface)] px-4 py-3">
-                        <p className="text-sm leading-6">{logMessage(log)}</p>
-                        <p className="mt-1 text-xs text-[var(--muted)]">
-                          {new Date(log.created_at).toLocaleString("ja-JP")}
-                        </p>
-                      </div>
+                      <NotificationBubble key={log.id} log={log} />
                     ))}
                   </div>
                 ) : null}
@@ -2433,6 +2428,36 @@ function PendingRequestCard({
         <button className={secondaryDangerClass} onClick={onReject} type="button">
           却下
         </button>
+      </div>
+    </div>
+  );
+}
+
+function NotificationBubble({ log }: { log: TaskLogRecord }) {
+  const actorName = log.actor?.display_name ?? "誰か";
+  const actorImage = log.actor?.line_picture_url ?? null;
+
+  return (
+    <div className="flex items-start gap-3">
+      {actorImage ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          alt={`${actorName}のLINEアイコン`}
+          className="h-11 w-11 rounded-full border border-black/5 object-cover shadow-[0_8px_18px_rgba(31,41,51,0.08)]"
+          src={actorImage}
+        />
+      ) : (
+        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--brand)] text-sm font-semibold text-white shadow-[0_8px_18px_rgba(31,41,51,0.08)]">
+          {actorInitial(actorName)}
+        </div>
+      )}
+      <div className="relative max-w-[calc(100%-3.5rem)] rounded-[24px] bg-[var(--chip)] px-4 py-3 text-[var(--ink)] shadow-[0_10px_20px_rgba(31,41,51,0.05)]">
+        <div className="absolute left-[-7px] top-4 h-3.5 w-3.5 rotate-45 bg-[var(--chip)]" />
+        <p className="text-sm font-semibold text-[var(--ink-soft)]">{actorName}</p>
+        <p className="mt-1 text-sm leading-6">{logMessage(log)}</p>
+        <p className="mt-2 text-xs text-[var(--muted)]">
+          {new Date(log.created_at).toLocaleString("ja-JP")}
+        </p>
       </div>
     </div>
   );
