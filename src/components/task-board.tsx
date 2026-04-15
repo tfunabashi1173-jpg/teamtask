@@ -2210,7 +2210,7 @@ function TaskDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-end justify-center bg-black/35 p-4"
+      className="fixed inset-0 z-40 bg-black/35 p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
@@ -2218,7 +2218,7 @@ function TaskDetailModal({
       }}
     >
       <div
-        className="w-full max-w-md rounded-t-[32px] bg-white px-5 py-5 shadow-2xl"
+        className="absolute left-1/2 top-1/2 max-h-[min(88vh,760px)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[32px] bg-white px-5 py-5 shadow-2xl"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
