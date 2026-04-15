@@ -2921,7 +2921,7 @@ function NotificationBubble({
   const touchStartXRef = useRef<number | null>(null);
 
   return (
-    <div className="relative overflow-hidden rounded-[24px]">
+    <div className="relative w-full overflow-hidden rounded-[24px]">
       <div
         className={`pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 transition-opacity duration-200 ${
           isOpen ? "opacity-100" : "opacity-0"
@@ -2937,7 +2937,7 @@ function NotificationBubble({
         </button>
       </div>
       <div
-        className={`flex items-start gap-3 transition-transform duration-200 ${isOpen ? "-translate-x-14" : "translate-x-0"}`}
+        className={`flex w-full items-start gap-3 transition-transform duration-200 ${isOpen ? "-translate-x-14" : "translate-x-0"}`}
         onTouchStart={(event) => {
           touchStartXRef.current = event.touches[0]?.clientX ?? null;
         }}
@@ -2966,7 +2966,7 @@ function NotificationBubble({
           {actorInitial(actorName)}
         </div>
       )}
-      <div className="relative max-w-[calc(100%-3.5rem)] rounded-[24px] bg-[var(--chip)] px-4 py-3 text-[var(--ink)] shadow-[0_10px_20px_rgba(31,41,51,0.05)]">
+      <div className="relative min-w-0 flex-1 rounded-[24px] bg-[var(--chip)] px-4 py-3 text-[var(--ink)] shadow-[0_10px_20px_rgba(31,41,51,0.05)]">
         <div className="absolute left-[-7px] top-4 h-3.5 w-3.5 rotate-45 bg-[var(--chip)]" />
         <p className="text-sm font-semibold text-[var(--ink-soft)]">{actorName}</p>
         <p className="mt-1 text-sm leading-6">{logMessage(log)}</p>
