@@ -21,7 +21,13 @@ export async function GET() {
       maxAge: 60 * 10,
     });
 
-    return NextResponse.redirect(createLineAuthorizeUrl({ state, nonce }));
+    const authorizeUrl = createLineAuthorizeUrl({ state, nonce });
+    const returnUrl = new URL("/", process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000");
+    returnUrl.searchParams.set("loginStarted", "1");
+    returnUrl.searchParams.set("lineAuth", "1");
+    returnUrl.searchParams.set("next", authorizeUrl);
+
+    return NextResponse.redirect(returnUrl);
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to start LINE login.";
