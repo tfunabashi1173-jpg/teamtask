@@ -19,7 +19,7 @@ function isExpoPushConfigured() {
   return true;
 }
 
-async function deactivateExpoPushToken(id: string) {
+async function deactivateExpoPushTokenById(id: string) {
   const supabase = createSupabaseAdminClient();
   await supabase.from("expo_push_tokens").update({ is_active: false }).eq("id", id);
 }
@@ -122,7 +122,7 @@ export async function sendExpoPushToUsers({
     if (ticket.status === "error" && ticket.details?.error === "DeviceNotRegistered") {
       const record = tokens[index];
       if (record) {
-        await deactivateExpoPushToken(record.id);
+        await deactivateExpoPushTokenById(record.id);
       }
     }
   }
