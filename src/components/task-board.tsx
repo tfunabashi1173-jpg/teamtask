@@ -14,7 +14,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type ActionType = "start" | "confirm" | "complete" | "pause" | "postpone";
 type SyncState = "idle" | "queued" | "syncing" | "error";
-type ScreenMode = "home" | "tasks" | "bulk";
+type ScreenMode = "home" | "tasks" | "notifications" | "bulk";
 
 type Toast = {
   id: number;
@@ -2284,6 +2284,36 @@ export function TaskBoard({
         </Card>
       ) : null}
 
+      {screenMode === "home" ? (
+        <Card>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">通知</h2>
+            {olderLogs.length > 0 ? (
+              <button
+                className="text-sm font-semibold text-[var(--brand)]"
+                onClick={() => setScreenMode("notifications")}
+                type="button"
+              >
+                過去 {olderLogs.length} 件
+              </button>
+            ) : null}
+          </div>
+          <div className="mt-4">
+            {latestLog ? (
+              <NotificationBubble
+                isOpen={openNotificationId === latestLog.id}
+                log={latestLog}
+                onClose={() => setOpenNotificationId(null)}
+                onDismiss={() => handleDismissLog(latestLog.id)}
+                onOpen={() => setOpenNotificationId(latestLog.id)}
+              />
+            ) : (
+              <p className="text-sm text-[var(--muted)]">通知はまだありません。</p>
+            )}
+          </div>
+        </Card>
+      ) : null}
+
       {screenMode === "tasks" ? (
         <>
           <Card>
@@ -2385,6 +2415,49 @@ export function TaskBoard({
                 </div>
               </Card>
             ))}
+          </section>
+        </>
+      ) : null}
+
+      {screenMode === "notifications" ? (
+        <>
+          <Card>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
+                  通知一覧
+                </h2>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  直近7日分の通知を確認できます。
+                </p>
+              </div>
+              <button
+                className={secondaryButtonClass}
+                onClick={() => setScreenMode("home")}
+                type="button"
+              >
+                戻る
+              </button>
+            </div>
+          </Card>
+
+          <section className="grid gap-3">
+            {state.logs.length > 0 ? (
+              state.logs.map((log) => (
+                <NotificationBubble
+                  key={log.id}
+                  isOpen={openNotificationId === log.id}
+                  log={log}
+                  onClose={() => setOpenNotificationId(null)}
+                  onDismiss={() => handleDismissLog(log.id)}
+                  onOpen={() => setOpenNotificationId(log.id)}
+                />
+              ))
+            ) : (
+              <Card>
+                <p className="text-sm text-[var(--muted)]">通知はまだありません。</p>
+              </Card>
+            )}
           </section>
         </>
       ) : null}
@@ -3841,7 +3914,7 @@ function PickerSheet({
             カメラ
           </button>
           <button className={modalSecondaryButtonClass} onClick={onLibrary} type="button">
-            ライブラリ
+            写真を選ぶ
           </button>
           <button className={closeWideButtonClass} onClick={onClose} type="button">
             閉じる
