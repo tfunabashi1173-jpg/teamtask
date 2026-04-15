@@ -22,6 +22,13 @@ type Toast = {
   message: string;
 };
 
+type PushSetupNotice = {
+  tone: "info" | "error";
+  message: string;
+  actionLabel?: string;
+  actionType?: "request_permission" | "register_subscription";
+};
+
 type QueuedAction = {
   id: string;
   taskId: string;
@@ -342,6 +349,7 @@ export function TaskBoard({
     initialState.workspace?.notification_time?.slice(0, 5) ?? "08:00",
   );
   const [isSendingTestNotification, setIsSendingTestNotification] = useState(false);
+  const [pushSetupNotice, setPushSetupNotice] = useState<PushSetupNotice | null>(null);
   const [homeDate, setHomeDate] = useState(getDateStringWithOffset(0));
   const [homeDateMotion, setHomeDateMotion] = useState<"prev" | "next" | "reset">("reset");
   const [homeDateMotionKey, setHomeDateMotionKey] = useState(0);
@@ -654,6 +662,98 @@ export function TaskBoard({
     }, 200);
   }, [appVersion, commitSha]);
 
+  const ensurePushSubscriptionReady = useCallback(async () => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
+      return false;
+    }
+
+    if (!("Notification" in window) || !("PushManager" in window)) {
+      return false;
+    }
+
+    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!vapidPublicKey) {
+      return false;
+    }
+
+    const registration = await navigator.serviceWorker.register("/sw.js");
+    const existingSubscription = await registration.pushManager.getSubscription();
+    const subscription =
+      existingSubscription ??
+      (await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: base64UrlToUint8Array(vapidPublicKey),
+      }));
+
+    const subscribeResult = await callJson("/api/push/subscriptions", {
+      method: "POST",
+      body: JSON.stringify({
+        subscription: subscription.toJSON(),
+        platform: /iPhone|iPad|iPod/i.test(window.navigator.userAgent)
+          ? "ios"
+          : /Android/i.test(window.navigator.userAgent)
+            ? "android"
+            : "web",
+        deviceLabel: window.navigator.platform || "browser",
+      }),
+    });
+
+    return subscribeResult.ok;
+  }, []);
+
+  const refreshPushSetupNotice = useCallback(async () => {
+    if (typeof window === "undefined" || !effectiveSessionUser || !isPwaMode) {
+      setPushSetupNotice(null);
+      return;
+    }
+
+    if (!("Notification" in window) || !("PushManager" in window) || !("serviceWorker" in navigator)) {
+      setPushSetupNotice(null);
+      return;
+    }
+
+    if (Notification.permission === "denied") {
+      setPushSetupNotice({
+        tone: "error",
+        message: "通知が拒否されています。iPhoneの設定 > 通知 > Team Task から通知を許可してください。",
+      });
+      return;
+    }
+
+    if (Notification.permission === "default") {
+      setPushSetupNotice({
+        tone: "info",
+        message: "通知が未許可です。先に通知を許可しておくと、ロック中のPush通知を受け取れます。",
+        actionLabel: "通知を許可",
+        actionType: "request_permission",
+      });
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.register("/sw.js");
+      const subscription = await registration.pushManager.getSubscription();
+
+      if (!subscription) {
+        setPushSetupNotice({
+          tone: "info",
+          message: "この端末の通知登録が未完了です。今のうちに登録しておくと、通知受信を確認できます。",
+          actionLabel: "通知登録",
+          actionType: "register_subscription",
+        });
+        return;
+      }
+    } catch {
+      setPushSetupNotice({
+        tone: "error",
+        message: "通知の準備状態を確認できませんでした。PWAを開き直して再試行してください。",
+      });
+      return;
+    }
+
+    setPushSetupNotice(null);
+  }, [effectiveSessionUser, isPwaMode]);
+
   useEffect(() => {
     window.localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queue));
   }, [queue]);
@@ -705,18 +805,20 @@ export function TaskBoard({
     const timer = window.setTimeout(() => {
       void ensureLatestBuild();
       void consumePendingLineLogin();
+      void refreshPushSetupNotice();
     }, 0);
 
     return () => {
       window.clearTimeout(timer);
     };
-  }, [consumePendingLineLogin, ensureLatestBuild]);
+  }, [consumePendingLineLogin, ensureLatestBuild, refreshPushSetupNotice]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         void ensureLatestBuild();
         void consumePendingLineLogin();
+        void refreshPushSetupNotice();
         void refreshAppState();
       }
     };
@@ -724,12 +826,14 @@ export function TaskBoard({
     const handleFocus = () => {
       void ensureLatestBuild();
       void consumePendingLineLogin();
+      void refreshPushSetupNotice();
       void refreshAppState();
     };
 
     const handlePageShow = () => {
       void ensureLatestBuild();
       void consumePendingLineLogin();
+      void refreshPushSetupNotice();
       void refreshAppState();
     };
 
@@ -742,7 +846,7 @@ export function TaskBoard({
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("pageshow", handlePageShow);
     };
-  }, [consumePendingLineLogin, ensureLatestBuild, refreshAppState]);
+  }, [consumePendingLineLogin, ensureLatestBuild, refreshAppState, refreshPushSetupNotice]);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -1056,6 +1160,36 @@ export function TaskBoard({
     pushToast("success", "朝通知の時刻を更新しました。");
   }
 
+  async function handlePushSetupAction() {
+    if (!pushSetupNotice?.actionType) {
+      return;
+    }
+
+    if (pushSetupNotice.actionType === "request_permission") {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        pushToast("error", "通知が許可されていません。");
+        await refreshPushSetupNotice();
+        return;
+      }
+    }
+
+    try {
+      const ok = await ensurePushSubscriptionReady();
+      if (!ok) {
+        pushToast("error", "通知端末の登録に失敗しました。");
+        await refreshPushSetupNotice();
+        return;
+      }
+
+      pushToast("success", "通知の準備が完了しました。");
+      await refreshPushSetupNotice();
+    } catch {
+      pushToast("error", "通知の準備に失敗しました。");
+      await refreshPushSetupNotice();
+    }
+  }
+
   async function handleSendDelayedTestNotification() {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
       pushToast("error", "この端末ではWeb通知を利用できません。");
@@ -1089,36 +1223,9 @@ export function TaskBoard({
       }
     }
 
-    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-    if (!vapidPublicKey) {
-      pushToast("error", "通知鍵の設定が不足しています。");
-      return;
-    }
-
     try {
-      const registration = await navigator.serviceWorker.register("/sw.js");
-      const existingSubscription = await registration.pushManager.getSubscription();
-      const subscription =
-        existingSubscription ??
-        (await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: base64UrlToUint8Array(vapidPublicKey),
-        }));
-
-      const subscribeResult = await callJson("/api/push/subscriptions", {
-        method: "POST",
-        body: JSON.stringify({
-          subscription: subscription.toJSON(),
-          platform: /iPhone|iPad|iPod/i.test(window.navigator.userAgent)
-            ? "ios"
-            : /Android/i.test(window.navigator.userAgent)
-              ? "android"
-              : "web",
-          deviceLabel: window.navigator.platform || "browser",
-        }),
-      });
-
-      if (!subscribeResult.ok) {
+      const ok = await ensurePushSubscriptionReady();
+      if (!ok) {
         pushToast("error", "通知端末の登録に失敗しました。");
         return;
       }
@@ -1985,6 +2092,28 @@ export function TaskBoard({
             >
               閉じる
             </button>
+          </div>
+        </Card>
+      ) : null}
+
+      {isPwaMode && pushSetupNotice ? (
+        <Card>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p
+                className={`text-sm font-semibold ${
+                  pushSetupNotice.tone === "error" ? "text-[var(--danger)]" : "text-[var(--brand)]"
+                }`}
+              >
+                通知設定の案内
+              </p>
+              <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{pushSetupNotice.message}</p>
+            </div>
+            {pushSetupNotice.actionLabel ? (
+              <button className={secondaryButtonClass} onClick={handlePushSetupAction} type="button">
+                {pushSetupNotice.actionLabel}
+              </button>
+            ) : null}
           </div>
         </Card>
       ) : null}
