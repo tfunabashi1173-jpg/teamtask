@@ -1480,7 +1480,7 @@ export function TaskBoard({
     const optimisticLog: TaskLogRecord = {
       id: `temp-${Date.now()}`,
       action_type:
-      action === "start"
+        action === "start"
         ? "started"
           : action === "confirm"
             ? "confirm_requested"
@@ -1488,9 +1488,13 @@ export function TaskBoard({
             ? "completed"
             : action === "pause"
               ? "status_changed"
-              : "postponed_to_next_day",
+            : "postponed_to_next_day",
       created_at: new Date().toISOString(),
-      actor: { display_name: memberName || effectiveSessionUser?.displayName || "誰か" },
+      actor: {
+        display_name: memberName || effectiveSessionUser?.displayName || "誰か",
+        line_picture_url:
+          effectiveSessionUser?.pictureUrl ?? state.appUser?.line_picture_url ?? null,
+      },
       task: { title: task.title },
     };
 
