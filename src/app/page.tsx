@@ -13,6 +13,7 @@ export default async function Home({
     authError?: string;
     invite?: string;
     authSuccess?: string;
+    loginAttempt?: string;
   }>;
 }) {
   const sessionUser = await readSessionUser();
@@ -28,6 +29,7 @@ export default async function Home({
       commitSha={commitSha}
       authError={resolvedSearchParams.authError ?? null}
       authSuccess={resolvedSearchParams.authSuccess === "1"}
+      loginAttempt={resolvedSearchParams.loginAttempt ?? null}
       sessionUser={sessionUser}
       initialState={appState}
       inviteToken={resolvedSearchParams.invite ?? null}

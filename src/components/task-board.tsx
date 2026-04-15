@@ -60,6 +60,7 @@ type BatchTaskRow = {
 const QUEUE_STORAGE_KEY = "team-task.queue.v2";
 const MEMBER_NAME_STORAGE_KEY = "team-task.member-name";
 const VERSION_CHECK_STORAGE_KEY = "team-task.version-check";
+const LINE_LOGIN_ATTEMPT_STORAGE_KEY = "team-task.line-login-attempt";
 const WEEKDAY_OPTIONS = [
   { value: 0, label: "日" },
   { value: 1, label: "月" },
@@ -273,6 +274,7 @@ export function TaskBoard({
   commitSha,
   authError,
   authSuccess,
+  loginAttempt,
   sessionUser,
   initialState,
   inviteToken,
@@ -281,6 +283,7 @@ export function TaskBoard({
   commitSha: string;
   authError: string | null;
   authSuccess: boolean;
+  loginAttempt: string | null;
   sessionUser: SessionUser;
   initialState: AppState;
   inviteToken: string | null;
@@ -424,6 +427,7 @@ export function TaskBoard({
   const olderLogs = state.logs.slice(1);
   const currentGroup = state.groups.find((group) => group.id === activeGroupId) ?? null;
   const lastVersionCheckAtRef = useRef(0);
+  const lineLoginSyncingRef = useRef(false);
   const effectiveSessionUser = useMemo(
     () =>
       currentSessionUser ??
@@ -478,6 +482,34 @@ export function TaskBoard({
     }
   }
 
+  const beginLineLogin = useCallback(async () => {
+    const result = await callJson("/api/auth/line/start", {
+      method: "POST",
+    });
+
+    if (!result.ok || !result.json || typeof result.json !== "object") {
+      pushToast("error", "LINEログインを開始できませんでした。");
+      return;
+    }
+
+    const attemptId =
+      "attemptId" in result.json && typeof result.json.attemptId === "string"
+        ? result.json.attemptId
+        : null;
+    const authorizeUrl =
+      "authorizeUrl" in result.json && typeof result.json.authorizeUrl === "string"
+        ? result.json.authorizeUrl
+        : null;
+
+    if (!attemptId || !authorizeUrl) {
+      pushToast("error", "LINEログイン情報が不正です。");
+      return;
+    }
+
+    window.localStorage.setItem(LINE_LOGIN_ATTEMPT_STORAGE_KEY, attemptId);
+    window.location.href = authorizeUrl;
+  }, []);
+
   const refreshAppState = useCallback(async () => {
     const inviteQuery = inviteToken ? `?invite=${encodeURIComponent(inviteToken)}` : "";
     const result = await callJson(`/api/app-state${inviteQuery}`);
@@ -502,6 +534,64 @@ export function TaskBoard({
     );
     return true;
   }, [currentSessionUser?.displayName, currentSessionUser?.pictureUrl, inviteToken]);
+
+  const consumePendingLineLogin = useCallback(async () => {
+    if (lineLoginSyncingRef.current || typeof window === "undefined") {
+      return false;
+    }
+
+    const attemptId =
+      loginAttempt ?? window.localStorage.getItem(LINE_LOGIN_ATTEMPT_STORAGE_KEY);
+    if (!attemptId) {
+      return false;
+    }
+
+    lineLoginSyncingRef.current = true;
+
+    try {
+      if (loginAttempt) {
+        window.localStorage.setItem(LINE_LOGIN_ATTEMPT_STORAGE_KEY, loginAttempt);
+      }
+
+      const statusResult = await callJson(
+        `/api/auth/line/status?attemptId=${encodeURIComponent(attemptId)}`,
+        {
+          cache: "no-store",
+        },
+      );
+
+      if (!statusResult.ok || !statusResult.json || typeof statusResult.json !== "object") {
+        return false;
+      }
+
+      const status = "status" in statusResult.json ? statusResult.json.status : null;
+      if (status === "pending") {
+        return false;
+      }
+
+      if (status === "expired" || status === "failed" || status === "not_found") {
+        window.localStorage.removeItem(LINE_LOGIN_ATTEMPT_STORAGE_KEY);
+        pushToast("error", "LINEログインを完了できませんでした。もう一度お試しください。");
+        return false;
+      }
+
+      const consumeResult = await callJson("/api/auth/line/consume", {
+        method: "POST",
+        body: JSON.stringify({ attemptId }),
+      });
+
+      if (!consumeResult.ok) {
+        return false;
+      }
+
+      window.localStorage.removeItem(LINE_LOGIN_ATTEMPT_STORAGE_KEY);
+      await refreshAppState();
+      pushToast("success", "LINEログインが完了しました。");
+      return true;
+    } finally {
+      lineLoginSyncingRef.current = false;
+    }
+  }, [loginAttempt, refreshAppState]);
 
   const ensureLatestBuild = useCallback(async () => {
     const now = Date.now();
@@ -572,30 +662,59 @@ export function TaskBoard({
   }, [authError]);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (loginAttempt) {
+      window.localStorage.setItem(LINE_LOGIN_ATTEMPT_STORAGE_KEY, loginAttempt);
+    }
+
+    const url = new URL(window.location.href);
+    let changed = false;
+    ["authSuccess", "loginAttempt"].forEach((key) => {
+      if (url.searchParams.has(key)) {
+        url.searchParams.delete(key);
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      window.history.replaceState({}, "", url.toString());
+    }
+
+    void consumePendingLineLogin();
+  }, [consumePendingLineLogin, loginAttempt]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       void ensureLatestBuild();
+      void consumePendingLineLogin();
     }, 0);
 
     return () => {
       window.clearTimeout(timer);
     };
-  }, [ensureLatestBuild]);
+  }, [consumePendingLineLogin, ensureLatestBuild]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         void ensureLatestBuild();
+        void consumePendingLineLogin();
         void refreshAppState();
       }
     };
 
     const handleFocus = () => {
       void ensureLatestBuild();
+      void consumePendingLineLogin();
       void refreshAppState();
     };
 
     const handlePageShow = () => {
       void ensureLatestBuild();
+      void consumePendingLineLogin();
       void refreshAppState();
     };
 
@@ -608,13 +727,14 @@ export function TaskBoard({
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("pageshow", handlePageShow);
     };
-  }, [ensureLatestBuild, refreshAppState]);
+  }, [consumePendingLineLogin, ensureLatestBuild, refreshAppState]);
 
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
       pushToast("success", "オンラインに復帰しました。");
 
+      void consumePendingLineLogin();
       void refreshAppState();
     };
 
@@ -630,7 +750,7 @@ export function TaskBoard({
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [queue.length, refreshAppState]);
+  }, [consumePendingLineLogin, queue.length, refreshAppState]);
 
   useEffect(() => {
     if (!isOnline || queue.length === 0) return;
@@ -1424,6 +1544,7 @@ export function TaskBoard({
         appVersion={appVersion}
         commitSha={commitSha}
         authSuccess={authSuccess}
+        onStartLineLogin={beginLineLogin}
         toasts={toasts}
       />
     );
@@ -2350,11 +2471,13 @@ function LoginScreen({
   appVersion,
   commitSha,
   authSuccess,
+  onStartLineLogin,
   toasts,
 }: {
   appVersion: string;
   commitSha: string;
   authSuccess: boolean;
+  onStartLineLogin: () => void;
   toasts: Toast[];
 }) {
   return (
@@ -2369,12 +2492,13 @@ function LoginScreen({
         <p className="mt-4 text-sm leading-7 text-[var(--muted)]">
           LINEでログインして、オフライン対応のPWAとして利用します。
         </p>
-        <a
+        <button
           className="mt-8 flex h-14 items-center justify-center rounded-2xl bg-[var(--brand)] text-base font-semibold text-white"
-          href="/api/auth/line/login"
+          onClick={onStartLineLogin}
+          type="button"
         >
           LINEでログイン
-        </a>
+        </button>
         {authSuccess ? (
           <p className="mt-3 text-sm text-[var(--brand)]">
             ログインが完了しました。画面が切り替わらない場合は一度だけ再読み込みしてください。

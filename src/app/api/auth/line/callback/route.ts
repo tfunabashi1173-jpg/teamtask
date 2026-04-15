@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import {
   exchangeCodeForTokens,
@@ -8,7 +7,6 @@ import {
 import { writeSessionCookie } from "@/lib/auth/server-session";
 import {
   getLineStateCookieName,
-  verifySignedState,
 } from "@/lib/auth/session";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
@@ -40,14 +38,22 @@ export async function GET(request: NextRequest) {
     return redirectWithError(request, "LINEログインの応答が不正です。");
   }
 
-  const cookieStore = await cookies();
-  const signedState = cookieStore.get(getLineStateCookieName())?.value;
-
-  if (!verifySignedState(signedState, state)) {
-    return redirectWithError(request, "ログイン状態の確認に失敗しました。");
-  }
-
   try {
+    const supabase = createSupabaseAdminClient();
+    const loginAttemptResult = await supabase
+      .from("line_login_attempts")
+      .select("id,status,expires_at")
+      .eq("oauth_state", state)
+      .maybeSingle();
+
+    if (
+      loginAttemptResult.error ||
+      !loginAttemptResult.data ||
+      new Date(loginAttemptResult.data.expires_at).getTime() <= Date.now()
+    ) {
+      return redirectWithError(request, "ログイン状態の確認に失敗しました。");
+    }
+
     const tokens = await exchangeCodeForTokens(code);
     let displayName: string | null = null;
     let lineUserId: string | null = null;
@@ -69,7 +75,6 @@ export async function GET(request: NextRequest) {
       return redirectWithError(request, "LINEユーザー情報を取得できませんでした。");
     }
 
-    const supabase = createSupabaseAdminClient();
     await supabase
       .from("app_users")
       .update({
@@ -83,8 +88,23 @@ export async function GET(request: NextRequest) {
       pictureUrl,
     });
 
+    await supabase
+      .from("line_login_attempts")
+      .update({
+        status: "completed",
+        session_payload: {
+          lineUserId,
+          displayName,
+          pictureUrl,
+        },
+        completed_at: new Date().toISOString(),
+        error_message: null,
+      })
+      .eq("id", loginAttemptResult.data.id);
+
     const successUrl = new URL("/", request.url);
     successUrl.searchParams.set("authSuccess", "1");
+    successUrl.searchParams.set("loginAttempt", loginAttemptResult.data.id);
 
     const response = NextResponse.redirect(successUrl);
     response.cookies.set(getLineStateCookieName(), "", {
@@ -97,6 +117,15 @@ export async function GET(request: NextRequest) {
 
     return response;
   } catch (error) {
+    await createSupabaseAdminClient()
+      .from("line_login_attempts")
+      .update({
+        status: "failed",
+        error_message:
+          error instanceof Error ? error.message : "LINEログインの処理に失敗しました。",
+      })
+      .eq("oauth_state", state);
+
     const message =
       error instanceof Error
         ? error.message
