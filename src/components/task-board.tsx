@@ -29,6 +29,11 @@ type PushSetupNotice = {
   actionType?: "request_permission" | "register_subscription";
 };
 
+type DevicePermissionNotice = {
+  tone: "info" | "error";
+  message: string;
+};
+
 type QueuedAction = {
   id: string;
   taskId: string;
@@ -373,6 +378,8 @@ export function TaskBoard({
   );
   const [isSendingTestNotification, setIsSendingTestNotification] = useState(false);
   const [pushSetupNotice, setPushSetupNotice] = useState<PushSetupNotice | null>(null);
+  const [devicePermissionNotice, setDevicePermissionNotice] = useState<DevicePermissionNotice | null>(null);
+  const [pendingReferenceFiles, setPendingReferenceFiles] = useState<File[]>([]);
   const [homeDate, setHomeDate] = useState(getDateStringWithOffset(0));
   const [homeDateMotion, setHomeDateMotion] = useState<"prev" | "next" | "reset">("reset");
   const [homeDateMotionKey, setHomeDateMotionKey] = useState(0);
@@ -777,9 +784,60 @@ export function TaskBoard({
     setPushSetupNotice(null);
   }, [effectiveSessionUser, isPwaMode]);
 
+  const refreshDevicePermissionNotice = useCallback(async () => {
+    if (typeof window === "undefined") return;
+
+    const messages: string[] = [];
+
+    if ("Notification" in window && Notification.permission === "denied") {
+      messages.push("通知が拒否されています。");
+    }
+
+    try {
+      const permissionsApi = navigator.permissions as PermissionStatus["state"] extends never
+        ? never
+        : Navigator["permissions"];
+
+      if (permissionsApi?.query) {
+        const cameraStatus = await permissionsApi.query({ name: "camera" as PermissionName });
+        if (cameraStatus.state === "denied") {
+          messages.push("カメラ権限が拒否されています。");
+        }
+      }
+    } catch {}
+
+    if (messages.length === 0) {
+      setDevicePermissionNotice(null);
+      return;
+    }
+
+    setDevicePermissionNotice({
+      tone: "info",
+      message: `${messages.join(" ")} 端末設定から許可してください。`,
+    });
+  }, []);
+
   useEffect(() => {
     window.localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queue));
   }, [queue]);
+
+  useEffect(() => {
+    void refreshDevicePermissionNotice();
+
+    const handleResume = () => {
+      if (document.visibilityState === "visible") {
+        void refreshDevicePermissionNotice();
+      }
+    };
+
+    window.addEventListener("focus", handleResume);
+    document.addEventListener("visibilitychange", handleResume);
+
+    return () => {
+      window.removeEventListener("focus", handleResume);
+      document.removeEventListener("visibilitychange", handleResume);
+    };
+  }, [refreshDevicePermissionNotice]);
 
   useEffect(() => {
     if (!authError) return;
@@ -1308,6 +1366,7 @@ export function TaskBoard({
   function openEditTask(task: TaskRecord) {
     setEditingTaskId(task.id);
     setCopySourceTaskId("");
+    setPendingReferenceFiles([]);
     setTaskForm({
       ...buildTaskFormFromTask(task),
     });
@@ -1317,6 +1376,7 @@ export function TaskBoard({
   function openCreateTask() {
     setEditingTaskId(null);
     setCopySourceTaskId("");
+    setPendingReferenceFiles([]);
     setTaskForm(createDefaultTaskForm());
     setCreateTaskOpen(true);
   }
@@ -1442,7 +1502,26 @@ export function TaskBoard({
       return;
     }
 
+    const taskId =
+      editingTaskId ??
+      (result.json &&
+      typeof result.json === "object" &&
+      "task" in result.json &&
+      result.json.task &&
+      typeof result.json.task === "object" &&
+      "id" in result.json.task &&
+      typeof result.json.task.id === "string"
+        ? result.json.task.id
+        : null);
+
+    if (taskId && pendingReferenceFiles.length > 0) {
+      for (const file of pendingReferenceFiles.slice(0, 2)) {
+        await handleReferencePhotoUpload(taskId, file);
+      }
+    }
+
     pushToast("success", editingTaskId ? "タスクを更新しました。" : "タスクを作成しました。");
+    setPendingReferenceFiles([]);
     setCreateTaskOpen(false);
     window.location.reload();
   }
@@ -2161,6 +2240,13 @@ export function TaskBoard({
         </Card>
       ) : null}
 
+      {devicePermissionNotice ? (
+        <Card>
+          <p className="text-sm font-semibold text-[var(--brand)]">権限の案内</p>
+          <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{devicePermissionNotice.message}</p>
+        </Card>
+      ) : null}
+
       {screenMode === "home" ? (
         <Card title="タスク">
           {sortedTasks.length === 0 ? (
@@ -2646,9 +2732,11 @@ export function TaskBoard({
           copySourceTaskId={copySourceTaskId}
           form={taskForm}
           isEditing={Boolean(editingTaskId)}
+          pendingReferenceFiles={pendingReferenceFiles}
           onCopySourceChange={handleCopySourceChange}
           onClose={() => setCreateTaskOpen(false)}
           onSave={handleSaveTask}
+          setPendingReferenceFiles={setPendingReferenceFiles}
           setForm={setTaskForm}
         />
       ) : null}
@@ -2959,7 +3047,9 @@ function TaskModal({
   availableCopyTasks,
   copySourceTaskId,
   form,
+  pendingReferenceFiles,
   setForm,
+  setPendingReferenceFiles,
   onClose,
   onSave,
   isEditing,
@@ -2969,13 +3059,26 @@ function TaskModal({
   availableCopyTasks: TaskRecord[];
   copySourceTaskId: string;
   form: TaskFormState;
+  pendingReferenceFiles: File[];
   setForm: React.Dispatch<React.SetStateAction<TaskFormState>>;
+  setPendingReferenceFiles: React.Dispatch<React.SetStateAction<File[]>>;
   onClose: () => void;
   onSave: () => void;
   isEditing: boolean;
   onCopySourceChange: (taskId: string) => void;
 }) {
   const selectedSlot = scheduledTimeToSlot(form.scheduledTime);
+  const [showReferencePicker, setShowReferencePicker] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const libraryInputRef = useRef<HTMLInputElement | null>(null);
+
+  function appendReferenceFiles(fileList: FileList | null) {
+    if (!fileList?.length) return;
+    const files = Array.from(fileList).filter((file) => file.type.startsWith("image/"));
+    if (files.length === 0) return;
+    setPendingReferenceFiles((current) => [...current, ...files].slice(0, 2));
+    setShowReferencePicker(false);
+  }
 
   return (
     <div
@@ -3043,10 +3146,32 @@ function TaskModal({
               <p className="text-xs font-semibold text-[var(--ink)]">説明画像</p>
               <p className="mt-1 text-xs text-[var(--muted)]">登録時に説明画像を2枚まで添付できます。</p>
             </div>
-            <div className="rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]">
+            <button
+              className="rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]"
+              onClick={() => setShowReferencePicker(true)}
+              type="button"
+            >
               追加
-            </div>
+            </button>
           </div>
+          {pendingReferenceFiles.length > 0 ? (
+            <div className="grid grid-cols-2 gap-3">
+              {pendingReferenceFiles.map((file, index) => (
+                <div key={`${file.name}-${index}`} className="rounded-2xl bg-[var(--surface)] px-3 py-3">
+                  <p className="truncate text-xs font-semibold text-[var(--ink-soft)]">{file.name}</p>
+                  <button
+                    className="mt-2 text-xs font-semibold text-[var(--danger)]"
+                    onClick={() =>
+                      setPendingReferenceFiles((current) => current.filter((_, fileIndex) => fileIndex !== index))
+                    }
+                    type="button"
+                  >
+                    削除
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
           <div className="grid grid-cols-[1.1fr_1fr] gap-3">
             <FormField label="実行日">
               <input
@@ -3259,6 +3384,35 @@ function TaskModal({
             {isEditing ? "更新" : "登録"}
           </button>
         </div>
+        {showReferencePicker ? (
+          <PickerSheet
+            onCamera={() => cameraInputRef.current?.click()}
+            onClose={() => setShowReferencePicker(false)}
+            onLibrary={() => libraryInputRef.current?.click()}
+          />
+        ) : null}
+        <input
+          ref={cameraInputRef}
+          className="hidden"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={(event) => {
+            appendReferenceFiles(event.target.files);
+            event.currentTarget.value = "";
+          }}
+        />
+        <input
+          ref={libraryInputRef}
+          className="hidden"
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={(event) => {
+            appendReferenceFiles(event.target.files);
+            event.currentTarget.value = "";
+          }}
+        />
       </div>
     </div>
   );
@@ -3291,14 +3445,17 @@ function TaskDetailModal({
 }) {
   const [isPhotoSubmitting, setIsPhotoSubmitting] = useState(false);
   const [isReferencePhotoSubmitting, setIsReferencePhotoSubmitting] = useState(false);
-  const addPhotoInputRef = useRef<HTMLInputElement | null>(null);
-  const addReferencePhotoInputRef = useRef<HTMLInputElement | null>(null);
   const shouldOpenPhotoPickerOnDoneRef = useRef(false);
+  const [showReferencePicker, setShowReferencePicker] = useState(false);
+  const [showPhotoPicker, setShowPhotoPicker] = useState(false);
+  const cameraReferenceInputRef = useRef<HTMLInputElement | null>(null);
+  const libraryReferenceInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraPhotoInputRef = useRef<HTMLInputElement | null>(null);
+  const libraryPhotoInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!shouldOpenPhotoPickerOnDoneRef.current || task.status !== "done") return;
-
-    addPhotoInputRef.current?.click();
+    setShowPhotoPicker(true);
     shouldOpenPhotoPickerOnDoneRef.current = false;
   }, [task.status]);
 
@@ -3353,24 +3510,9 @@ function TaskDetailModal({
                 <p className="text-xs font-semibold text-[var(--ink)]">説明画像</p>
               </div>
               {(task.reference_photos?.length ?? 0) < 2 ? (
-                <label className={secondaryButtonClass}>
+                <button className={secondaryButtonClass} onClick={() => setShowReferencePicker(true)} type="button">
                   追加
-                  <input
-                    ref={addReferencePhotoInputRef}
-                    className="hidden"
-                    type="file"
-                    accept="image/*"
-                    disabled={isReferencePhotoSubmitting}
-                    onChange={async (event) => {
-                      const file = event.target.files?.[0];
-                      event.currentTarget.value = "";
-                      if (!file) return;
-                      setIsReferencePhotoSubmitting(true);
-                      await Promise.resolve(onReferencePhotoUpload(file));
-                      setIsReferencePhotoSubmitting(false);
-                    }}
-                  />
-                </label>
+                </button>
               ) : (
                 <span className="text-xs font-semibold text-[var(--muted)]">2 / 2枚</span>
               )}
@@ -3458,25 +3600,9 @@ function TaskDetailModal({
                   </p>
                 </div>
                 {(task.photos?.length ?? 0) < 3 ? (
-                  <label className={secondaryButtonClass}>
+                  <button className={secondaryButtonClass} onClick={() => setShowPhotoPicker(true)} type="button">
                     写真追加
-                    <input
-                      ref={addPhotoInputRef}
-                      className="hidden"
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      disabled={isPhotoSubmitting}
-                      onChange={async (event) => {
-                        const file = event.target.files?.[0];
-                        event.currentTarget.value = "";
-                        if (!file) return;
-                        setIsPhotoSubmitting(true);
-                        await Promise.resolve(onPhotoUpload(file));
-                        setIsPhotoSubmitting(false);
-                      }}
-                    />
-                  </label>
+                  </button>
                 ) : (
                   <span className="text-xs font-semibold text-[var(--muted)]">3 / 3枚</span>
                 )}
@@ -3583,6 +3709,82 @@ function TaskDetailModal({
             閉じる
           </button>
         </div>
+        {showReferencePicker ? (
+          <PickerSheet
+            onCamera={() => cameraReferenceInputRef.current?.click()}
+            onClose={() => setShowReferencePicker(false)}
+            onLibrary={() => libraryReferenceInputRef.current?.click()}
+          />
+        ) : null}
+        {showPhotoPicker ? (
+          <PickerSheet
+            onCamera={() => cameraPhotoInputRef.current?.click()}
+            onClose={() => setShowPhotoPicker(false)}
+            onLibrary={() => libraryPhotoInputRef.current?.click()}
+          />
+        ) : null}
+        <input
+          ref={cameraReferenceInputRef}
+          className="hidden"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={async (event) => {
+            const file = event.target.files?.[0];
+            event.currentTarget.value = "";
+            setShowReferencePicker(false);
+            if (!file) return;
+            setIsReferencePhotoSubmitting(true);
+            await Promise.resolve(onReferencePhotoUpload(file));
+            setIsReferencePhotoSubmitting(false);
+          }}
+        />
+        <input
+          ref={libraryReferenceInputRef}
+          className="hidden"
+          type="file"
+          accept="image/*"
+          onChange={async (event) => {
+            const file = event.target.files?.[0];
+            event.currentTarget.value = "";
+            setShowReferencePicker(false);
+            if (!file) return;
+            setIsReferencePhotoSubmitting(true);
+            await Promise.resolve(onReferencePhotoUpload(file));
+            setIsReferencePhotoSubmitting(false);
+          }}
+        />
+        <input
+          ref={cameraPhotoInputRef}
+          className="hidden"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={async (event) => {
+            const file = event.target.files?.[0];
+            event.currentTarget.value = "";
+            setShowPhotoPicker(false);
+            if (!file) return;
+            setIsPhotoSubmitting(true);
+            await Promise.resolve(onPhotoUpload(file));
+            setIsPhotoSubmitting(false);
+          }}
+        />
+        <input
+          ref={libraryPhotoInputRef}
+          className="hidden"
+          type="file"
+          accept="image/*"
+          onChange={async (event) => {
+            const file = event.target.files?.[0];
+            event.currentTarget.value = "";
+            setShowPhotoPicker(false);
+            if (!file) return;
+            setIsPhotoSubmitting(true);
+            await Promise.resolve(onPhotoUpload(file));
+            setIsPhotoSubmitting(false);
+          }}
+        />
       </div>
     </div>
   );
@@ -3614,6 +3816,38 @@ function ImagePreviewModal({
         onMouseDown={(event) => event.stopPropagation()}
         src={imageUrl}
       />
+    </div>
+  );
+}
+
+function PickerSheet({
+  onCamera,
+  onLibrary,
+  onClose,
+}: {
+  onCamera: () => void;
+  onLibrary: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="absolute inset-0 z-10 flex items-end bg-black/20" onMouseDown={onClose}>
+      <div
+        className="w-full rounded-t-[28px] bg-white px-5 py-4 shadow-2xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-black/10" />
+        <div className="grid gap-3">
+          <button className={modalPrimaryButtonClass} onClick={onCamera} type="button">
+            カメラ
+          </button>
+          <button className={modalSecondaryButtonClass} onClick={onLibrary} type="button">
+            ライブラリ
+          </button>
+          <button className={closeWideButtonClass} onClick={onClose} type="button">
+            閉じる
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
