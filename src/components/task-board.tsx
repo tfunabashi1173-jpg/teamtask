@@ -294,6 +294,7 @@ export function TaskBoard({
   const latestLog = state.logs[0] ?? null;
   const olderLogs = state.logs.slice(1);
   const currentGroup = state.groups.find((group) => group.id === activeGroupId) ?? null;
+  const lastVersionCheckAtRef = useRef(0);
 
   function pushToast(tone: Toast["tone"], message: string) {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -340,64 +341,91 @@ export function TaskBoard({
     return true;
   }, [inviteToken]);
 
+  const ensureLatestBuild = useCallback(async () => {
+    const now = Date.now();
+    if (now - lastVersionCheckAtRef.current < 5000) {
+      return;
+    }
+    lastVersionCheckAtRef.current = now;
+
+    const result = await callJson(`/api/version?ts=${now}`, {
+      cache: "no-store",
+    });
+    if (!result.ok || !result.json || typeof result.json !== "object") {
+      return;
+    }
+
+    const latest = result.json as { appVersion?: string; commitSha?: string };
+    if (!latest.appVersion || !latest.commitSha) {
+      return;
+    }
+
+    if (latest.appVersion === appVersion && latest.commitSha === commitSha) {
+      window.sessionStorage.removeItem(VERSION_CHECK_STORAGE_KEY);
+      return;
+    }
+
+    const mismatchKey = `${latest.appVersion}:${latest.commitSha}`;
+    if (window.sessionStorage.getItem(VERSION_CHECK_STORAGE_KEY) === mismatchKey) {
+      return;
+    }
+    window.sessionStorage.setItem(VERSION_CHECK_STORAGE_KEY, mismatchKey);
+    pushToast("info", "最新版を適用するため再読み込みします。");
+
+    if ("serviceWorker" in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.update()));
+    }
+
+    if ("caches" in window) {
+      const keys = await window.caches.keys();
+      await Promise.all(keys.map((key) => window.caches.delete(key)));
+    }
+
+    window.setTimeout(() => {
+      window.location.reload();
+    }, 200);
+  }, [appVersion, commitSha]);
+
   useEffect(() => {
     window.localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queue));
   }, [queue]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function ensureLatestBuild() {
-      const result = await callJson(`/api/version?ts=${Date.now()}`, {
-        cache: "no-store",
-      });
-      if (
-        cancelled ||
-        !result.ok ||
-        !result.json ||
-        typeof result.json !== "object"
-      ) {
-        return;
-      }
-
-      const latest = result.json as { appVersion?: string; commitSha?: string };
-      if (!latest.appVersion || !latest.commitSha) {
-        return;
-      }
-
-      if (latest.appVersion === appVersion && latest.commitSha === commitSha) {
-        window.sessionStorage.removeItem(VERSION_CHECK_STORAGE_KEY);
-        return;
-      }
-
-      const mismatchKey = `${latest.appVersion}:${latest.commitSha}`;
-      if (window.sessionStorage.getItem(VERSION_CHECK_STORAGE_KEY) === mismatchKey) {
-        return;
-      }
-      window.sessionStorage.setItem(VERSION_CHECK_STORAGE_KEY, mismatchKey);
-      pushToast("info", "最新版を適用するため再読み込みします。");
-
-      if ("serviceWorker" in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(registrations.map((registration) => registration.update()));
-      }
-
-      if ("caches" in window) {
-        const keys = await window.caches.keys();
-        await Promise.all(keys.map((key) => window.caches.delete(key)));
-      }
-
-      window.setTimeout(() => {
-        window.location.reload();
-      }, 200);
-    }
-
-    void ensureLatestBuild();
+    const timer = window.setTimeout(() => {
+      void ensureLatestBuild();
+    }, 0);
 
     return () => {
-      cancelled = true;
+      window.clearTimeout(timer);
     };
-  }, [appVersion, commitSha]);
+  }, [ensureLatestBuild]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        void ensureLatestBuild();
+      }
+    };
+
+    const handleFocus = () => {
+      void ensureLatestBuild();
+    };
+
+    const handlePageShow = () => {
+      void ensureLatestBuild();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("pageshow", handlePageShow);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, [ensureLatestBuild]);
 
   useEffect(() => {
     const handleOnline = () => {
