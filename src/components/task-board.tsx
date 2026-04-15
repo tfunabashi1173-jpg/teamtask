@@ -31,6 +31,7 @@ type QueuedAction = {
 type SessionUser = {
   lineUserId: string;
   displayName: string | null;
+  pictureUrl?: string | null;
 } | null;
 
 type TaskFormState = {
@@ -283,6 +284,7 @@ export function TaskBoard({
   inviteToken: string | null;
 }) {
   const [state, setState] = useState(initialState);
+  const [currentSessionUser, setCurrentSessionUser] = useState(sessionUser);
   const [toasts, setToasts] = useState<Toast[]>(() =>
     authError
       ? [{ id: Date.now(), tone: "error", message: authError }]
@@ -301,7 +303,7 @@ export function TaskBoard({
     (typeof window !== "undefined"
       ? window.localStorage.getItem(MEMBER_NAME_STORAGE_KEY)
       : null) ??
-    sessionUser?.displayName ??
+    currentSessionUser?.displayName ??
     "";
   const [screenMode, setScreenMode] = useState<ScreenMode>("home");
   const [currentGroupId, setCurrentGroupId] = useState(() => initialState.groups[0]?.id ?? "");
@@ -320,7 +322,7 @@ export function TaskBoard({
   const [bootstrapForm, setBootstrapForm] = useState({
     workspaceName: "",
     groupName: "",
-    displayName: sessionUser?.displayName ?? "",
+    displayName: currentSessionUser?.displayName ?? "",
   });
   const [requestName, setRequestName] = useState("");
   const [taskForm, setTaskForm] = useState<TaskFormState>(createDefaultTaskForm);
@@ -420,6 +422,18 @@ export function TaskBoard({
   const olderLogs = state.logs.slice(1);
   const currentGroup = state.groups.find((group) => group.id === activeGroupId) ?? null;
   const lastVersionCheckAtRef = useRef(0);
+  const effectiveSessionUser = useMemo(
+    () =>
+      currentSessionUser ??
+      (state.sessionLineUserId
+        ? {
+            lineUserId: state.sessionLineUserId,
+            displayName: state.appUser?.display_name ?? null,
+            pictureUrl: state.appUser?.line_picture_url ?? null,
+          }
+        : null),
+    [currentSessionUser, state.appUser?.display_name, state.appUser?.line_picture_url, state.sessionLineUserId],
+  );
 
   function pushToast(tone: Toast["tone"], message: string) {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -475,8 +489,17 @@ export function TaskBoard({
     }
 
     setState(nextState);
+    setCurrentSessionUser(
+      nextState.sessionLineUserId
+        ? {
+            lineUserId: nextState.sessionLineUserId,
+            displayName: nextState.appUser?.display_name ?? currentSessionUser?.displayName ?? null,
+            pictureUrl: nextState.appUser?.line_picture_url ?? currentSessionUser?.pictureUrl ?? null,
+          }
+        : null,
+    );
     return true;
-  }, [inviteToken]);
+  }, [currentSessionUser?.displayName, currentSessionUser?.pictureUrl, inviteToken]);
 
   const ensureLatestBuild = useCallback(async () => {
     const now = Date.now();
@@ -531,11 +554,19 @@ export function TaskBoard({
   useEffect(() => {
     if (!authError) return;
 
+    const timer = window.setTimeout(() => {
+      setToasts((current) => current.filter((item) => item.message !== authError));
+    }, 3200);
+
     const url = new URL(window.location.href);
     if (!url.searchParams.has("authError")) return;
 
     url.searchParams.delete("authError");
     window.history.replaceState({}, "", url.toString());
+
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [authError]);
 
   useEffect(() => {
@@ -552,15 +583,18 @@ export function TaskBoard({
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         void ensureLatestBuild();
+        void refreshAppState();
       }
     };
 
     const handleFocus = () => {
       void ensureLatestBuild();
+      void refreshAppState();
     };
 
     const handlePageShow = () => {
       void ensureLatestBuild();
+      void refreshAppState();
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -572,16 +606,14 @@ export function TaskBoard({
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("pageshow", handlePageShow);
     };
-  }, [ensureLatestBuild]);
+  }, [ensureLatestBuild, refreshAppState]);
 
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
       pushToast("success", "オンラインに復帰しました。");
 
-      if (queue.length === 0) {
-        void refreshAppState();
-      }
+      void refreshAppState();
     };
 
     const handleOffline = () => {
@@ -636,7 +668,7 @@ export function TaskBoard({
   }, [isOnline, queue, refreshAppState]);
 
   useEffect(() => {
-    if (!state.workspace?.id || !sessionUser) return;
+    if (!state.workspace?.id || !effectiveSessionUser) return;
 
     const supabase = createSupabaseBrowserClient();
     if (!supabase) return;
@@ -710,7 +742,7 @@ export function TaskBoard({
       }
       void supabase.removeChannel(channel);
     };
-  }, [inviteToken, refreshAppState, sessionUser, state.workspace?.id]);
+  }, [effectiveSessionUser, inviteToken, refreshAppState, state.workspace?.id]);
 
   async function handleLogout() {
     setIsSubmitting(true);
@@ -1326,7 +1358,7 @@ export function TaskBoard({
               ? "status_changed"
               : "postponed_to_next_day",
       created_at: new Date().toISOString(),
-      actor: { display_name: memberName || sessionUser?.displayName || "誰か" },
+      actor: { display_name: memberName || effectiveSessionUser?.displayName || "誰か" },
       task: { title: task.title },
     };
 
@@ -1384,7 +1416,7 @@ export function TaskBoard({
     );
   }
 
-  if (!sessionUser) {
+  if (!effectiveSessionUser) {
     return (
       <LoginScreen
         appVersion={appVersion}
