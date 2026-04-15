@@ -254,10 +254,12 @@ export async function sendUrgentTaskCreatedNotification({
 export async function sendMorningTaskNotifications({
   workspaceId,
   workspaceName,
+  timezone,
   baseUrl,
 }: {
   workspaceId: string;
   workspaceName: string;
+  timezone: string;
   baseUrl: string;
 }) {
   if (!isWebPushConfigured()) {
@@ -265,7 +267,12 @@ export async function sendMorningTaskNotifications({
   }
 
   const supabase = createSupabaseAdminClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone || "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
   const tasksResult = await supabase
     .from("tasks")
     .select("id,title,status,group_id")

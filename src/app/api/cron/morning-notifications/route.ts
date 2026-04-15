@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
         ...(await sendMorningTaskNotifications({
           workspaceId: workspace.id,
           workspaceName: workspace.name,
+          timezone: workspace.timezone || "Asia/Tokyo",
           baseUrl,
         })),
       };
