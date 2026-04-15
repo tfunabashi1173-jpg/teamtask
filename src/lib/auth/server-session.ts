@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import {
   createSessionCookieValue,
   getSessionCookieName,
@@ -8,8 +8,14 @@ import {
 } from "@/lib/auth/session";
 
 export async function readSessionUser() {
+  const requestHeaders = await headers();
+  const authorization = requestHeaders.get("authorization");
+  const bearerToken = authorization?.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length).trim()
+    : null;
+  const headerToken = requestHeaders.get("x-team-task-session");
   const cookieStore = await cookies();
-  const rawValue = cookieStore.get(getSessionCookieName())?.value;
+  const rawValue = bearerToken || headerToken || cookieStore.get(getSessionCookieName())?.value;
   const session = parseSessionCookieValue(rawValue);
 
   if (!session) {
@@ -21,6 +27,10 @@ export async function readSessionUser() {
     displayName: session.displayName,
     pictureUrl: session.pictureUrl ?? null,
   };
+}
+
+export function createSessionToken(user: SessionUser) {
+  return createSessionCookieValue(user);
 }
 
 export async function writeSessionCookie(user: SessionUser) {
