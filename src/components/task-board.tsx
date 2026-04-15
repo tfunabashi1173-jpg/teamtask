@@ -14,7 +14,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type ActionType = "start" | "confirm" | "complete" | "pause" | "postpone";
 type SyncState = "idle" | "queued" | "syncing" | "error";
-type ScreenMode = "home" | "tasks" | "manage" | "group" | "bulk";
+type ScreenMode = "home" | "tasks" | "bulk";
 
 type Toast = {
   id: number;
@@ -354,6 +354,8 @@ export function TaskBoard({
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
   const [copySourceTaskId, setCopySourceTaskId] = useState<string>("");
   const [showAllLogs, setShowAllLogs] = useState(false);
+  const [showManageModal, setShowManageModal] = useState(false);
+  const [showGroupModal, setShowGroupModal] = useState(false);
   const [openNotificationId, setOpenNotificationId] = useState<string | null>(null);
   const [batchRows, setBatchRows] = useState<BatchTaskRow[]>(() =>
     Array.from({ length: 8 }, () => createBatchTaskRow()),
@@ -2071,7 +2073,7 @@ export function TaskBoard({
           </button>
           <button
             className={squareUtilityButtonClass}
-            onClick={() => setScreenMode("group")}
+            onClick={() => setShowGroupModal(true)}
             type="button"
             disabled={!currentGroup}
           >
@@ -2104,7 +2106,7 @@ export function TaskBoard({
             </div>
             <button
               className={secondaryButtonClass}
-              onClick={() => setScreenMode("manage")}
+              onClick={() => setShowManageModal(true)}
               type="button"
             >
               確認
@@ -2433,249 +2435,194 @@ export function TaskBoard({
         </>
       ) : null}
 
-      {screenMode === "group" ? (
-        <>
-          <Card>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
-                  グループ詳細
-                </h2>
-                <p className="mt-1 text-sm text-[var(--muted)]">
-                  現在のグループ情報と参加設定を確認します。
-                </p>
-              </div>
-              <button
-                className={secondaryButtonClass}
-                onClick={() => setScreenMode("home")}
-                type="button"
-              >
-                戻る
-              </button>
-            </div>
-          </Card>
 
-          <Card title="グループ情報">
-            {currentGroup ? (
-              <div className="rounded-[24px] bg-[var(--chip)] px-5 py-5">
-                <p className="text-xs font-semibold tracking-[0.08em] text-[var(--muted)]">
-                  GROUP
-                </p>
-                <p className="mt-2 font-[family-name:var(--font-heading)] text-2xl tracking-[-0.03em] text-[var(--ink)]">
-                  {currentGroup.name}
-                </p>
-                {currentGroup.description ? (
-                  <p className="mt-3 text-sm leading-7 text-[var(--ink-soft)]">
-                    {currentGroup.description}
-                  </p>
-                ) : (
-                  <p className="mt-3 text-sm text-[var(--muted)]">
-                    グループ説明は設定されていません。
-                  </p>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-[var(--muted)]">グループが見つかりません。</p>
-            )}
-          </Card>
-
-          <Card title="危険操作">
-            <div className="rounded-[24px] border border-[var(--danger)]/25 bg-[rgba(196,72,72,0.06)] px-5 py-5">
-              <p className="text-sm leading-7 text-[var(--ink-soft)]">
-                この操作を行うと、現在のグループから退出します。過去の履歴は残ります。
-              </p>
-              <button
-                className="mt-4 rounded-2xl border border-[var(--danger)]/35 bg-white px-4 py-3 text-sm font-semibold text-[var(--danger)] shadow-[0_8px_16px_rgba(196,72,72,0.08)]"
-                onClick={handleLeaveCurrentGroup}
-                type="button"
-                disabled={isSubmitting || !currentGroup}
-              >
-                {isSubmitting ? "処理中..." : "このグループから退出"}
-              </button>
+      {showGroupModal ? (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setShowGroupModal(false);
+          }}
+        >
+          <div
+            className="absolute left-1/2 top-1/2 max-h-[min(88vh,680px)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[32px] bg-white px-5 py-5 shadow-2xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-black/10" />
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">グループ詳細</h3>
+              <button className={secondaryButtonClass} onClick={() => setShowGroupModal(false)} type="button">閉じる</button>
             </div>
-          </Card>
-        </>
+            <div className="mt-4 grid gap-4">
+              {currentGroup ? (
+                <div className="rounded-[20px] bg-[var(--chip)] px-4 py-4">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--muted)]">GROUP</p>
+                  <p className="mt-2 font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em] text-[var(--ink)]">
+                    {currentGroup.name}
+                  </p>
+                  {currentGroup.description ? (
+                    <p className="mt-2 text-sm leading-6 text-[var(--ink-soft)]">{currentGroup.description}</p>
+                  ) : (
+                    <p className="mt-2 text-sm text-[var(--muted)]">グループ説明は設定されていません。</p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-[var(--muted)]">グループが見つかりません。</p>
+              )}
+              <div className="rounded-[20px] border border-[var(--danger)]/20 bg-red-50/60 px-4 py-4">
+                <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--danger)]/70">危険操作</p>
+                <p className="mt-2 text-sm leading-6 text-[var(--ink-soft)]">
+                  この操作を行うと、現在のグループから退出します。過去の履歴は残ります。
+                </p>
+                <button
+                  className="mt-3 rounded-xl border border-[var(--danger)]/30 bg-white px-4 py-2.5 text-sm font-semibold text-[var(--danger)]"
+                  onClick={handleLeaveCurrentGroup}
+                  type="button"
+                  disabled={isSubmitting || !currentGroup}
+                >
+                  {isSubmitting ? "処理中..." : "このグループから退出"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       ) : null}
 
-      {screenMode === "home" ? (
-        <Card>
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">通知</h2>
-            {olderLogs.length > 0 ? (
-              <button
-                className="text-sm font-semibold text-[var(--brand)]"
-                onClick={() => setShowAllLogs((current) => !current)}
-                type="button"
-              >
-                {showAllLogs ? "閉じる" : `過去 ${olderLogs.length + (latestLog ? 1 : 0)} 件`}
-              </button>
-            ) : null}
-          </div>
-          <div className="flex flex-col gap-3">
-            {latestLog ? (
-              <NotificationBubble
-                isOpen={openNotificationId === latestLog.id}
-                log={latestLog}
-                onDismiss={() => void handleDismissLog(latestLog.id)}
-                onOpen={() => setOpenNotificationId(latestLog.id)}
-                onClose={() => setOpenNotificationId(null)}
-              />
-            ) : (
-              <p className="text-sm text-[var(--muted)]">通知はまだありません。</p>
-            )}
-
-            {olderLogs.length > 0 && showAllLogs ? (
-              <>
-                <div className="flex flex-col gap-3">
-                  {olderLogs.map((log) => (
-                    <NotificationBubble
-                      key={log.id}
-                      isOpen={openNotificationId === log.id}
-                      log={log}
-                      onDismiss={() => void handleDismissLog(log.id)}
-                      onOpen={() => setOpenNotificationId(log.id)}
-                      onClose={() => setOpenNotificationId(null)}
-                    />
+      {showManageModal ? (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setShowManageModal(false);
+          }}
+        >
+          <div
+            className="absolute left-1/2 top-1/2 max-h-[min(92vh,760px)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[32px] bg-white px-5 py-5 shadow-2xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-black/10" />
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">管理画面</h3>
+                <p className="mt-0.5 text-xs text-[var(--muted)]">メンバー承認・招待・設定</p>
+              </div>
+              <button className={secondaryButtonClass} onClick={() => setShowManageModal(false)} type="button">閉じる</button>
+            </div>
+            <div className="mt-5 grid gap-5">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">承認待ち申請</p>
+                <div className="mt-2">
+                  {state.pendingRequests.length === 0 ? (
+                    <p className="text-sm text-[var(--muted)]">承認待ちはありません。</p>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {state.pendingRequests.map((item) => (
+                        <PendingRequestCard
+                          key={item.id}
+                          groups={state.groups}
+                          item={item}
+                          onApprove={() => handleApproveRequest(item.id)}
+                          onReject={() => handleRejectRequest(item.id)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">メンバー</p>
+                <div className="mt-2 flex flex-col gap-2">
+                  {state.members.map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex items-center justify-between rounded-[18px] bg-[var(--chip)] px-3 py-2.5"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold">{member.display_name}</p>
+                        <p className="text-xs text-[var(--muted)]">{member.role}</p>
+                      </div>
+                      {state.appUser?.role === "admin" ? (
+                        <button
+                          className="rounded-xl border border-[var(--danger)]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[var(--danger)]"
+                          onClick={() => handleRemoveMember(member.id)}
+                          type="button"
+                        >
+                          削除
+                        </button>
+                      ) : null}
+                    </div>
                   ))}
                 </div>
-              </>
-            ) : null}
-          </div>
-        </Card>
-      ) : null}
-
-      {screenMode === "manage" && state.appUser.role === "admin" ? (
-        <>
-          <Card>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
-                  管理画面
-                </h2>
-                <p className="mt-1 text-sm text-[var(--muted)]">
-                  メンバー承認、招待、削除をここで行います。
-                </p>
               </div>
-              <button
-                className={secondaryButtonClass}
-                onClick={() => setScreenMode("home")}
-                type="button"
-              >
-                戻る
-              </button>
-            </div>
-          </Card>
-          <Card title="承認待ち申請">
-            {state.pendingRequests.length === 0 ? (
-              <p className="text-sm text-[var(--muted)]">承認待ちはありません。</p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {state.pendingRequests.map((item) => (
-                  <PendingRequestCard
-                    key={item.id}
-                    groups={state.groups}
-                    item={item}
-                    onApprove={() => handleApproveRequest(item.id)}
-                    onReject={() => handleRejectRequest(item.id)}
-                  />
-                ))}
-              </div>
-            )}
-          </Card>
-
-          <Card title="メンバー管理">
-            <div className="flex flex-col gap-3">
-              {state.members.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between rounded-[22px] bg-[var(--chip)] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]"
-                >
+              {state.appUser?.role === "admin" ? (
+                <>
                   <div>
-                    <p className="font-semibold">{member.display_name}</p>
-                    <p className="text-xs text-[var(--muted)]">{member.role}</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">グループ招待</p>
+                    <div className="mt-2 flex flex-col gap-3">
+                      {state.groups.map((group) => (
+                        <div key={group.id} className="rounded-[18px] bg-[var(--chip)] px-3 py-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold">{group.name}</p>
+                              <p className="text-xs text-[var(--muted)]">24時間有効</p>
+                            </div>
+                            <button
+                              className={secondaryButtonClass}
+                              onClick={() => handleCreateInvite(group.id)}
+                              type="button"
+                            >
+                              招待リンク発行
+                            </button>
+                          </div>
+                          {inviteLinks[group.id] ? (
+                            <p className="mt-2 break-all rounded-xl bg-white px-3 py-2 text-xs text-[var(--ink-soft)]">
+                              {inviteLinks[group.id]}
+                            </p>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <button
-                    className="rounded-xl border border-[var(--danger)]/35 bg-white px-3 py-2 text-xs font-semibold text-[var(--danger)]"
-                    onClick={() => handleRemoveMember(member.id)}
-                    type="button"
-                  >
-                    削除
-                  </button>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          <Card title="通知設定">
-            <div className="grid gap-3">
-              <FormField label="朝通知時刻">
-                <input
-                  className={inputClass}
-                  type="time"
-                  value={notificationTime}
-                  onChange={(event) => setNotificationTime(event.target.value)}
-                />
-              </FormField>
-              <p className="text-xs text-[var(--muted)]">
-                現在のタイムゾーン: {state.workspace?.timezone ?? "Asia/Tokyo"}
-              </p>
-              <button
-                className={primaryButtonClass}
-                onClick={handleSaveWorkspaceSettings}
-                type="button"
-              >
-                通知時刻を保存
-              </button>
-              <button
-                className={secondaryButtonClass}
-                disabled={isSendingTestNotification}
-                onClick={handleSendDelayedTestNotification}
-                type="button"
-              >
-                {isSendingTestNotification ? "テスト通知送信中..." : "10秒後にテスト通知"}
-              </button>
-            </div>
-          </Card>
-        </>
-      ) : null}
-
-      {screenMode === "manage" ? (
-        <Card title="グループ招待">
-          <div className="flex flex-col gap-4">
-            {state.groups.map((group) => (
-              <div key={group.id} className="rounded-[24px] bg-[var(--chip)] px-4 py-4">
-                <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="font-semibold">{group.name}</p>
-                    <p className="text-xs text-[var(--muted)]">24時間有効の招待リンク</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">通知設定</p>
+                    <div className="mt-2 grid gap-3">
+                      <FormField label="朝通知時刻">
+                        <input
+                          className={inputClass}
+                          type="time"
+                          value={notificationTime}
+                          onChange={(event) => setNotificationTime(event.target.value)}
+                        />
+                      </FormField>
+                      <p className="text-xs text-[var(--muted)]">
+                        タイムゾーン: {state.workspace?.timezone ?? "Asia/Tokyo"}
+                      </p>
+                      <button className={primaryButtonClass} onClick={handleSaveWorkspaceSettings} type="button">
+                        通知時刻を保存
+                      </button>
+                      <button
+                        className={secondaryButtonClass}
+                        disabled={isSendingTestNotification}
+                        onClick={handleSendDelayedTestNotification}
+                        type="button"
+                      >
+                        {isSendingTestNotification ? "送信中..." : "10秒後にテスト通知"}
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    className={secondaryButtonClass}
-                    onClick={() => handleCreateInvite(group.id)}
-                    type="button"
-                  >
-                    招待リンク発行
-                  </button>
-                </div>
-                {inviteLinks[group.id] ? (
-                  <p className="mt-3 break-all rounded-xl bg-white px-3 py-2 text-xs text-[var(--ink-soft)]">
-                    {inviteLinks[group.id]}
-                  </p>
-                ) : null}
-              </div>
-            ))}
+                </>
+              ) : null}
+            </div>
           </div>
-        </Card>
+        </div>
       ) : null}
 
       <section className="grid grid-cols-2 gap-3">
         {state.appUser.role === "admin" ? (
           <button
             className={bottomActionButtonClass}
-            onClick={() => setScreenMode((current) => (current === "home" ? "manage" : "home"))}
+            onClick={() => setShowManageModal(true)}
             type="button"
           >
-            {screenMode === "home" ? "管理" : "ホーム"}
+            管理
           </button>
         ) : (
           <div />
@@ -3046,13 +2993,13 @@ function TaskModal({
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-black/12" />
-        <h3 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
+        <h3 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">
           {isEditing ? "タスクを編集" : "タスクを追加"}
         </h3>
         <p className="mt-1 text-sm text-[var(--muted)]">追加先: {currentGroupName}</p>
         <div className="mt-4 grid gap-3">
           <div>
-            <p className="text-sm font-semibold text-[var(--ink)]">既存タスクをコピー</p>
+            <p className="text-xs font-semibold text-[var(--ink)]">既存タスクをコピー</p>
             <p className="mt-1 text-xs text-[var(--muted)]">
               {availableCopyTasks.length > 0
                 ? "選択すると入力欄へ反映されます。"
@@ -3095,7 +3042,7 @@ function TaskModal({
           </FormField>
           <div className="grid grid-cols-[1fr_auto] items-end gap-3">
             <div>
-              <p className="text-sm font-semibold text-[var(--ink)]">説明画像</p>
+              <p className="text-xs font-semibold text-[var(--ink)]">説明画像</p>
               <p className="mt-1 text-xs text-[var(--muted)]">登録時に説明画像を2枚まで添付できます。</p>
             </div>
             <div className="rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]">
@@ -3165,7 +3112,7 @@ function TaskModal({
           <div className="rounded-3xl bg-[var(--surface)] px-4 py-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-[var(--ink)]">繰り返し</p>
+                <p className="text-xs font-semibold text-[var(--ink)]">繰り返し</p>
               </div>
               <button
                 className={form.recurrenceEnabled ? segmentedActiveButtonClass : segmentedButtonClass}
@@ -3373,7 +3320,7 @@ function TaskDetailModal({
         <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-black/12" />
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
+            <h3 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">
               {task.status !== "done" ? `${formatPriorityIcon(task.priority)} ` : ""}
               {task.status === "done" ? "✅ " : ""}
               {task.title}
@@ -3388,7 +3335,7 @@ function TaskDetailModal({
           {task.description ? (
             <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-[var(--ink)]">説明</p>
+                <p className="text-xs font-semibold text-[var(--ink)]">説明</p>
                 <button
                   className={iconButtonClass}
                   onClick={() => void onCopyText("説明", task.description ?? "")}
@@ -3405,7 +3352,7 @@ function TaskDetailModal({
           <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-[var(--ink)]">説明画像</p>
+                <p className="text-xs font-semibold text-[var(--ink)]">説明画像</p>
               </div>
               {(task.reference_photos?.length ?? 0) < 2 ? (
                 <label className={secondaryButtonClass}>
@@ -3488,7 +3435,7 @@ function TaskDetailModal({
 
           {task.recurrence?.is_active ? (
             <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
-              <p className="text-sm font-semibold text-[var(--ink)]">繰り返し</p>
+              <p className="text-xs font-semibold text-[var(--ink)]">繰り返し</p>
               <p className="mt-2 text-sm text-[var(--ink-soft)]">{formatRecurrenceSummary(task)}</p>
               <p className="mt-1 text-xs text-[var(--muted)]">
                 期間: {task.recurrence.start_date} - {task.recurrence.end_date ?? "終了日なし"}
@@ -3498,7 +3445,7 @@ function TaskDetailModal({
 
           {task.status !== "done" ? (
             <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
-              <p className="text-sm font-semibold text-[var(--ink)]">完了写真</p>
+              <p className="text-xs font-semibold text-[var(--ink)]">完了写真</p>
               <p className="mt-2 text-sm text-[var(--ink-soft)]">
                 完了写真はタスク完了後に登録できます。
               </p>
@@ -3509,7 +3456,7 @@ function TaskDetailModal({
             <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-[var(--ink)]">完了写真</p>
+                  <p className="text-xs font-semibold text-[var(--ink)]">完了写真</p>
                   <p className="mt-1 text-xs text-[var(--muted)]">
                     最大3枚まで登録できます。
                   </p>
@@ -3684,7 +3631,7 @@ function FormField({
 }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-sm text-[var(--muted)]">{label}</span>
+      <span className="text-xs text-[var(--muted)]">{label}</span>
       {children}
     </label>
   );
