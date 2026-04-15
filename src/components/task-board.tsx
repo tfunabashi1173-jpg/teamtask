@@ -2987,10 +2987,12 @@ function ActionButton({
   label,
   onClick,
   tone,
+  disabled = false,
 }: {
   label: string;
   onClick: () => void;
   tone: "warning" | "success" | "neutral";
+  disabled?: boolean;
 }) {
   const toneClass =
     tone === "warning"
@@ -3001,9 +3003,12 @@ function ActionButton({
 
   return (
     <button
-      className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold ${toneClass}`}
+      className={`w-full whitespace-nowrap rounded-2xl border px-2 py-2.5 text-[11px] font-semibold leading-none ${toneClass} ${
+        disabled ? "cursor-not-allowed opacity-35" : ""
+      }`}
       onClick={onClick}
       type="button"
+      disabled={disabled}
     >
       {label}
     </button>
@@ -3529,7 +3534,7 @@ function TaskDetailModal({
               {task.title}
             </h3>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              {task.scheduled_time?.slice(0, 5) ?? "時刻未設定"} / {formatStatus(task.status)}
+              {slotLabel(scheduledTimeToSlot(task.scheduled_time))} / {formatStatus(task.status)}
             </p>
           </div>
         </div>
@@ -3720,36 +3725,41 @@ function TaskDetailModal({
           ) : null}
         </div>
 
-        <div className="mt-5 grid grid-cols-3 gap-3">
-          {task.status === "pending" ||
-          task.status === "awaiting_confirmation" ||
-          task.status === "done" ? (
-            <ActionButton label="開始" onClick={() => onAction("start")} tone="warning" />
-          ) : null}
-          {(task.status === "pending" || task.status === "in_progress" || task.status === "done") ? (
-            <ActionButton label="確認待ち" onClick={() => onAction("confirm")} tone="warning" />
-          ) : null}
-          {task.status !== "done" ? (
-            <ActionButton label="完了" onClick={() => onAction("complete")} tone="success" />
-          ) : null}
-          {task.status !== "done" ? (
-            <ActionButton
-              label="完了して写真"
-              onClick={() => {
-                shouldOpenPhotoPickerOnDoneRef.current = true;
-                onAction("complete");
-              }}
-              tone="success"
-            />
-          ) : null}
-          {task.status === "in_progress" || task.status === "awaiting_confirmation" ? (
-            <ActionButton label="中断" onClick={() => onAction("pause")} tone="neutral" />
-          ) : null}
-          {task.status !== "done" &&
-          task.priority !== "urgent" &&
-          task.priority !== "high" ? (
-            <ActionButton label="翌日に回す" onClick={() => onAction("postpone")} tone="neutral" />
-          ) : null}
+        <div className="mt-5 grid grid-cols-5 gap-2">
+          <ActionButton
+            label="開始"
+            onClick={() => onAction("start")}
+            tone="warning"
+            disabled={!(task.status === "pending" || task.status === "awaiting_confirmation" || task.status === "done")}
+          />
+          <ActionButton
+            label="確認待ち"
+            onClick={() => onAction("confirm")}
+            tone="warning"
+            disabled={!(task.status === "pending" || task.status === "in_progress" || task.status === "done")}
+          />
+          <ActionButton
+            label="中断"
+            onClick={() => onAction("pause")}
+            tone="neutral"
+            disabled={!(task.status === "in_progress" || task.status === "awaiting_confirmation")}
+          />
+          <ActionButton
+            label="完了"
+            onClick={() => onAction("complete")}
+            tone="success"
+            disabled={task.status === "done"}
+          />
+          <ActionButton
+            label="翌日"
+            onClick={() => onAction("postpone")}
+            tone="neutral"
+            disabled={
+              task.status === "done" ||
+              task.priority === "urgent" ||
+              task.priority === "high"
+            }
+          />
         </div>
         {(task.priority === "urgent" || task.priority === "high") && task.status !== "done" ? (
           <div className="mt-3 rounded-2xl bg-[rgba(220,38,38,0.08)] px-4 py-3 text-center text-sm font-semibold text-[var(--danger)]">
