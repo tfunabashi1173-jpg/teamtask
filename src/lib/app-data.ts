@@ -239,14 +239,41 @@ export async function getAppState({
   await purgeExpiredCompletedTasks(workspace.id);
   await purgeExpiredTaskLogs();
 
+  const activeGroupMembershipResult =
+    appUser.role === "admin"
+      ? Promise.resolve({ data: [] as { group_id: string }[] })
+      : supabase
+          .from("group_members")
+          .select("group_id")
+          .eq("user_id", appUser.id)
+          .eq("is_active", true)
+          .is("left_at", null);
+
+  const activeGroupMemberships = await activeGroupMembershipResult;
+  const activeGroupIds =
+    appUser.role === "admin"
+      ? []
+      : ((activeGroupMemberships.data as { group_id: string }[] | null) ?? []).map(
+          (row) => row.group_id,
+        );
+
   const [groupsResult, tasksResult, logsResult, membersResult, pendingRequestsResult] =
     await Promise.all([
-      supabase
-        .from("groups")
-        .select("id,workspace_id,name,description,is_active")
-        .eq("workspace_id", workspace.id)
-        .eq("is_active", true)
-        .order("name"),
+      appUser.role === "admin"
+        ? supabase
+            .from("groups")
+            .select("id,workspace_id,name,description,is_active")
+            .eq("workspace_id", workspace.id)
+            .eq("is_active", true)
+            .order("name")
+        : activeGroupIds.length > 0
+          ? supabase
+              .from("groups")
+              .select("id,workspace_id,name,description,is_active")
+              .in("id", activeGroupIds)
+              .eq("is_active", true)
+              .order("name")
+          : Promise.resolve({ data: [] }),
       supabase
         .from("tasks")
         .select(
@@ -284,7 +311,14 @@ export async function getAppState({
     ]);
 
   const baseTasks = (tasksResult.data as TaskRecord[] | null) ?? [];
-  let tasks = baseTasks;
+  let tasks =
+    appUser.role === "admin"
+      ? baseTasks
+      : baseTasks.filter(
+          (task) =>
+            task.owner_user_id === appUser.id ||
+            (task.group_id ? activeGroupIds.includes(task.group_id) : false),
+        );
 
   if (baseTasks.length > 0) {
     const taskIds = baseTasks.map((task) => task.id);

@@ -24,13 +24,9 @@ export async function POST(request: NextRequest) {
 
   const existingUser = await supabase
     .from("app_users")
-    .select("id")
+    .select("id,is_active")
     .eq("line_user_id", sessionUser.lineUserId)
     .maybeSingle();
-
-  if (existingUser.data) {
-    return NextResponse.json({ error: "ALREADY_MEMBER" }, { status: 409 });
-  }
 
   const inviteResult = await supabase
     .from("member_invites")
@@ -42,6 +38,21 @@ export async function POST(request: NextRequest) {
 
   if (!inviteResult.data) {
     return NextResponse.json({ error: "INVALID_INVITE" }, { status: 404 });
+  }
+
+  if (existingUser.data) {
+    const activeMembership = await supabase
+      .from("group_members")
+      .select("group_id")
+      .eq("group_id", inviteResult.data.group_id)
+      .eq("user_id", existingUser.data.id)
+      .eq("is_active", true)
+      .is("left_at", null)
+      .maybeSingle();
+
+    if (activeMembership.data) {
+      return NextResponse.json({ error: "ALREADY_MEMBER" }, { status: 409 });
+    }
   }
 
   const pendingRequest = await supabase

@@ -254,15 +254,18 @@ export function TaskBoard({
     const iPadOnMac = /Macintosh/i.test(ua) && "ontouchend" in document;
     return iOSDevice || iPadOnMac;
   });
+  const activeGroupId = state.groups.some((group) => group.id === currentGroupId)
+    ? currentGroupId
+    : (state.groups[0]?.id ?? "");
 
   const sortedTasks = useMemo(
     () =>
       sortTasks(
         state.tasks.filter(
-          (task) => !task.deleted_at && (!currentGroupId || task.group_id === currentGroupId),
+          (task) => !task.deleted_at && (!activeGroupId || task.group_id === activeGroupId),
         ),
       ),
-    [currentGroupId, state.tasks],
+    [activeGroupId, state.tasks],
   );
 
   const rangedTasks = useMemo(
@@ -270,11 +273,11 @@ export function TaskBoard({
       sortTasks(
         state.tasks.filter((task) => {
           if (task.deleted_at) return false;
-          if (task.group_id !== currentGroupId) return false;
+          if (task.group_id !== activeGroupId) return false;
           return task.scheduled_date >= rangeStart && task.scheduled_date <= rangeEnd;
         }),
       ),
-    [currentGroupId, rangeEnd, rangeStart, state.tasks],
+    [activeGroupId, rangeEnd, rangeStart, state.tasks],
   );
 
   const counts = useMemo(
@@ -290,6 +293,7 @@ export function TaskBoard({
     selectedTaskId ? state.tasks.find((task) => task.id === selectedTaskId) ?? null : null;
   const latestLog = state.logs[0] ?? null;
   const olderLogs = state.logs.slice(1);
+  const currentGroup = state.groups.find((group) => group.id === activeGroupId) ?? null;
 
   function pushToast(tone: Toast["tone"], message: string) {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -637,6 +641,47 @@ export function TaskBoard({
     window.location.reload();
   }
 
+  async function handleLeaveCurrentGroup() {
+    if (!currentGroup) {
+      pushToast("error", "退出するグループが見つかりません。");
+      return;
+    }
+
+    const confirmed = window.confirm(`「${currentGroup.name}」から退出しますか？`);
+    if (!confirmed) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    const result = await callJson(`/api/groups/${currentGroup.id}/leave`, {
+      method: "POST",
+    });
+    setIsSubmitting(false);
+
+    if (!result.ok) {
+      const error =
+        result.json && typeof result.json === "object" && "error" in result.json
+          ? String(result.json.error)
+          : "";
+
+      if (error === "LAST_ADMIN_CANNOT_LEAVE") {
+        pushToast("error", "最後の管理者はグループから退出できません。");
+        return;
+      }
+
+      if (error === "MEMBERSHIP_NOT_FOUND") {
+        pushToast("error", "このグループには所属していません。");
+        return;
+      }
+
+      pushToast("error", "グループ退出に失敗しました。");
+      return;
+    }
+
+    pushToast("success", `「${currentGroup.name}」から退出しました。`);
+    window.location.reload();
+  }
+
   async function handleSaveWorkspaceSettings() {
     const result = await callJson("/api/workspace/settings", {
       method: "PATCH",
@@ -736,7 +781,7 @@ export function TaskBoard({
       scheduledDate: taskForm.scheduledDate,
       scheduledTime: taskForm.scheduledTime,
       visibilityType: "group",
-      groupId: currentGroupId,
+      groupId: activeGroupId,
       recurrence: {
         enabled: taskForm.recurrenceEnabled,
         frequency: taskForm.recurrenceFrequency,
@@ -1082,6 +1127,57 @@ export function TaskBoard({
     );
   }
 
+  if (!state.workspace) {
+    if (state.pendingOwnRequest) {
+      return (
+        <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts}>
+          <Card title="承認待ち">
+            <p className="text-sm leading-7 text-[var(--muted)]">
+              登録申請を送信済みです。管理者の承認後に利用可能になります。
+            </p>
+            <div className="mt-4 rounded-2xl bg-[var(--chip)] px-4 py-4 text-sm text-[var(--ink-soft)]">
+              申請名: {state.pendingOwnRequest.requested_name}
+            </div>
+          </Card>
+        </Shell>
+      );
+    }
+
+    return (
+      <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts}>
+        <Card title="所属グループがありません">
+          {state.activeInvite ? (
+            <>
+              <p className="mb-4 text-sm leading-7 text-[var(--muted)]">
+                招待リンクを確認しました。名前を入力して登録申請を送信してください。
+              </p>
+              <FormField label="登録名">
+                <input
+                  className={inputClass}
+                  value={requestName}
+                  onChange={(event) => setRequestName(event.target.value)}
+                  placeholder={state.appUser.display_name}
+                />
+              </FormField>
+              <button
+                className={primaryButtonClass}
+                onClick={handleMembershipRequest}
+                type="button"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "送信中..." : "登録申請を送信"}
+              </button>
+            </>
+          ) : (
+            <p className="text-sm leading-7 text-[var(--muted)]">
+              現在参加中のグループがありません。招待URLから再度参加申請してください。
+            </p>
+          )}
+        </Card>
+      </Shell>
+    );
+  }
+
   return (
     <Shell
       appVersion={appVersion}
@@ -1092,10 +1188,15 @@ export function TaskBoard({
       <Card>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-sm text-[var(--muted)]">{new Date().toLocaleDateString("ja-JP")}</p>
+            <p className="text-[11px] font-semibold tracking-[0.08em] text-[var(--muted)]">
+              TASK BOARD
+            </p>
             <h1 className="mt-2 font-[family-name:var(--font-heading)] text-[2rem] leading-none tracking-[-0.03em]">
-              今日のタスク
+              タスク
             </h1>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              {new Date().toLocaleDateString("ja-JP")} ・ {currentGroup?.name ?? "グループ未設定"}
+            </p>
           </div>
           <div className="flex gap-2">
             <button className={primaryIconButtonClass} onClick={openCreateTask} type="button">
@@ -1113,7 +1214,7 @@ export function TaskBoard({
         <div className="mt-4 flex gap-2">
           <select
             className={inputClass}
-            value={currentGroupId}
+            value={activeGroupId}
             onChange={(event) => setCurrentGroupId(event.target.value)}
           >
             {state.groups.map((group) => (
@@ -1130,6 +1231,17 @@ export function TaskBoard({
             一覧
           </button>
         </div>
+
+        {currentGroup ? (
+          <button
+            className="mt-3 rounded-2xl border border-[var(--danger)] px-4 py-3 text-sm font-semibold text-[var(--danger)]"
+            onClick={handleLeaveCurrentGroup}
+            type="button"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "処理中..." : `「${currentGroup.name}」から退出`}
+          </button>
+        ) : null}
 
         {!isOnline || syncState !== "idle" ? (
           <div className="mt-4 rounded-2xl bg-[var(--chip)] px-4 py-3 text-sm text-[var(--ink-soft)]">
@@ -1511,10 +1623,10 @@ export function TaskBoard({
       {createTaskOpen ? (
         <TaskModal
           currentGroupName={
-            state.groups.find((group) => group.id === currentGroupId)?.name ?? "グループ未設定"
+            state.groups.find((group) => group.id === activeGroupId)?.name ?? "グループ未設定"
           }
           availableCopyTasks={state.tasks.filter(
-            (task) => !task.deleted_at && task.group_id === currentGroupId,
+            (task) => !task.deleted_at && task.group_id === activeGroupId,
           )}
           copySourceTaskId={copySourceTaskId}
           form={taskForm}
