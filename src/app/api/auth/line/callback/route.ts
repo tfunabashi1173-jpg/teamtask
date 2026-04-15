@@ -85,8 +85,6 @@ export async function GET(request: NextRequest) {
 
     const successUrl = new URL("/", request.url);
     successUrl.searchParams.set("authSuccess", "1");
-    successUrl.searchParams.set("lineAuth", "1");
-    successUrl.searchParams.set("pwaReturn", "1");
 
     const response = NextResponse.redirect(successUrl);
     response.cookies.set(getLineStateCookieName(), "", {

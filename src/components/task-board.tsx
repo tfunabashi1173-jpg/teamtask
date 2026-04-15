@@ -273,10 +273,6 @@ export function TaskBoard({
   commitSha,
   authError,
   authSuccess,
-  lineAuthFlow,
-  loginStarted,
-  pwaReturn,
-  nextUrl,
   sessionUser,
   initialState,
   inviteToken,
@@ -285,10 +281,6 @@ export function TaskBoard({
   commitSha: string;
   authError: string | null;
   authSuccess: boolean;
-  lineAuthFlow: boolean;
-  loginStarted: boolean;
-  pwaReturn: boolean;
-  nextUrl: string | null;
   sessionUser: SessionUser;
   initialState: AppState;
   inviteToken: string | null;
@@ -358,7 +350,6 @@ export function TaskBoard({
     );
   });
   const [showPwaGuide, setShowPwaGuide] = useState(true);
-  const [showLineLoginGuide, setShowLineLoginGuide] = useState(loginStarted && lineAuthFlow);
   const [isIosLike] = useState(() => {
     if (typeof window === "undefined") return false;
 
@@ -579,35 +570,6 @@ export function TaskBoard({
       window.clearTimeout(timer);
     };
   }, [authError]);
-
-  useEffect(() => {
-    if (!lineAuthFlow) return;
-
-    const url = new URL(window.location.href);
-    let changed = false;
-    ["lineAuth", "loginStarted", "pwaReturn", "next", "authSuccess"].forEach((key) => {
-      if (url.searchParams.has(key)) {
-        url.searchParams.delete(key);
-        changed = true;
-      }
-    });
-
-    if (changed) {
-      window.history.replaceState({}, "", url.toString());
-    }
-  }, [lineAuthFlow]);
-
-  useEffect(() => {
-    if (!loginStarted || !nextUrl) return;
-
-    const timer = window.setTimeout(() => {
-      window.location.href = nextUrl;
-    }, 300);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [loginStarted, nextUrl]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -1462,11 +1424,6 @@ export function TaskBoard({
         appVersion={appVersion}
         commitSha={commitSha}
         authSuccess={authSuccess}
-        lineAuthFlow={lineAuthFlow}
-        loginStarted={loginStarted}
-        pwaReturn={pwaReturn}
-        showLineLoginGuide={showLineLoginGuide}
-        setShowLineLoginGuide={setShowLineLoginGuide}
         toasts={toasts}
       />
     );
@@ -2393,21 +2350,11 @@ function LoginScreen({
   appVersion,
   commitSha,
   authSuccess,
-  lineAuthFlow,
-  loginStarted,
-  pwaReturn,
-  showLineLoginGuide,
-  setShowLineLoginGuide,
   toasts,
 }: {
   appVersion: string;
   commitSha: string;
   authSuccess: boolean;
-  lineAuthFlow: boolean;
-  loginStarted: boolean;
-  pwaReturn: boolean;
-  showLineLoginGuide: boolean;
-  setShowLineLoginGuide: React.Dispatch<React.SetStateAction<boolean>>;
   toasts: Toast[];
 }) {
   return (
@@ -2422,90 +2369,18 @@ function LoginScreen({
         <p className="mt-4 text-sm leading-7 text-[var(--muted)]">
           LINEでログインして、オフライン対応のPWAとして利用します。
         </p>
-        {lineAuthFlow && pwaReturn ? (
-          <div className="mt-8 rounded-[28px] border border-[var(--brand)]/18 bg-[var(--chip)] px-5 py-5">
-            <p className="text-base font-semibold text-[var(--brand)]">ログイン完了</p>
-            <p className="mt-3 text-sm leading-7 text-[var(--ink-soft)]">
-              Safari側でログインが完了しました。Team Task のPWAに戻ってください。
-            </p>
-            <div className="mt-4 flex flex-col gap-2">
-              <button
-                className={primaryButtonClass}
-                onClick={() => window.location.replace("/")}
-                type="button"
-              >
-                この画面を更新する
-              </button>
-              <p className="text-xs text-[var(--muted)]">
-                iPhoneではSafariタブを自動で閉じられないため、完了後はホーム画面のアプリへ戻ってください。
-              </p>
-            </div>
-          </div>
-        ) : (
-          <>
-            <button
-              className="mt-8 flex h-14 items-center justify-center rounded-2xl bg-[var(--brand)] text-base font-semibold text-white"
-              onClick={() => setShowLineLoginGuide(true)}
-              type="button"
-            >
-              LINEでログイン
-            </button>
-            {authSuccess ? (
-              <p className="mt-3 text-sm text-[var(--brand)]">
-                ログイン完了後は、このPWAに戻ると自動で状態を再同期します。
-              </p>
-            ) : null}
-          </>
-        )}
-      </Card>
-
-      {showLineLoginGuide ? (
-        <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/35 p-4"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setShowLineLoginGuide(false);
-            }
-          }}
+        <a
+          className="mt-8 flex h-14 items-center justify-center rounded-2xl bg-[var(--brand)] text-base font-semibold text-white"
+          href="/api/auth/line/login"
         >
-          <div
-            className="w-full max-w-md rounded-[32px] bg-white px-5 py-5 shadow-2xl"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <p className="text-lg font-semibold text-[var(--ink)]">LINEログインの案内</p>
-            <p className="mt-3 text-sm leading-7 text-[var(--ink-soft)]">
-              LINEログインはSafariで開きます。ログイン完了後はTeam TaskのPWAに戻ってください。
-            </p>
-            <div className="mt-4 rounded-2xl bg-[var(--surface)] px-4 py-4 text-sm leading-7 text-[var(--ink-soft)]">
-              1. SafariでLINEログイン
-              <br />
-              2. ログイン完了画面を確認
-              <br />
-              3. ホーム画面のTeam Taskに戻る
-            </div>
-            <div className="mt-5 flex gap-2">
-              <button
-                className={secondaryButtonClass}
-                onClick={() => setShowLineLoginGuide(false)}
-                type="button"
-              >
-                閉じる
-              </button>
-              <a
-                className={`${primaryButtonClass} flex-1 text-center`}
-                href="/api/auth/line/login"
-              >
-                Safariで続行
-              </a>
-            </div>
-            {loginStarted ? (
-              <p className="mt-3 text-xs text-[var(--muted)]">
-                自動的にSafariへ移動しない場合は「Safariで続行」を押してください。
-              </p>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+          LINEでログイン
+        </a>
+        {authSuccess ? (
+          <p className="mt-3 text-sm text-[var(--brand)]">
+            ログインが完了しました。画面が切り替わらない場合は一度だけ再読み込みしてください。
+          </p>
+        ) : null}
+      </Card>
     </Shell>
   );
 }
