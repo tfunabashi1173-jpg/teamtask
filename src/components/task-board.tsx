@@ -71,6 +71,13 @@ const WEEKDAY_OPTIONS = [
   { value: 6, label: "土" },
 ];
 
+function base64UrlToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+}
+
 function getDateStringWithOffset(days = 0) {
   const date = new Date();
   date.setDate(date.getDate() + days);
@@ -1050,6 +1057,76 @@ export function TaskBoard({
   }
 
   async function handleSendDelayedTestNotification() {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
+      pushToast("error", "この端末ではWeb通知を利用できません。");
+      return;
+    }
+
+    if (!isPwaMode) {
+      pushToast("info", "通知テストはホーム画面に追加したPWAから実行してください。");
+      return;
+    }
+
+    if (!("Notification" in window) || !("PushManager" in window)) {
+      pushToast("error", "この端末ではPush通知を利用できません。");
+      return;
+    }
+
+    if (Notification.permission === "denied") {
+      pushToast(
+        "error",
+        "通知が拒否されています。iPhoneの設定 > 通知 > Team Task から通知を許可してください。",
+      );
+      return;
+    }
+
+    if (Notification.permission === "default") {
+      pushToast("info", "通知許可ダイアログを表示します。許可後にもう一度お試しください。");
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        pushToast("error", "通知が許可されていません。通知テストを実行できません。");
+        return;
+      }
+    }
+
+    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!vapidPublicKey) {
+      pushToast("error", "通知鍵の設定が不足しています。");
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.register("/sw.js");
+      const existingSubscription = await registration.pushManager.getSubscription();
+      const subscription =
+        existingSubscription ??
+        (await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: base64UrlToUint8Array(vapidPublicKey),
+        }));
+
+      const subscribeResult = await callJson("/api/push/subscriptions", {
+        method: "POST",
+        body: JSON.stringify({
+          subscription: subscription.toJSON(),
+          platform: /iPhone|iPad|iPod/i.test(window.navigator.userAgent)
+            ? "ios"
+            : /Android/i.test(window.navigator.userAgent)
+              ? "android"
+              : "web",
+          deviceLabel: window.navigator.platform || "browser",
+        }),
+      });
+
+      if (!subscribeResult.ok) {
+        pushToast("error", "通知端末の登録に失敗しました。");
+        return;
+      }
+    } catch {
+      pushToast("error", "通知の準備に失敗しました。PWAで開き直して再試行してください。");
+      return;
+    }
+
     setIsSendingTestNotification(true);
     pushToast("info", "10秒後にテスト通知を送ります。端末をスリープして確認してください。");
 
