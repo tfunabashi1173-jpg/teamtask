@@ -5,6 +5,14 @@ export const metadata: Metadata = {
   title: "Team Task",
   description: "チームで使うタスク管理PWA",
   applicationName: "Team Task",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/pwa-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    shortcut: ["/icon.svg"],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
