@@ -2262,16 +2262,16 @@ export function TaskBoard({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
+                      <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.02em]">
                         {task.status !== "done" ? `${formatPriorityIcon(task.priority)} ` : ""}
                         {task.status === "done" ? "✅ " : ""}
                         {task.title}
                       </h2>
                       <p className="mt-2 text-sm text-[var(--muted)]">
-                        {task.scheduled_time?.slice(0, 5) ?? slotLabel(scheduledTimeToSlot(task.scheduled_time))} / {formatStatus(task.status)}
+                        {slotLabel(scheduledTimeToSlot(task.scheduled_time))} / {formatStatus(task.status)}
                       </p>
                       {task.description ? (
-                        <p className="mt-2 line-clamp-2 text-sm leading-7 text-[var(--ink-soft)]">
+                        <p className="mt-2 line-clamp-2 text-sm leading-6 text-[var(--ink-soft)]">
                           {task.description}
                         </p>
                       ) : null}
