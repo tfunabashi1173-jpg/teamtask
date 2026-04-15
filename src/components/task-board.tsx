@@ -12,7 +12,7 @@ import type {
 import { PwaRegister } from "@/components/pwa-register";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-type ActionType = "start" | "complete" | "pause" | "postpone";
+type ActionType = "start" | "confirm" | "complete" | "pause" | "postpone";
 type SyncState = "idle" | "queued" | "syncing" | "error";
 type ScreenMode = "home" | "tasks" | "manage" | "group" | "bulk";
 
@@ -191,6 +191,7 @@ function formatPriorityIcon(priority: TaskRecord["priority"]) {
 function formatStatus(status: TaskRecord["status"]) {
   if (status === "pending") return "未着手";
   if (status === "in_progress") return "作業中";
+  if (status === "awaiting_confirmation") return "確認待ち";
   if (status === "done") return "完了";
   return "スキップ";
 }
@@ -231,9 +232,8 @@ function logMessage(log: TaskLogRecord) {
       : `「${title}」を開始しました`;
   }
   if (log.action_type === "completed") return `「${title}」を完了しました`;
-  if (log.action_type === "status_changed") {
-    return `「${title}」を中断しました`;
-  }
+  if (log.action_type === "confirm_requested") return `「${title}」を確認待ちにしました`;
+  if (log.action_type === "status_changed") return `「${title}」を中断しました`;
   if (log.action_type === "postponed_to_next_day") {
     return `「${title}」を翌日に回しました`;
   }
@@ -410,6 +410,13 @@ export function TaskBoard({
           task.group_id === activeGroupId &&
           task.scheduled_date === homeDate &&
           task.status === "in_progress",
+      ).length,
+      awaitingConfirmation: state.tasks.filter(
+        (task) =>
+          !task.deleted_at &&
+          task.group_id === activeGroupId &&
+          task.scheduled_date === homeDate &&
+          task.status === "awaiting_confirmation",
       ).length,
       done: state.tasks.filter(
         (task) =>
@@ -1464,6 +1471,7 @@ export function TaskBoard({
     const optimisticTasks = state.tasks.map((item) => {
       if (item.id !== task.id) return item;
       if (action === "start") return { ...item, status: "in_progress" as const };
+      if (action === "confirm") return { ...item, status: "awaiting_confirmation" as const };
       if (action === "complete") return { ...item, status: "done" as const };
       if (action === "pause") return { ...item, status: "pending" as const };
       return item;
@@ -1472,8 +1480,10 @@ export function TaskBoard({
     const optimisticLog: TaskLogRecord = {
       id: `temp-${Date.now()}`,
       action_type:
-        action === "start"
-          ? "started"
+      action === "start"
+        ? "started"
+          : action === "confirm"
+            ? "confirm_requested"
           : action === "complete"
             ? "completed"
             : action === "pause"
@@ -1517,6 +1527,8 @@ export function TaskBoard({
         ? task.status === "done"
           ? `「${task.title}」を再開しました。`
           : `「${task.title}」を開始しました。`
+        : action === "confirm"
+          ? `「${task.title}」を確認待ちにしました。`
         : action === "complete"
           ? `「${task.title}」を完了しました。`
           : action === "pause"
@@ -1753,6 +1765,7 @@ export function TaskBoard({
         <div className="mt-4 grid grid-cols-3 gap-3">
           <SummaryCard label="未着手" value={counts.pending} tone="default" />
           <SummaryCard label="作業中" value={counts.inProgress} tone="warning" />
+          <SummaryCard label="確認待ち" value={counts.awaitingConfirmation} tone="warning" />
           <SummaryCard label="完了" value={counts.done} tone="success" />
         </div>
 
@@ -3222,8 +3235,13 @@ function TaskDetailModal({
         </div>
 
         <div className="mt-5 flex flex-wrap gap-2">
-          {task.status === "pending" || task.status === "done" ? (
+          {task.status === "pending" ||
+          task.status === "awaiting_confirmation" ||
+          task.status === "done" ? (
             <ActionButton label="開始" onClick={() => onAction("start")} tone="warning" />
+          ) : null}
+          {(task.status === "pending" || task.status === "in_progress" || task.status === "done") ? (
+            <ActionButton label="確認待ち" onClick={() => onAction("confirm")} tone="warning" />
           ) : null}
           {task.status !== "done" ? (
             <ActionButton label="完了" onClick={() => onAction("complete")} tone="success" />
@@ -3238,7 +3256,7 @@ function TaskDetailModal({
               tone="success"
             />
           ) : null}
-          {task.status === "in_progress" ? (
+          {task.status === "in_progress" || task.status === "awaiting_confirmation" ? (
             <ActionButton label="中断" onClick={() => onAction("pause")} tone="neutral" />
           ) : null}
           {task.status !== "done" &&

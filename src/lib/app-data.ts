@@ -30,7 +30,7 @@ export type TaskRecord = {
   title: string;
   description: string | null;
   priority: "urgent" | "high" | "medium" | "low";
-  status: "pending" | "in_progress" | "done" | "skipped";
+  status: "pending" | "in_progress" | "awaiting_confirmation" | "done" | "skipped";
   scheduled_date: string;
   scheduled_time: string | null;
   visibility_type: "group" | "personal";

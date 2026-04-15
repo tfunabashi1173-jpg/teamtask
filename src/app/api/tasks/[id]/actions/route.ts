@@ -3,7 +3,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { sendTaskActionNotification } from "@/lib/notifications/web-push";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
-type ActionType = "start" | "complete" | "pause" | "postpone";
+type ActionType = "start" | "confirm" | "complete" | "pause" | "postpone";
 
 export async function POST(
   request: NextRequest,
@@ -62,6 +62,12 @@ export async function POST(
     actionType = "completed";
   }
 
+  if (body.action === "confirm") {
+    patch.status = "awaiting_confirmation";
+    patch.completed_at = null;
+    actionType = "confirm_requested";
+  }
+
   if (body.action === "pause") {
     patch.status = "pending";
     patch.completed_at = null;
@@ -99,6 +105,8 @@ export async function POST(
       ? beforeResult.data.status === "done"
         ? "再開"
         : "開始"
+      : body.action === "confirm"
+        ? "確認待ち"
       : body.action === "complete"
         ? "完了"
         : body.action === "pause"
