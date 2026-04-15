@@ -2871,7 +2871,7 @@ function taskStatusChipClass(status: TaskRecord["status"]) {
   }
 
   if (status === "awaiting_confirmation") {
-    return "rounded-full bg-[#F8E9D7] px-3 py-1 text-xs font-semibold text-[#A45B17]";
+    return "rounded-full bg-[#ede9fe] px-3 py-1 text-xs font-semibold text-[#5b21b6]";
   }
 
   return "rounded-full bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-[var(--ink-soft)]";
@@ -3709,7 +3709,7 @@ const secondaryButtonClass =
 const segmentedButtonClass =
   "rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]";
 const segmentedActiveButtonClass =
-  "rounded-2xl bg-[var(--brand)] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_18px_rgba(31,107,82,0.22)]";
+  "rounded-2xl bg-[var(--brand)] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_18px_rgba(79,70,229,0.28)]";
 const selectCardClass =
   "min-w-0 rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink)] outline-none";
 const squareUtilityButtonClass =
@@ -3717,12 +3717,12 @@ const squareUtilityButtonClass =
 const miniUtilityButtonClass =
   "rounded-2xl border border-black/8 bg-white px-3 py-3 text-xs font-semibold text-[var(--ink-soft)]";
 const miniDangerButtonClass =
-  "rounded-2xl border border-[var(--danger)]/28 bg-[#FFF8F7] px-3 py-3 text-xs font-semibold text-[var(--danger)]";
+  "rounded-2xl border border-[var(--danger)]/28 bg-[#FEF2F2] px-3 py-3 text-xs font-semibold text-[var(--danger)]";
 const secondaryDangerClass =
   "rounded-2xl border border-[var(--danger)] bg-white px-4 py-3 text-sm font-semibold text-[var(--danger)]";
 const toolbarButtonClass =
-  "inline-flex items-center gap-2 rounded-2xl bg-[var(--chip)] px-4 py-3 text-sm font-semibold text-[var(--ink-soft)] shadow-[0_8px_16px_rgba(31,41,51,0.04)]";
+  "inline-flex items-center gap-2 rounded-2xl bg-[var(--chip)] px-4 py-3 text-sm font-semibold text-[var(--ink-soft)] shadow-[0_8px_16px_rgba(79,70,229,0.06)]";
 const toolbarDangerButtonClass =
-  "inline-flex items-center gap-2 rounded-2xl border border-[var(--danger)]/22 bg-[#FFF8F7] px-4 py-3 text-sm font-semibold text-[var(--danger)] shadow-[0_8px_16px_rgba(196,72,72,0.08)]";
+  "inline-flex items-center gap-2 rounded-2xl border border-[var(--danger)]/22 bg-[#FEF2F2] px-4 py-3 text-sm font-semibold text-[var(--danger)] shadow-[0_8px_16px_rgba(220,38,38,0.08)]";
 const iconButtonClass =
   "flex h-8 w-8 items-center justify-center rounded-xl border border-black/10 bg-white text-sm text-[var(--ink-soft)]";

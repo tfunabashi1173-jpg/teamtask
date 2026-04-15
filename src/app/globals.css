@@ -1,21 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  --background: #eef3ec;
-  --foreground: #1f2933;
-  --surface: #f5f7f2;
-  --ink: #1f2933;
-  --ink-soft: #405261;
-  --muted: #667085;
-  --brand: #1f6b4f;
-  --chip: #e7ece4;
-  --warning-bg: #fff6e5;
-  --warning-border: #fed7aa;
-  --warning-ink: #b45309;
-  --success-bg: #ecfdf3;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --surface: #f1f5f9;
+  --ink: #0f172a;
+  --ink-soft: #334155;
+  --muted: #64748b;
+  --brand: #4f46e5;
+  --chip: #e0e7ff;
+  --warning-bg: #fffbeb;
+  --warning-border: #fde68a;
+  --warning-ink: #92400e;
+  --success-bg: #f0fdf4;
   --success-border: #bbf7d0;
-  --success-ink: #15803d;
-  --danger: #b42318;
+  --success-ink: #166534;
+  --danger: #dc2626;
 }
 
 @theme inline {
@@ -29,15 +29,15 @@
 }
 
 html {
-  background: linear-gradient(180deg, #f6f8f3 0%, #eef3ec 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
 }
 
 body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top right, rgba(31, 107, 79, 0.08), transparent 28%),
-    linear-gradient(180deg, #f6f8f3 0%, #eef3ec 100%);
+    radial-gradient(circle at top right, rgba(79, 70, 229, 0.06), transparent 28%),
+    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   color: var(--ink);
   font-family:
     "Avenir Next",
