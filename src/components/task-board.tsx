@@ -72,6 +72,15 @@ function shiftDateString(value: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
+function formatHomeHeadingDate(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+  return new Intl.DateTimeFormat("ja-JP", {
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+  }).format(date);
+}
+
 function weekdayFromDate(value: string) {
   return new Date(`${value}T00:00:00`).getDay();
 }
@@ -276,6 +285,12 @@ export function TaskBoard({
   const activeGroupId = state.groups.some((group) => group.id === currentGroupId)
     ? currentGroupId
     : (state.groups[0]?.id ?? "");
+  const todayDate = getDateStringWithOffset(0);
+  const homeDateOffset =
+    Math.round(
+      (new Date(`${homeDate}T00:00:00`).getTime() - new Date(`${todayDate}T00:00:00`).getTime()) /
+        (24 * 60 * 60 * 1000),
+    ) || 0;
 
   const sortedTasks = useMemo(
     () =>
@@ -1374,11 +1389,15 @@ export function TaskBoard({
               TASK BOARD
             </p>
             <h1 className="mt-2 font-[family-name:var(--font-heading)] text-[2rem] leading-none tracking-[-0.03em]">
-              タスク
+              {formatHomeHeadingDate(homeDate)}
             </h1>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              {new Date(`${homeDate}T00:00:00`).toLocaleDateString("ja-JP")} ・{" "}
-              {currentGroup?.name ?? "グループ未設定"}
+              {homeDateOffset === 0
+                ? "本日"
+                : homeDateOffset > 0
+                  ? `${homeDateOffset}日後`
+                  : `${Math.abs(homeDateOffset)}日前`}{" "}
+              ・ {currentGroup?.name ?? "グループ未設定"}
             </p>
           </div>
           <div className="flex gap-2">
@@ -1396,21 +1415,21 @@ export function TaskBoard({
 
         <div className="mt-4 flex items-center gap-2">
           <button
-            className={secondaryButtonClass}
+            className={homeDateOffset < 0 ? primaryButtonClass : secondaryButtonClass}
             onClick={() => setHomeDate((current) => shiftDateString(current, -1))}
             type="button"
           >
             前日
           </button>
           <button
-            className={secondaryButtonClass}
+            className={homeDateOffset === 0 ? primaryButtonClass : secondaryButtonClass}
             onClick={() => setHomeDate(getDateStringWithOffset(0))}
             type="button"
           >
             本日
           </button>
           <button
-            className={secondaryButtonClass}
+            className={homeDateOffset > 0 ? primaryButtonClass : secondaryButtonClass}
             onClick={() => setHomeDate((current) => shiftDateString(current, 1))}
             type="button"
           >
