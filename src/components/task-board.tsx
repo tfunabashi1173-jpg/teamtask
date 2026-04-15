@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   AppState,
   Group,
@@ -10,6 +10,7 @@ import type {
   TaskRecord,
 } from "@/lib/app-data";
 import { PwaRegister } from "@/components/pwa-register";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type ActionType = "start" | "complete" | "pause" | "postpone";
 type SyncState = "idle" | "queued" | "syncing" | "error";
@@ -318,6 +319,22 @@ export function TaskBoard({
     }
   }
 
+  const refreshAppState = useCallback(async () => {
+    const inviteQuery = inviteToken ? `?invite=${encodeURIComponent(inviteToken)}` : "";
+    const result = await callJson(`/api/app-state${inviteQuery}`);
+    if (!result.ok || !result.json || typeof result.json !== "object" || !("state" in result.json)) {
+      return false;
+    }
+
+    const nextState = (result.json as { state?: AppState }).state;
+    if (!nextState) {
+      return false;
+    }
+
+    setState(nextState);
+    return true;
+  }, [inviteToken]);
+
   useEffect(() => {
     window.localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queue));
   }, [queue]);
@@ -326,6 +343,10 @@ export function TaskBoard({
     const handleOnline = () => {
       setIsOnline(true);
       pushToast("success", "オンラインに復帰しました。");
+
+      if (queue.length === 0) {
+        void refreshAppState();
+      }
     };
 
     const handleOffline = () => {
@@ -340,7 +361,7 @@ export function TaskBoard({
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, []);
+  }, [queue.length, refreshAppState]);
 
   useEffect(() => {
     if (!isOnline || queue.length === 0) return;
@@ -368,7 +389,7 @@ export function TaskBoard({
         setQueue([]);
         setSyncState("idle");
         pushToast("success", "保留中の操作を同期しました。");
-        window.location.reload();
+        await refreshAppState();
       }
     }
 
@@ -377,7 +398,75 @@ export function TaskBoard({
     return () => {
       cancelled = true;
     };
-  }, [isOnline, queue]);
+  }, [isOnline, queue, refreshAppState]);
+
+  useEffect(() => {
+    if (!state.workspace?.id || !sessionUser) return;
+
+    const supabase = createSupabaseBrowserClient();
+    if (!supabase) return;
+
+    let cancelled = false;
+    let refreshTimer: number | null = null;
+
+    const refreshState = async () => {
+      if (cancelled) return;
+
+      const ok = await refreshAppState();
+      if (cancelled || !ok) {
+        return;
+      }
+    };
+
+    const scheduleRefresh = () => {
+      if (refreshTimer) {
+        window.clearTimeout(refreshTimer);
+      }
+      refreshTimer = window.setTimeout(() => {
+        void refreshState();
+      }, 350);
+    };
+
+    const channel = supabase
+      .channel(`workspace-${state.workspace.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "tasks",
+          filter: `workspace_id=eq.${state.workspace.id}`,
+        },
+        scheduleRefresh,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "task_activity_logs",
+        },
+        scheduleRefresh,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "task_photos",
+        },
+        scheduleRefresh,
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      if (refreshTimer) {
+        window.clearTimeout(refreshTimer);
+      }
+      void supabase.removeChannel(channel);
+    };
+  }, [inviteToken, refreshAppState, sessionUser, state.workspace?.id]);
 
   async function handleLogout() {
     setIsSubmitting(true);

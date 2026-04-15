@@ -2,6 +2,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { getTaskPhotoBucketName } from "@/lib/tasks/photos";
 
 const COMPLETED_TASK_RETENTION_DAYS = 7;
+const LOG_RETENTION_DAYS = 7;
 
 export async function purgeExpiredCompletedTasks(workspaceId: string) {
   const supabase = createSupabaseAdminClient();
@@ -37,4 +38,14 @@ export async function purgeExpiredCompletedTasks(workspaceId: string) {
   }
 
   await supabase.from("tasks").delete().in("id", taskIds);
+}
+
+export async function purgeExpiredTaskLogs() {
+  const supabase = createSupabaseAdminClient();
+  const cutoff = new Date(Date.now() - LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+  await supabase
+    .from("task_activity_logs")
+    .delete()
+    .lt("created_at", cutoff);
 }

@@ -1,5 +1,5 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
-import { purgeExpiredCompletedTasks } from "@/lib/tasks/cleanup";
+import { purgeExpiredCompletedTasks, purgeExpiredTaskLogs } from "@/lib/tasks/cleanup";
 
 export type AppUser = {
   id: string;
@@ -237,6 +237,7 @@ export async function getAppState({
   }
 
   await purgeExpiredCompletedTasks(workspace.id);
+  await purgeExpiredTaskLogs();
 
   const [groupsResult, tasksResult, logsResult, membersResult, pendingRequestsResult] =
     await Promise.all([
@@ -260,8 +261,9 @@ export async function getAppState({
         .select(
           "id,action_type,created_at,actor:app_users!task_activity_logs_actor_user_id_fkey(display_name),task:tasks!task_activity_logs_task_id_fkey(title)",
         )
+        .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
         .order("created_at", { ascending: false })
-        .limit(20),
+        .limit(50),
       appUser.role === "admin"
         ? supabase
             .from("workspace_members")
