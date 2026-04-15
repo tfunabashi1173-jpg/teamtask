@@ -14,7 +14,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type ActionType = "start" | "complete" | "pause" | "postpone";
 type SyncState = "idle" | "queued" | "syncing" | "error";
-type ScreenMode = "home" | "tasks" | "manage";
+type ScreenMode = "home" | "tasks" | "manage" | "group";
 
 type Toast = {
   id: number;
@@ -1230,18 +1230,15 @@ export function TaskBoard({
           >
             一覧
           </button>
-        </div>
-
-        {currentGroup ? (
           <button
-            className="mt-3 rounded-2xl border border-[var(--danger)] px-4 py-3 text-sm font-semibold text-[var(--danger)]"
-            onClick={handleLeaveCurrentGroup}
+            className={secondaryButtonClass}
+            onClick={() => setScreenMode("group")}
             type="button"
-            disabled={isSubmitting}
+            disabled={!currentGroup}
           >
-            {isSubmitting ? "処理中..." : `「${currentGroup.name}」から退出`}
+            グループ詳細
           </button>
-        ) : null}
+        </div>
 
         {!isOnline || syncState !== "idle" ? (
           <div className="mt-4 rounded-2xl bg-[var(--chip)] px-4 py-3 text-sm text-[var(--ink-soft)]">
@@ -1424,6 +1421,70 @@ export function TaskBoard({
               </Card>
             ))}
           </section>
+        </>
+      ) : null}
+
+      {screenMode === "group" ? (
+        <>
+          <Card>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
+                  グループ詳細
+                </h2>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  現在のグループ情報と参加設定を確認します。
+                </p>
+              </div>
+              <button
+                className={secondaryButtonClass}
+                onClick={() => setScreenMode("home")}
+                type="button"
+              >
+                戻る
+              </button>
+            </div>
+          </Card>
+
+          <Card title="グループ情報">
+            {currentGroup ? (
+              <div className="rounded-2xl bg-[var(--chip)] px-4 py-4">
+                <p className="text-xs font-semibold tracking-[0.08em] text-[var(--muted)]">
+                  GROUP
+                </p>
+                <p className="mt-2 font-[family-name:var(--font-heading)] text-2xl tracking-[-0.03em] text-[var(--ink)]">
+                  {currentGroup.name}
+                </p>
+                {currentGroup.description ? (
+                  <p className="mt-3 text-sm leading-7 text-[var(--ink-soft)]">
+                    {currentGroup.description}
+                  </p>
+                ) : (
+                  <p className="mt-3 text-sm text-[var(--muted)]">
+                    グループ説明は設定されていません。
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--muted)]">グループが見つかりません。</p>
+            )}
+          </Card>
+
+          <Card title="危険操作">
+            <div className="rounded-2xl border border-[var(--danger)]/30 bg-[rgba(196,72,72,0.06)] px-4 py-4">
+              <p className="text-sm leading-7 text-[var(--ink-soft)]">
+                この操作を行うと、現在のグループから退出します。過去の履歴は残ります。
+              </p>
+              <button
+                className="mt-4 rounded-2xl border border-[var(--danger)] px-4 py-3 text-sm font-semibold text-[var(--danger)]"
+                onClick={handleLeaveCurrentGroup}
+                type="button"
+                disabled={isSubmitting || !currentGroup}
+              >
+                {isSubmitting ? "処理中..." : "このグループから退出"}
+              </button>
+            </div>
+          </Card>
         </>
       ) : null}
 
@@ -1853,7 +1914,7 @@ function TaskModal({
 }) {
   return (
     <div
-      className="fixed inset-0 z-40 flex items-end justify-center bg-black/35 p-4"
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/35 p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
@@ -1861,7 +1922,7 @@ function TaskModal({
       }}
     >
       <div
-        className="w-full max-w-md rounded-t-[32px] bg-white px-5 py-5 shadow-2xl"
+        className="max-h-[min(88vh,760px)] w-full max-w-md overflow-y-auto rounded-[32px] bg-white px-5 py-5 shadow-2xl"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <h3 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
