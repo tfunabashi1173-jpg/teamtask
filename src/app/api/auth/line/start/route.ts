@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createLineAuthorizeUrl } from "@/lib/auth/line";
+import { createLineAuthorizeUrl, resolveLineRedirectUri } from "@/lib/auth/line";
 import { createLineState } from "@/lib/auth/session";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
@@ -24,10 +24,12 @@ export async function POST() {
       throw new Error("LINEログインの開始情報を保存できませんでした。");
     }
 
+    const redirectUri = resolveLineRedirectUri("web");
+
     return NextResponse.json({
       ok: true,
       attemptId: insertResult.data.id,
-      authorizeUrl: createLineAuthorizeUrl({ state, nonce }),
+      authorizeUrl: createLineAuthorizeUrl({ state, nonce, redirectUri }),
     });
   } catch (error) {
     const message =

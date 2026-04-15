@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   exchangeCodeForTokens,
   fetchLineProfile,
+  resolveLineRedirectUri,
   verifyIdToken,
 } from "@/lib/auth/line";
 import { createSessionToken } from "@/lib/auth/server-session";
@@ -54,7 +55,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const tokens = await exchangeCodeForTokens(code);
+    const redirectUri = resolveLineRedirectUri("mobile");
+    const tokens = await exchangeCodeForTokens(code, redirectUri);
     let displayName: string | null = null;
     let lineUserId: string | null = null;
     let pictureUrl: string | null = null;

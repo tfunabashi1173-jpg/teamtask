@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createLineAuthorizeUrl } from "@/lib/auth/line";
+import { createLineAuthorizeUrl, resolveLineRedirectUri } from "@/lib/auth/line";
 import { createLineState } from "@/lib/auth/session";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
 
   const state = createLineState();
   const nonce = createLineState();
+  const lineRedirectUri = resolveLineRedirectUri("mobile");
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
   const supabase = createSupabaseAdminClient();
 
@@ -30,5 +31,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: insertResult.error.message }, { status: 500 });
   }
 
-  return NextResponse.redirect(createLineAuthorizeUrl({ state, nonce }));
+  return NextResponse.redirect(createLineAuthorizeUrl({ state, nonce, redirectUri: lineRedirectUri }));
 }

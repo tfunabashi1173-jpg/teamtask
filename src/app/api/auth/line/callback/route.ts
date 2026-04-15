@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   exchangeCodeForTokens,
   fetchLineProfile,
+  resolveLineRedirectUri,
   verifyIdToken,
 } from "@/lib/auth/line";
 import { writeSessionCookie } from "@/lib/auth/server-session";
@@ -39,6 +40,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const redirectUri = resolveLineRedirectUri("web");
     const supabase = createSupabaseAdminClient();
     const loginAttemptResult = await supabase
       .from("line_login_attempts")
@@ -54,7 +56,7 @@ export async function GET(request: NextRequest) {
       return redirectWithError(request, "ログイン状態の確認に失敗しました。");
     }
 
-    const tokens = await exchangeCodeForTokens(code);
+    const tokens = await exchangeCodeForTokens(code, redirectUri);
     let displayName: string | null = null;
     let lineUserId: string | null = null;
     let pictureUrl: string | null = null;

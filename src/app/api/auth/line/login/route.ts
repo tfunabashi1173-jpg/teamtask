@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { createLineAuthorizeUrl } from "@/lib/auth/line";
+import { createLineAuthorizeUrl, resolveLineRedirectUri } from "@/lib/auth/line";
 import {
   createLineState,
   createSignedState,
@@ -21,7 +21,8 @@ export async function GET() {
       maxAge: 60 * 10,
     });
 
-    const authorizeUrl = createLineAuthorizeUrl({ state, nonce });
+    const redirectUri = resolveLineRedirectUri("web");
+    const authorizeUrl = createLineAuthorizeUrl({ state, nonce, redirectUri });
     return NextResponse.redirect(authorizeUrl);
   } catch (error) {
     const message =

@@ -29,17 +29,35 @@ function getRequiredEnv(name: string) {
   return value;
 }
 
+export function resolveLineRedirectUri(kind: "web" | "mobile") {
+  if (kind === "mobile") {
+    return (
+      process.env.LINE_MOBILE_REDIRECT_URI ??
+      process.env.LINE_REDIRECT_URI ??
+      "http://localhost:3000/api/auth/mobile/line/callback"
+    );
+  }
+
+  return (
+    process.env.LINE_WEB_REDIRECT_URI ??
+    process.env.LINE_REDIRECT_URI ??
+    "http://localhost:3000/api/auth/line/callback"
+  );
+}
+
 export function createLineAuthorizeUrl({
   state,
   nonce,
+  redirectUri,
 }: {
   state: string;
   nonce: string;
+  redirectUri: string;
 }) {
   const params = new URLSearchParams({
     response_type: "code",
     client_id: getRequiredEnv("LINE_CHANNEL_ID"),
-    redirect_uri: getRequiredEnv("LINE_REDIRECT_URI"),
+    redirect_uri: redirectUri,
     state,
     scope: "profile openid",
     nonce,
@@ -48,11 +66,11 @@ export function createLineAuthorizeUrl({
   return `${LINE_AUTHORIZE_ENDPOINT}?${params.toString()}`;
 }
 
-export async function exchangeCodeForTokens(code: string) {
+export async function exchangeCodeForTokens(code: string, redirectUri: string) {
   const params = new URLSearchParams({
     grant_type: "authorization_code",
     code,
-    redirect_uri: getRequiredEnv("LINE_REDIRECT_URI"),
+    redirect_uri: redirectUri,
     client_id: getRequiredEnv("LINE_CHANNEL_ID"),
     client_secret: getRequiredEnv("LINE_CHANNEL_SECRET"),
   });
