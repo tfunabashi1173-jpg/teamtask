@@ -2115,7 +2115,7 @@ export function TaskBoard({
         </Card>
       ) : null}
 
-      {!isPwaMode && showPwaGuide && screenMode !== "manage" ? (
+      {!isPwaMode && showPwaGuide ? (
         <Card>
           <div className="flex items-start justify-between gap-3">
             <div>
