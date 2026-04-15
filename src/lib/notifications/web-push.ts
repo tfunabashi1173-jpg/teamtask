@@ -262,36 +262,45 @@ export async function sendUrgentTaskCreatedNotification({
 export async function sendMorningTaskNotifications({
   workspaceId,
   workspaceName,
-  timezone,
   baseUrl,
+  targetDate,
 }: {
   workspaceId: string;
   workspaceName: string;
-  timezone: string;
   baseUrl: string;
+  targetDate: string;
 }) {
   if (!isWebPushConfigured()) {
     return { sent: 0 };
   }
 
   const supabase = createSupabaseAdminClient();
-  const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone || "Asia/Tokyo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
   const tasksResult = await supabase
     .from("tasks")
     .select("id,title,status,group_id")
     .eq("workspace_id", workspaceId)
-    .eq("scheduled_date", today)
+    .eq("scheduled_date", targetDate)
     .is("deleted_at", null)
     .neq("status", "done");
 
   const tasks = (tasksResult.data as { id: string; title: string; status: string; group_id: string | null }[] | null) ?? [];
   if (tasks.length === 0) {
     return { sent: 0 };
+  }
+
+  const deliveryClaimResult = await supabase
+    .from("morning_notification_deliveries")
+    .insert({
+      workspace_id: workspaceId,
+      target_date: targetDate,
+    });
+
+  if (deliveryClaimResult.error) {
+    if (deliveryClaimResult.error.code === "23505") {
+      return { sent: 0, skipped: true };
+    }
+
+    throw new Error(deliveryClaimResult.error.message);
   }
 
   const workspaceMembersResult = await supabase

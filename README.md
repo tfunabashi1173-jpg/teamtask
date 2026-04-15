@@ -56,6 +56,9 @@ npm run lint
 ## Morning Notifications
 
 Vercel Hobby では高頻度 Cron を使えないため、朝通知の定期実行は GitHub Actions で行う。
+ワークフローは毎時実行だが、サーバー側では各ワークスペースの通知時刻から 90 分以内を送信対象として扱うため、
+`08:30` のような分指定でも次の実行タイミングで拾える。
+また、`workspace_id + target_date` 単位で送信済みを記録し、同日の二重送信を防ぐ。
 
 必要な GitHub Secrets:
 
