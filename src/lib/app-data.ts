@@ -114,6 +114,7 @@ export type AppState = {
   activeInvite: InviteRecord | null;
   pendingOwnRequest: MembershipRequestRecord | null;
   needsBootstrap: boolean;
+  bootstrapAllowed: boolean;
   authConfigured: boolean;
 };
 
@@ -141,6 +142,7 @@ export async function getAppState({
       activeInvite: null,
       pendingOwnRequest: null,
       needsBootstrap: false,
+      bootstrapAllowed: false,
       authConfigured: false,
     };
   }
@@ -152,6 +154,16 @@ export async function getAppState({
     .select("*", { count: "exact", head: true });
 
   const needsBootstrap = (workspaceCount ?? 0) === 0;
+  const bootstrapAllowedLineUserIds = (process.env.BOOTSTRAP_ALLOWED_LINE_USER_IDS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const bootstrapAllowed =
+    needsBootstrap &&
+    Boolean(
+      sessionLineUserId &&
+        bootstrapAllowedLineUserIds.includes(sessionLineUserId),
+    );
 
   let appUser: AppUser | null = null;
 
@@ -206,6 +218,7 @@ export async function getAppState({
       activeInvite,
       pendingOwnRequest,
       needsBootstrap,
+      bootstrapAllowed,
       authConfigured,
     };
   }
@@ -239,6 +252,7 @@ export async function getAppState({
       activeInvite,
       pendingOwnRequest,
       needsBootstrap,
+      bootstrapAllowed,
       authConfigured,
     };
   }
@@ -469,6 +483,7 @@ export async function getAppState({
     activeInvite,
     pendingOwnRequest,
     needsBootstrap,
+    bootstrapAllowed,
     authConfigured,
   };
 }

@@ -32,6 +32,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "ALREADY_BOOTSTRAPPED" }, { status: 409 });
   }
 
+  const allowedLineUserIds = (process.env.BOOTSTRAP_ALLOWED_LINE_USER_IDS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (!allowedLineUserIds.includes(sessionUser.lineUserId)) {
+    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  }
+
   const workspaceResult = await supabase
     .from("workspaces")
     .insert({ name: workspaceName })
