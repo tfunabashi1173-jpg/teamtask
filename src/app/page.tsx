@@ -1,30 +1,10 @@
-import { execSync } from "node:child_process";
-import packageJson from "../../package.json";
 import { TaskBoard } from "@/components/task-board";
 import { getAppState } from "@/lib/app-data";
+import { resolveAppVersion, resolveCommitSha } from "@/lib/app-version";
 import { readSessionUser } from "@/lib/auth/server-session";
 
-function resolveCommitSha() {
-  const envSha =
-    process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ??
-    process.env.GITHUB_SHA?.slice(0, 7);
-
-  if (envSha) {
-    return envSha;
-  }
-
-  try {
-    return execSync("git rev-parse --short HEAD", {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-  } catch {
-    return "devbuild";
-  }
-}
-
-const commitSha =
-  resolveCommitSha();
+const commitSha = resolveCommitSha();
+const appVersion = resolveAppVersion();
 
 export default async function Home({
   searchParams,
@@ -40,7 +20,7 @@ export default async function Home({
 
   return (
     <TaskBoard
-      appVersion={`v${packageJson.version}`}
+      appVersion={appVersion}
       commitSha={commitSha}
       authError={resolvedSearchParams.authError ?? null}
       sessionUser={sessionUser}

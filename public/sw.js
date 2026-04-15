@@ -30,6 +30,19 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  const requestUrl = new URL(event.request.url);
+  if (requestUrl.pathname.startsWith("/api/")) {
+    event.respondWith(
+      fetch(event.request).catch(() =>
+        new Response("Offline", {
+          status: 503,
+          statusText: "Offline",
+        }),
+      ),
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const networkFetch = fetch(event.request)

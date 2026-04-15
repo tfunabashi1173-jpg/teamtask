@@ -49,6 +49,7 @@ type TaskFormState = {
 
 const QUEUE_STORAGE_KEY = "team-task.queue.v2";
 const MEMBER_NAME_STORAGE_KEY = "team-task.member-name";
+const VERSION_CHECK_STORAGE_KEY = "team-task.version-check";
 const WEEKDAY_OPTIONS = [
   { value: 0, label: "日" },
   { value: 1, label: "月" },
@@ -338,6 +339,61 @@ export function TaskBoard({
   useEffect(() => {
     window.localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queue));
   }, [queue]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function ensureLatestBuild() {
+      const result = await callJson(`/api/version?ts=${Date.now()}`, {
+        cache: "no-store",
+      });
+      if (
+        cancelled ||
+        !result.ok ||
+        !result.json ||
+        typeof result.json !== "object"
+      ) {
+        return;
+      }
+
+      const latest = result.json as { appVersion?: string; commitSha?: string };
+      if (!latest.appVersion || !latest.commitSha) {
+        return;
+      }
+
+      if (latest.appVersion === appVersion && latest.commitSha === commitSha) {
+        window.sessionStorage.removeItem(VERSION_CHECK_STORAGE_KEY);
+        return;
+      }
+
+      const mismatchKey = `${latest.appVersion}:${latest.commitSha}`;
+      if (window.sessionStorage.getItem(VERSION_CHECK_STORAGE_KEY) === mismatchKey) {
+        return;
+      }
+      window.sessionStorage.setItem(VERSION_CHECK_STORAGE_KEY, mismatchKey);
+      pushToast("info", "最新版を適用するため再読み込みします。");
+
+      if ("serviceWorker" in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.update()));
+      }
+
+      if ("caches" in window) {
+        const keys = await window.caches.keys();
+        await Promise.all(keys.map((key) => window.caches.delete(key)));
+      }
+
+      window.setTimeout(() => {
+        window.location.reload();
+      }, 200);
+    }
+
+    void ensureLatestBuild();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [appVersion, commitSha]);
 
   useEffect(() => {
     const handleOnline = () => {
