@@ -15,7 +15,15 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 function redirectWithError(request: NextRequest, message: string) {
   const url = new URL("/", request.url);
   url.searchParams.set("authError", message);
-  return NextResponse.redirect(url);
+  const response = NextResponse.redirect(url);
+  response.cookies.set(getLineStateCookieName(), "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+  return response;
 }
 
 export async function GET(request: NextRequest) {

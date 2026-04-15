@@ -214,7 +214,6 @@ function sortTasks(tasks: TaskRecord[]) {
 }
 
 function logMessage(log: TaskLogRecord) {
-  const actor = log.actor?.display_name ?? "誰か";
   const title = log.task?.title ?? "タスク";
   const beforeStatus =
     log.before_value &&
@@ -226,20 +225,20 @@ function logMessage(log: TaskLogRecord) {
 
   if (log.action_type === "started") {
     return beforeStatus === "done"
-      ? `${actor}さんが「${title}」を再開しました`
-      : `${actor}さんが「${title}」を開始しました`;
+      ? `「${title}」を再開しました`
+      : `「${title}」を開始しました`;
   }
-  if (log.action_type === "completed") return `${actor}さんが「${title}」を完了しました`;
+  if (log.action_type === "completed") return `「${title}」を完了しました`;
   if (log.action_type === "status_changed") {
-    return `${actor}さんが「${title}」を中断しました`;
+    return `「${title}」を中断しました`;
   }
   if (log.action_type === "postponed_to_next_day") {
-    return `${actor}さんが「${title}」を翌日に回しました`;
+    return `「${title}」を翌日に回しました`;
   }
   if (log.action_type === "priority_changed") {
-    return `${actor}さんが「${title}」の優先度を変更しました`;
+    return `「${title}」の優先度を変更しました`;
   }
-  return `${actor}さんが「${title}」を更新しました`;
+  return `「${title}」を更新しました`;
 }
 
 function formatRecurrenceSummary(task: TaskRecord) {
@@ -528,6 +527,16 @@ export function TaskBoard({
   useEffect(() => {
     window.localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queue));
   }, [queue]);
+
+  useEffect(() => {
+    if (!authError) return;
+
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("authError")) return;
+
+    url.searchParams.delete("authError");
+    window.history.replaceState({}, "", url.toString());
+  }, [authError]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
