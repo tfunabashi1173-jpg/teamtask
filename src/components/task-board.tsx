@@ -113,6 +113,26 @@ function formatHomeHeadingDate(value: string) {
   }).format(date);
 }
 
+function scheduledTimeToSlot(value: string | null | undefined) {
+  if (!value) return "anytime";
+  const normalized = value.slice(0, 5);
+  if (normalized <= "11:59") return "morning";
+  if (normalized <= "16:59") return "afternoon";
+  return "anytime";
+}
+
+function slotToScheduledTime(slot: "morning" | "afternoon" | "anytime") {
+  if (slot === "morning") return "09:00";
+  if (slot === "afternoon") return "13:00";
+  return "17:00";
+}
+
+function slotLabel(slot: "morning" | "afternoon" | "anytime") {
+  if (slot === "morning") return "午前中";
+  if (slot === "afternoon") return "午後中";
+  return "当日中";
+}
+
 function weekdayFromDate(value: string) {
   return new Date(`${value}T00:00:00`).getDay();
 }
@@ -198,8 +218,8 @@ function buildTaskFormFromTask(task: TaskRecord): TaskFormState {
 function formatPriorityIcon(priority: TaskRecord["priority"]) {
   if (priority === "urgent") return "🚨";
   if (priority === "high") return "🔴";
-  if (priority === "medium") return "🟡";
-  return "🔵";
+  if (priority === "medium") return "🟠";
+  return "⚪️";
 }
 
 function formatStatus(status: TaskRecord["status"]) {
@@ -1984,13 +2004,11 @@ export function TaskBoard({
               <h1 className="mt-2 font-[family-name:var(--font-heading)] text-[2rem] leading-none tracking-[-0.03em]">
                 {formatHomeHeadingDate(homeDate)}
               </h1>
-              <p className="mt-2 text-sm text-[var(--muted)]">
-                {homeDateOffset === 0
-                  ? "本日"
-                  : homeDateOffset > 0
-                    ? `${homeDateOffset}日後`
-                    : `${Math.abs(homeDateOffset)}日前`}
-              </p>
+              {currentGroup ? (
+                <div className="mt-3 inline-flex items-center rounded-full bg-[var(--brand)] px-4 py-2 text-xs font-semibold text-white">
+                  {currentGroup.name}
+                </div>
+              ) : null}
             </div>
           </div>
           <div className="flex gap-2">
@@ -2031,7 +2049,7 @@ export function TaskBoard({
           </button>
         </div>
 
-        <div className="mt-4 grid grid-cols-[minmax(0,1fr)_84px_84px] gap-2">
+        <div className="mt-4 grid grid-cols-1 gap-2">
           <select
             className={selectCardClass}
             value={activeGroupId}
@@ -2043,22 +2061,14 @@ export function TaskBoard({
               </option>
             ))}
           </select>
+        </div>
+        <div className="mt-2 grid grid-cols-[1fr_1fr] gap-2">
           <button
-            className={squareUtilityButtonClass}
+            className={wideUtilityButtonClass}
             onClick={() => setScreenMode("tasks")}
             type="button"
           >
-            <span className="text-lg leading-none">≡</span>
-            <span>一覧</span>
-          </button>
-          <button
-            className={squareUtilityButtonClass}
-            onClick={() => setScreenMode("group")}
-            type="button"
-            disabled={!currentGroup}
-          >
-            <span className="text-lg leading-none">⌘</span>
-            <span>詳細</span>
+            期間一覧
           </button>
         </div>
 
@@ -2142,47 +2152,40 @@ export function TaskBoard({
       ) : null}
 
       {screenMode === "home" ? (
-        <section className="grid gap-4">
-          {sortedTasks.map((task) => (
-            <button
-              key={task.id}
-              className="w-full rounded-[28px] bg-white px-5 py-5 text-left shadow-[0_12px_30px_rgba(31,41,51,0.08)] transition-transform duration-150 hover:-translate-y-0.5"
-              onClick={() => openTaskDetail(task)}
-              type="button"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
-                    {task.status !== "done" ? `${formatPriorityIcon(task.priority)} ` : ""}
-                    {task.status === "done" ? "✅ " : ""}
-                    {task.title}
-                  </h2>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <span className={taskStatusChipClass(task.status)}>{formatStatus(task.status)}</span>
-                    {task.scheduled_time ? (
-                      <span className="rounded-full bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-[var(--ink-soft)]">
-                        {task.scheduled_time.slice(0, 5)}
-                      </span>
-                    ) : null}
+        <Card title="タスク">
+          {sortedTasks.length === 0 ? (
+            <p className="text-sm text-[var(--muted)]">今日のタスクはありません。</p>
+          ) : (
+            <section className="grid gap-3">
+              {sortedTasks.map((task) => (
+                <button
+                  key={task.id}
+                  className="w-full rounded-[24px] bg-[var(--surface)] px-4 py-4 text-left"
+                  onClick={() => openTaskDetail(task)}
+                  type="button"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
+                        {task.status !== "done" ? `${formatPriorityIcon(task.priority)} ` : ""}
+                        {task.status === "done" ? "✅ " : ""}
+                        {task.title}
+                      </h2>
+                      <p className="mt-2 text-sm text-[var(--muted)]">
+                        {task.scheduled_time?.slice(0, 5) ?? slotLabel(scheduledTimeToSlot(task.scheduled_time))} / {formatStatus(task.status)}
+                      </p>
+                      {task.description ? (
+                        <p className="mt-2 line-clamp-2 text-sm leading-7 text-[var(--ink-soft)]">
+                          {task.description}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
-                  {task.recurrence?.is_active ? (
-                    <p className="mt-1 text-sm text-[var(--muted)]">
-                      繰り返し: {formatRecurrenceSummary(task)}
-                    </p>
-                  ) : null}
-                </div>
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--surface)] text-lg text-[var(--ink-soft)]">
-                  ›
-                </span>
-              </div>
-              {task.description ? (
-                <p className="mt-4 line-clamp-2 text-sm leading-7 text-[var(--ink-soft)]">
-                  {task.description}
-                </p>
-              ) : null}
-            </button>
-          ))}
-        </section>
+                </button>
+              ))}
+            </section>
+          )}
+        </Card>
       ) : null}
 
       {screenMode === "tasks" ? (
@@ -2487,7 +2490,19 @@ export function TaskBoard({
       ) : null}
 
       {screenMode === "home" ? (
-        <Card title="通知">
+        <Card>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">通知</h2>
+            {olderLogs.length > 0 ? (
+              <button
+                className="text-sm font-semibold text-[var(--brand)]"
+                onClick={() => setShowAllLogs((current) => !current)}
+                type="button"
+              >
+                {showAllLogs ? "閉じる" : `過去 ${olderLogs.length + (latestLog ? 1 : 0)} 件`}
+              </button>
+            ) : null}
+          </div>
           <div className="flex flex-col gap-3">
             {latestLog ? (
               <NotificationBubble
@@ -2501,29 +2516,20 @@ export function TaskBoard({
               <p className="text-sm text-[var(--muted)]">通知はまだありません。</p>
             )}
 
-            {olderLogs.length > 0 ? (
+            {olderLogs.length > 0 && showAllLogs ? (
               <>
-                <button
-                  className={secondaryButtonClass}
-                  onClick={() => setShowAllLogs((current) => !current)}
-                  type="button"
-                >
-                  {showAllLogs ? "過去の通知を閉じる" : `過去の通知 ${olderLogs.length} 件`}
-                </button>
-                {showAllLogs ? (
-                  <div className="flex flex-col gap-3">
-                    {olderLogs.map((log) => (
-                      <NotificationBubble
-                        key={log.id}
-                        isOpen={openNotificationId === log.id}
-                        log={log}
-                        onDismiss={() => void handleDismissLog(log.id)}
-                        onOpen={() => setOpenNotificationId(log.id)}
-                        onClose={() => setOpenNotificationId(null)}
-                      />
-                    ))}
-                  </div>
-                ) : null}
+                <div className="flex flex-col gap-3">
+                  {olderLogs.map((log) => (
+                    <NotificationBubble
+                      key={log.id}
+                      isOpen={openNotificationId === log.id}
+                      log={log}
+                      onDismiss={() => void handleDismissLog(log.id)}
+                      onOpen={() => setOpenNotificationId(log.id)}
+                      onClose={() => setOpenNotificationId(null)}
+                    />
+                  ))}
+                </div>
               </>
             ) : null}
           </div>
@@ -2654,40 +2660,26 @@ export function TaskBoard({
         </Card>
       ) : null}
 
-      <section className="rounded-[28px] bg-white px-4 py-4 shadow-[0_12px_30px_rgba(31,41,51,0.06)]">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold tracking-[0.08em] text-[var(--muted)]">
-              WORKSPACE
-            </p>
-            <p className="mt-1 truncate text-sm font-semibold text-[var(--ink)]">
-              {state.workspace?.name}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {state.appUser.role === "admin" ? (
-              <button
-                className={toolbarButtonClass}
-                onClick={() =>
-                  setScreenMode((current) => (current === "home" ? "manage" : "home"))
-                }
-                type="button"
-              >
-                <span className="text-base leading-none">{screenMode === "home" ? "⚙" : "⌂"}</span>
-                <span>{screenMode === "home" ? "管理" : "ホーム"}</span>
-              </button>
-            ) : null}
-            <button
-              className={toolbarDangerButtonClass}
-              onClick={handleLogout}
-              type="button"
-              disabled={isSubmitting}
-            >
-              <span className="text-base leading-none">⇥</span>
-              <span>{isSubmitting ? "処理中" : "ログアウト"}</span>
-            </button>
-          </div>
-        </div>
+      <section className="grid grid-cols-2 gap-3">
+        {state.appUser.role === "admin" ? (
+          <button
+            className={bottomActionButtonClass}
+            onClick={() => setScreenMode((current) => (current === "home" ? "manage" : "home"))}
+            type="button"
+          >
+            {screenMode === "home" ? "管理" : "ホーム"}
+          </button>
+        ) : (
+          <div />
+        )}
+        <button
+          className={bottomActionButtonClass}
+          onClick={handleLogout}
+          type="button"
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? "処理中" : "ログアウト"}
+        </button>
       </section>
 
       {createTaskOpen ? (
@@ -2855,8 +2847,8 @@ function SummaryCard({
 
   return (
     <div className={`min-w-0 rounded-2xl px-3 py-3 ${toneClass}`}>
-      <p className="whitespace-nowrap text-[11px] font-semibold tracking-[0.02em]">{label}</p>
-      <p className="mt-2 text-[1.7rem] font-bold leading-none">{value}</p>
+      <p className="whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.06em] opacity-65">{label}</p>
+      <p className="mt-1.5 text-[1.75rem] font-bold leading-none">{value}</p>
     </div>
   );
 }
@@ -2895,7 +2887,7 @@ function ActionButton({
 
   return (
     <button
-      className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${toneClass}`}
+      className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold ${toneClass}`}
       onClick={onClick}
       type="button"
     >
@@ -3030,6 +3022,8 @@ function TaskModal({
   isEditing: boolean;
   onCopySourceChange: (taskId: string) => void;
 }) {
+  const selectedSlot = scheduledTimeToSlot(form.scheduledTime);
+
   return (
     <div
       className="fixed inset-0 z-40 flex items-center justify-center bg-black/35 p-4"
@@ -3043,14 +3037,22 @@ function TaskModal({
         className="max-h-[min(88vh,760px)] w-full max-w-md overflow-y-auto rounded-[32px] bg-white px-5 py-5 shadow-2xl"
         onMouseDown={(event) => event.stopPropagation()}
       >
+        <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-black/12" />
         <h3 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
-          {isEditing ? "タスク編集" : "新しいタスク"}
+          {isEditing ? "タスクを編集" : "タスクを追加"}
         </h3>
+        <p className="mt-1 text-sm text-[var(--muted)]">追加先: {currentGroupName}</p>
         <div className="mt-4 grid gap-3">
-          {availableCopyTasks.length > 0 ? (
-            <FormField label="既存タスクをコピー">
+          <div>
+            <p className="text-sm font-semibold text-[var(--ink)]">既存タスクをコピー</p>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              {availableCopyTasks.length > 0
+                ? "選択すると入力欄へ反映されます。"
+                : "コピー元に使える既存タスクはありません。"}
+            </p>
+            {availableCopyTasks.length > 0 ? (
               <select
-                className={inputClass}
+                className={`${inputClass} mt-2`}
                 value={copySourceTaskId}
                 onChange={(event) => onCopySourceChange(event.target.value)}
               >
@@ -3061,11 +3063,12 @@ function TaskModal({
                   </option>
                 ))}
               </select>
-            </FormField>
-          ) : null}
+            ) : null}
+          </div>
           <FormField label="タイトル">
             <input
               className={inputClass}
+              placeholder="タスク名"
               value={form.title}
               onChange={(event) =>
                 setForm((current) => ({ ...current, title: event.target.value }))
@@ -3074,36 +3077,24 @@ function TaskModal({
           </FormField>
           <FormField label="説明">
             <textarea
-              className={`${inputClass} min-h-24`}
+              className={`${inputClass} min-h-28`}
+              placeholder="説明"
               value={form.description}
               onChange={(event) =>
                 setForm((current) => ({ ...current, description: event.target.value }))
               }
             />
           </FormField>
-          <FormField label="追加先グループ">
-            <div className={`${inputClass} bg-[var(--chip)] text-[var(--ink-soft)]`}>
-              {currentGroupName}
+          <div className="grid grid-cols-[1fr_auto] items-end gap-3">
+            <div>
+              <p className="text-sm font-semibold text-[var(--ink)]">説明画像</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">登録時に説明画像を2枚まで添付できます。</p>
             </div>
-          </FormField>
-          <FormField label="優先度">
-            <select
-              className={inputClass}
-              value={form.priority}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  priority: event.target.value as TaskRecord["priority"],
-                }))
-              }
-            >
-              <option value="urgent">緊急</option>
-              <option value="high">高</option>
-              <option value="medium">中</option>
-              <option value="low">低</option>
-            </select>
-          </FormField>
-          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]">
+              追加
+            </div>
+          </div>
+          <div className="grid grid-cols-[1.1fr_1fr] gap-3">
             <FormField label="実行日">
               <input
                 className={inputClass}
@@ -3122,45 +3113,68 @@ function TaskModal({
                 }
               />
             </FormField>
-            <FormField label="時間">
-              <input
-                className={inputClass}
-                type="time"
-                value={form.scheduledTime}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    scheduledTime: event.target.value,
-                  }))
-                }
-              />
-            </FormField>
+            <div>
+              <p className="mb-2 text-sm text-[var(--muted)]">時間帯</p>
+              <div className="grid grid-cols-2 gap-2">
+                {(["morning", "afternoon", "anytime"] as const).map((slot) => (
+                  <button
+                    key={slot}
+                    className={selectedSlotButtonClass(selectedSlot === slot)}
+                    onClick={() =>
+                      setForm((current) => ({
+                        ...current,
+                        scheduledTime: slotToScheduledTime(slot),
+                      }))
+                    }
+                    type="button"
+                  >
+                    {slotLabel(slot)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-sm text-[var(--muted)]">優先度</p>
+            <div className="flex gap-2">
+              {(["urgent", "high", "medium", "low"] as const).map((priority) => (
+                <button
+                  key={priority}
+                  className={priorityPillClass(form.priority === priority)}
+                  onClick={() =>
+                    setForm((current) => ({
+                      ...current,
+                      priority,
+                    }))
+                  }
+                  type="button"
+                >
+                  {formatPriorityIcon(priority)}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="rounded-3xl bg-[var(--surface)] px-4 py-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-[var(--ink)]">繰り返し</p>
-                <p className="mt-1 text-xs text-[var(--muted)]">
-                  期間内の繰り返しタスクをまとめて作成します。
-                </p>
               </div>
-              <label className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--ink-soft)]">
-                <input
-                  type="checkbox"
-                  checked={form.recurrenceEnabled}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      recurrenceEnabled: event.target.checked,
-                      recurrenceEndDate:
-                        event.target.checked && !current.recurrenceEndDate
-                          ? current.scheduledDate
-                          : current.recurrenceEndDate,
-                    }))
-                  }
-                />
-                有効
-              </label>
+              <button
+                className={form.recurrenceEnabled ? segmentedActiveButtonClass : segmentedButtonClass}
+                onClick={() =>
+                  setForm((current) => ({
+                    ...current,
+                    recurrenceEnabled: !current.recurrenceEnabled,
+                    recurrenceEndDate:
+                      !current.recurrenceEnabled && !current.recurrenceEndDate
+                        ? current.scheduledDate
+                        : current.recurrenceEndDate,
+                  }))
+                }
+                type="button"
+              >
+                {form.recurrenceEnabled ? "ON" : "OFF"}
+              </button>
             </div>
 
             {form.recurrenceEnabled ? (
@@ -3284,12 +3298,12 @@ function TaskModal({
             ) : null}
           </div>
         </div>
-        <div className="mt-5 flex gap-2">
-          <button className={secondaryButtonClass} onClick={onClose} type="button">
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button className={modalSecondaryButtonClass} onClick={onClose} type="button">
             閉じる
           </button>
-          <button className={primaryButtonClass} onClick={onSave} type="button">
-            保存
+          <button className={modalPrimaryButtonClass} onClick={onSave} type="button">
+            {isEditing ? "更新" : "登録"}
           </button>
         </div>
       </div>
@@ -3348,6 +3362,7 @@ function TaskDetailModal({
         className="absolute left-1/2 top-1/2 max-h-[min(88vh,760px)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[32px] bg-white px-5 py-5 shadow-2xl"
         onMouseDown={(event) => event.stopPropagation()}
       >
+        <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-black/12" />
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
@@ -3356,31 +3371,12 @@ function TaskDetailModal({
               {task.title}
             </h3>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              {task.scheduled_date} {task.scheduled_time?.slice(0, 5) ?? "時刻未設定"}
+              {task.scheduled_time?.slice(0, 5) ?? "時刻未設定"} / {formatStatus(task.status)}
             </p>
-            <p className="mt-1 text-sm text-[var(--muted)]">状態: {formatStatus(task.status)}</p>
           </div>
-          <button className={secondaryButtonClass} onClick={onClose} type="button">
-            閉じる
-          </button>
         </div>
 
         <div className="mt-4 grid gap-3">
-          <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-[var(--ink)]">タイトル</p>
-              <button
-                className={iconButtonClass}
-                onClick={() => void onCopyText("タイトル", task.title)}
-                type="button"
-                aria-label="タイトルをコピー"
-              >
-                ⧉
-              </button>
-            </div>
-            <p className="mt-2 text-sm leading-7 text-[var(--ink-soft)]">{task.title}</p>
-          </div>
-
           {task.description ? (
             <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
               <div className="flex items-center justify-between gap-2">
@@ -3402,11 +3398,10 @@ function TaskDetailModal({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-[var(--ink)]">説明画像</p>
-                <p className="mt-1 text-xs text-[var(--muted)]">最大2枚まで登録できます。</p>
               </div>
               {(task.reference_photos?.length ?? 0) < 2 ? (
                 <label className={secondaryButtonClass}>
-                  画像追加
+                  追加
                   <input
                     ref={addReferencePhotoInputRef}
                     className="hidden"
@@ -3497,7 +3492,7 @@ function TaskDetailModal({
             <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
               <p className="text-sm font-semibold text-[var(--ink)]">完了写真</p>
               <p className="mt-2 text-sm text-[var(--ink-soft)]">
-                完了後に最大3枚まで登録できます。完了と同時に写真登録へ進むこともできます。
+                完了写真はタスク完了後に登録できます。
               </p>
             </div>
           ) : null}
@@ -3592,7 +3587,7 @@ function TaskDetailModal({
           ) : null}
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-2">
+        <div className="mt-5 grid grid-cols-3 gap-3">
           {task.status === "pending" ||
           task.status === "awaiting_confirmation" ||
           task.status === "done" ? (
@@ -3622,12 +3617,20 @@ function TaskDetailModal({
           task.priority !== "high" ? (
             <ActionButton label="翌日に回す" onClick={() => onAction("postpone")} tone="neutral" />
           ) : null}
-          {task.status !== "done" &&
-          (task.priority === "urgent" || task.priority === "high") ? (
-            <span className="inline-flex items-center rounded-2xl border border-dashed border-[var(--danger)] px-4 py-3 text-sm font-semibold text-[var(--danger)]">
-              最優先のため延期不可
-            </span>
-          ) : null}
+        </div>
+        {(task.priority === "urgent" || task.priority === "high") && task.status !== "done" ? (
+          <div className="mt-3 rounded-2xl bg-[rgba(220,38,38,0.08)] px-4 py-3 text-center text-sm font-semibold text-[var(--danger)]">
+            最優先のため延期不可
+          </div>
+        ) : null}
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <button
+            className={closeWideButtonClass}
+            onClick={onClose}
+            type="button"
+          >
+            閉じる
+          </button>
         </div>
       </div>
     </div>
@@ -3699,30 +3702,52 @@ function Footer({
 }
 
 const inputClass =
-  "rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none";
+  "rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-shadow focus:border-[var(--brand)]/50 focus:ring-2 focus:ring-[var(--brand)]/10";
 const primaryButtonClass =
-  "rounded-2xl bg-[var(--brand)] px-4 py-3 text-sm font-semibold text-white";
+  "rounded-2xl bg-[var(--brand)] px-5 py-3.5 text-sm font-semibold text-white transition-transform active:scale-[0.97]";
 const primaryIconButtonClass =
-  "flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--brand)] text-xl text-white";
+  "flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--brand)] text-2xl font-light leading-none text-white shadow-[0_4px_12px_rgba(79,70,229,0.3)] transition-transform active:scale-[0.95]";
 const secondaryButtonClass =
-  "rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]";
+  "rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
 const segmentedButtonClass =
-  "rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]";
+  "rounded-xl border border-black/8 bg-white px-4 py-2.5 text-sm font-semibold text-[var(--ink-soft)]";
 const segmentedActiveButtonClass =
-  "rounded-2xl bg-[var(--brand)] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_18px_rgba(79,70,229,0.28)]";
+  "rounded-xl bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_6px_14px_rgba(79,70,229,0.28)]";
 const selectCardClass =
   "min-w-0 rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink)] outline-none";
 const squareUtilityButtonClass =
-  "flex min-h-[54px] flex-col items-center justify-center rounded-2xl border border-black/8 bg-white px-2 py-2 text-xs font-semibold text-[var(--ink-soft)]";
+  "flex min-h-[46px] flex-col items-center justify-center gap-0.5 rounded-xl border border-black/8 bg-white px-3 py-1.5 text-[11px] font-semibold text-[var(--ink-soft)]";
+const wideUtilityButtonClass =
+  "flex w-full items-center justify-center rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]";
 const miniUtilityButtonClass =
-  "rounded-2xl border border-black/8 bg-white px-3 py-3 text-xs font-semibold text-[var(--ink-soft)]";
+  "rounded-xl border border-black/8 bg-white px-3 py-2 text-xs font-semibold text-[var(--ink-soft)]";
 const miniDangerButtonClass =
-  "rounded-2xl border border-[var(--danger)]/28 bg-[#FEF2F2] px-3 py-3 text-xs font-semibold text-[var(--danger)]";
+  "rounded-xl border border-[var(--danger)]/25 bg-[#FEF2F2] px-3 py-2 text-xs font-semibold text-[var(--danger)]";
 const secondaryDangerClass =
   "rounded-2xl border border-[var(--danger)] bg-white px-4 py-3 text-sm font-semibold text-[var(--danger)]";
 const toolbarButtonClass =
-  "inline-flex items-center gap-2 rounded-2xl bg-[var(--chip)] px-4 py-3 text-sm font-semibold text-[var(--ink-soft)] shadow-[0_8px_16px_rgba(79,70,229,0.06)]";
+  "inline-flex items-center gap-2 rounded-2xl bg-[var(--chip)] px-5 py-3 text-sm font-semibold text-[var(--brand)] shadow-[0_4px_12px_rgba(79,70,229,0.08)]";
 const toolbarDangerButtonClass =
-  "inline-flex items-center gap-2 rounded-2xl border border-[var(--danger)]/22 bg-[#FEF2F2] px-4 py-3 text-sm font-semibold text-[var(--danger)] shadow-[0_8px_16px_rgba(220,38,38,0.08)]";
+  "inline-flex items-center gap-2 rounded-2xl border border-[var(--danger)]/20 bg-[#FEF2F2] px-5 py-3 text-sm font-semibold text-[var(--danger)] shadow-[0_4px_12px_rgba(220,38,38,0.08)]";
+const bottomActionButtonClass =
+  "w-full rounded-[22px] border border-black/8 bg-white px-4 py-4 text-sm font-semibold text-[var(--brand)] shadow-[0_8px_18px_rgba(31,41,51,0.05)]";
 const iconButtonClass =
   "flex h-8 w-8 items-center justify-center rounded-xl border border-black/10 bg-white text-sm text-[var(--ink-soft)]";
+const modalPrimaryButtonClass =
+  "w-full rounded-2xl bg-[var(--brand)] px-4 py-3 text-sm font-semibold text-white";
+const modalSecondaryButtonClass =
+  "w-full rounded-2xl border border-black/8 bg-[var(--surface)] px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]";
+const closeWideButtonClass =
+  "w-full rounded-2xl border border-black/8 bg-[var(--surface)] px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]";
+
+function priorityPillClass(selected: boolean) {
+  return `flex h-11 w-11 items-center justify-center rounded-full border text-lg ${
+    selected
+      ? "border-[var(--brand)] bg-[var(--brand)] text-white"
+      : "border-black/8 bg-white text-[var(--ink-soft)]"
+  }`;
+}
+
+function selectedSlotButtonClass(selected: boolean) {
+  return selected ? segmentedActiveButtonClass : segmentedButtonClass;
+}
