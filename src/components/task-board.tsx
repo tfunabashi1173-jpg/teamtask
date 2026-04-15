@@ -1762,7 +1762,7 @@ export function TaskBoard({
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-3">
+        <div className="mt-4 grid grid-cols-4 gap-2">
           <SummaryCard label="未着手" value={counts.pending} tone="default" />
           <SummaryCard label="作業中" value={counts.inProgress} tone="warning" />
           <SummaryCard label="確認待ち" value={counts.awaitingConfirmation} tone="warning" />
@@ -2558,9 +2558,9 @@ function SummaryCard({
         : "bg-[var(--surface)] text-[var(--ink-soft)]";
 
   return (
-    <div className={`rounded-2xl px-4 py-3 ${toneClass}`}>
-      <p className="text-xs font-semibold tracking-[0.06em]">{label}</p>
-      <p className="mt-2 text-2xl font-bold">{value}</p>
+    <div className={`min-w-0 rounded-2xl px-3 py-3 ${toneClass}`}>
+      <p className="whitespace-nowrap text-[11px] font-semibold tracking-[0.02em]">{label}</p>
+      <p className="mt-2 text-[1.7rem] font-bold leading-none">{value}</p>
     </div>
   );
 }
