@@ -334,6 +334,7 @@ export function TaskBoard({
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
   const [copySourceTaskId, setCopySourceTaskId] = useState<string>("");
   const [showAllLogs, setShowAllLogs] = useState(false);
+  const [openNotificationId, setOpenNotificationId] = useState<string | null>(null);
   const [batchRows, setBatchRows] = useState<BatchTaskRow[]>(() =>
     Array.from({ length: 8 }, () => createBatchTaskRow()),
   );
@@ -1259,6 +1260,27 @@ export function TaskBoard({
     }
 
     pushToast("success", "テスト通知を送信しました。");
+  }
+
+  async function handleDismissLog(logId: string) {
+    const previousLogs = state.logs;
+    setOpenNotificationId(null);
+    setState((current) => ({
+      ...current,
+      logs: current.logs.filter((log) => log.id !== logId),
+    }));
+
+    const result = await callJson(`/api/logs/${logId}/dismiss`, {
+      method: "POST",
+    });
+
+    if (!result.ok) {
+      setState((current) => ({ ...current, logs: previousLogs }));
+      pushToast("error", "通知の削除に失敗しました。");
+      return;
+    }
+
+    pushToast("success", "通知を削除しました。");
   }
 
   function openEditTask(task: TaskRecord) {
@@ -2454,7 +2476,13 @@ export function TaskBoard({
         <Card title="通知">
           <div className="flex flex-col gap-3">
             {latestLog ? (
-              <NotificationBubble log={latestLog} />
+              <NotificationBubble
+                isOpen={openNotificationId === latestLog.id}
+                log={latestLog}
+                onDismiss={() => void handleDismissLog(latestLog.id)}
+                onOpen={() => setOpenNotificationId(latestLog.id)}
+                onClose={() => setOpenNotificationId(null)}
+              />
             ) : (
               <p className="text-sm text-[var(--muted)]">通知はまだありません。</p>
             )}
@@ -2471,7 +2499,14 @@ export function TaskBoard({
                 {showAllLogs ? (
                   <div className="flex flex-col gap-3">
                     {olderLogs.map((log) => (
-                      <NotificationBubble key={log.id} log={log} />
+                      <NotificationBubble
+                        key={log.id}
+                        isOpen={openNotificationId === log.id}
+                        log={log}
+                        onDismiss={() => void handleDismissLog(log.id)}
+                        onOpen={() => setOpenNotificationId(log.id)}
+                        onClose={() => setOpenNotificationId(null)}
+                      />
                     ))}
                   </div>
                 ) : null}
@@ -2868,12 +2903,53 @@ function PendingRequestCard({
   );
 }
 
-function NotificationBubble({ log }: { log: TaskLogRecord }) {
+function NotificationBubble({
+  log,
+  isOpen,
+  onDismiss,
+  onOpen,
+  onClose,
+}: {
+  log: TaskLogRecord;
+  isOpen: boolean;
+  onDismiss: () => void;
+  onOpen: () => void;
+  onClose: () => void;
+}) {
   const actorName = log.actor?.display_name ?? "誰か";
   const actorImage = log.actor?.line_picture_url ?? null;
+  const touchStartXRef = useRef<number | null>(null);
 
   return (
-    <div className="flex items-start gap-3">
+    <div className="relative overflow-hidden rounded-[24px]">
+      <div className="absolute inset-y-0 right-0 flex items-center pr-2">
+        <button
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--danger)] text-lg text-white shadow-[0_8px_18px_rgba(31,41,51,0.08)]"
+          onClick={onDismiss}
+          type="button"
+          aria-label="通知を削除"
+        >
+          🗑
+        </button>
+      </div>
+      <div
+        className={`flex items-start gap-3 transition-transform duration-200 ${isOpen ? "-translate-x-14" : "translate-x-0"}`}
+        onTouchStart={(event) => {
+          touchStartXRef.current = event.touches[0]?.clientX ?? null;
+        }}
+        onTouchEnd={(event) => {
+          const startX = touchStartXRef.current;
+          const endX = event.changedTouches[0]?.clientX ?? null;
+          touchStartXRef.current = null;
+          if (startX === null || endX === null) return;
+          const deltaX = endX - startX;
+          if (deltaX < -36) {
+            onOpen();
+          } else if (deltaX > 24) {
+            onClose();
+          }
+        }}
+      >
       {actorImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -2893,6 +2969,7 @@ function NotificationBubble({ log }: { log: TaskLogRecord }) {
         <p className="mt-2 text-xs text-[var(--muted)]">
           {new Date(log.created_at).toLocaleString("ja-JP")}
         </p>
+      </div>
       </div>
     </div>
   );

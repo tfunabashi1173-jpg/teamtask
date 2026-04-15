@@ -264,7 +264,7 @@ export async function getAppState({
           (row) => row.group_id,
         );
 
-  const [groupsResult, tasksResult, logsResult, membersResult, pendingRequestsResult] =
+  const [groupsResult, tasksResult, logsResult, membersResult, pendingRequestsResult, dismissedLogsResult] =
     await Promise.all([
       appUser.role === "admin"
         ? supabase
@@ -315,6 +315,10 @@ export async function getAppState({
             .eq("status", "pending")
             .order("created_at", { ascending: false })
         : Promise.resolve({ data: [] }),
+      supabase
+        .from("task_log_dismissals")
+        .select("log_id")
+        .eq("user_id", appUser.id),
     ]);
 
   const baseTasks = (tasksResult.data as TaskRecord[] | null) ?? [];
@@ -446,6 +450,9 @@ export async function getAppState({
       ? ((membersResult.data ?? [])
           .flatMap((row) => (Array.isArray(row.user) ? row.user : row.user ? [row.user] : [])) as MemberRecord[])
       : [];
+  const dismissedLogIds = new Set(
+    ((dismissedLogsResult.data as { log_id: string }[] | null) ?? []).map((row) => row.log_id),
+  );
 
   return {
     sessionLineUserId,
@@ -453,7 +460,9 @@ export async function getAppState({
     workspace,
     groups: (groupsResult.data as Group[] | null) ?? [],
     tasks,
-    logs: (logsResult.data as TaskLogRecord[] | null) ?? [],
+    logs: ((logsResult.data as TaskLogRecord[] | null) ?? []).filter(
+      (log) => !dismissedLogIds.has(log.id),
+    ),
     members,
     pendingRequests:
       (pendingRequestsResult.data as MembershipRequestRecord[] | null) ?? [],
