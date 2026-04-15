@@ -6,7 +6,6 @@ import { readSessionUser } from "@/lib/auth/server-session";
 
 function resolveCommitSha() {
   const envSha =
-    process.env.NEXT_PUBLIC_APP_COMMIT_SHA?.slice(0, 7) ??
     process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ??
     process.env.GITHUB_SHA?.slice(0, 7);
 
