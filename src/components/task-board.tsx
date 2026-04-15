@@ -2553,8 +2553,7 @@ export function TaskBoard({
                 </div>
               </div>
               {state.appUser?.role === "admin" ? (
-                <>
-                  <div>
+                <div>
                     <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">グループ招待</p>
                     <div className="mt-2 flex flex-col gap-3">
                       {state.groups.map((group) => (
@@ -2581,7 +2580,8 @@ export function TaskBoard({
                       ))}
                     </div>
                   </div>
-                  <div>
+                ) : null}
+              <div>
                     <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">通知設定</p>
                     <div className="mt-2 grid gap-3">
                       <FormField label="朝通知時刻">
@@ -2608,8 +2608,6 @@ export function TaskBoard({
                       </button>
                     </div>
                   </div>
-                </>
-              ) : null}
             </div>
           </div>
         </div>
@@ -3362,7 +3360,6 @@ function TaskDetailModal({
                     className="hidden"
                     type="file"
                     accept="image/*"
-                    capture="environment"
                     disabled={isReferencePhotoSubmitting}
                     onChange={async (event) => {
                       const file = event.target.files?.[0];
@@ -3414,7 +3411,6 @@ function TaskDetailModal({
                         className="hidden"
                         type="file"
                         accept="image/*"
-                        capture="environment"
                         onChange={async (event) => {
                           const file = event.target.files?.[0];
                           event.currentTarget.value = "";
@@ -3689,14 +3685,14 @@ const bottomActionButtonClass =
 const iconButtonClass =
   "flex h-8 w-8 items-center justify-center rounded-xl border border-black/10 bg-white text-sm text-[var(--ink-soft)]";
 const modalPrimaryButtonClass =
-  "w-full rounded-2xl bg-[var(--brand)] px-4 py-3 text-sm font-semibold text-white";
+  "w-full rounded-2xl bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white";
 const modalSecondaryButtonClass =
-  "w-full rounded-2xl border border-black/8 bg-[var(--surface)] px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]";
+  "w-full rounded-2xl border border-black/8 bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--ink-soft)]";
 const closeWideButtonClass =
-  "w-full rounded-2xl border border-black/8 bg-[var(--surface)] px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]";
+  "w-full rounded-2xl border border-black/8 bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--ink-soft)]";
 
 function priorityPillClass(selected: boolean) {
-  return `flex h-11 w-11 items-center justify-center rounded-full border text-lg ${
+  return `flex h-9 w-9 items-center justify-center rounded-full border text-base ${
     selected
       ? "border-[var(--brand)] bg-[var(--brand)] text-white"
       : "border-black/8 bg-white text-[var(--ink-soft)]"
@@ -3704,5 +3700,7 @@ function priorityPillClass(selected: boolean) {
 }
 
 function selectedSlotButtonClass(selected: boolean) {
-  return selected ? segmentedActiveButtonClass : segmentedButtonClass;
+  return selected
+    ? "rounded-xl bg-[var(--brand)] px-3 py-1.5 text-xs font-semibold text-white shadow-[0_4px_10px_rgba(79,70,229,0.22)]"
+    : "rounded-xl border border-black/8 bg-white px-3 py-1.5 text-xs font-semibold text-[var(--ink-soft)]";
 }
