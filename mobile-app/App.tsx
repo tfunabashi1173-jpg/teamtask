@@ -11,6 +11,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import * as SecureStore from "expo-secure-store";
@@ -20,13 +21,16 @@ import { fetchBackendVersion } from "./src/lib/backend";
 import {
   createAuthHeaders,
   createBackendUrl,
+  createTask,
   exchangeMobileSession,
   fetchAppState,
   postTaskAction,
+  type CreateTaskPayload,
   type MobileAppState,
   type MobileGroup,
   type MobileLogRecord,
   type MobileTaskRecord,
+  type RecurrenceFrequency,
   type TaskAction,
   type TaskPhotoRecord,
 } from "./src/lib/api";
@@ -41,11 +45,51 @@ const CARD = "#FFFCF7";
 const BORDER = "#E7E0D4";
 const TEXT = "#1E1C19";
 const MUTED = "#7E766C";
+const WEEKDAYS = [
+  { label: "日", value: 0 },
+  { label: "月", value: 1 },
+  { label: "火", value: 2 },
+  { label: "水", value: 3 },
+  { label: "木", value: 4 },
+  { label: "金", value: 5 },
+  { label: "土", value: 6 },
+];
 
 type LoadState = "booting" | "logged_out" | "ready";
+type DraftTask = {
+  title: string;
+  description: string;
+  priority: "urgent" | "high" | "medium" | "low";
+  scheduledDate: string;
+  scheduledTime: string;
+  recurrenceEnabled: boolean;
+  recurrenceFrequency: RecurrenceFrequency;
+  recurrenceInterval: string;
+  recurrenceEndDate: string;
+  recurrenceDaysOfWeek: number[];
+  recurrenceDayOfMonth: string;
+  copiedFromTaskId: string | null;
+};
 
 function createRedirectUri() {
   return `${APP_SCHEME}://auth/callback`;
+}
+
+function createDefaultDraft(baseDate: string): DraftTask {
+  return {
+    title: "",
+    description: "",
+    priority: "medium",
+    scheduledDate: baseDate,
+    scheduledTime: "",
+    recurrenceEnabled: false,
+    recurrenceFrequency: "weekly",
+    recurrenceInterval: "1",
+    recurrenceEndDate: baseDate,
+    recurrenceDaysOfWeek: [],
+    recurrenceDayOfMonth: "1",
+    copiedFromTaskId: null,
+  };
 }
 
 function formatApiError(error: unknown) {
@@ -65,6 +109,12 @@ function formatApiError(error: unknown) {
     case "UNAUTHORIZED":
     case "HTTP_401":
       return "認証が切れました。再ログインしてください。";
+    case "INVALID_INPUT":
+      return "入力内容が不足しています。";
+    case "INVALID_RECURRENCE":
+      return "繰り返し設定が不足しています。";
+    case "INVALID_RECURRENCE_PERIOD":
+      return "繰り返しの終了日は開始日以降にしてください。";
     default:
       return "通信に失敗しました。ネットワーク状態を確認してください。";
   }
@@ -176,6 +226,19 @@ function taskTitle(task: MobileTaskRecord) {
   return task.status === "done" ? `✅ ${task.title}` : task.title;
 }
 
+function priorityLabel(priority: MobileTaskRecord["priority"]) {
+  switch (priority) {
+    case "urgent":
+      return "緊急";
+    case "high":
+      return "高";
+    case "medium":
+      return "中";
+    default:
+      return "低";
+  }
+}
+
 function TaskPreviewImage({
   photo,
   sessionToken,
@@ -210,6 +273,9 @@ export default function App() {
   const [loggingIn, setLoggingIn] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [actingTaskId, setActingTaskId] = useState<string | null>(null);
+  const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [savingTask, setSavingTask] = useState(false);
+  const [draftTask, setDraftTask] = useState<DraftTask>(() => createDefaultDraft(buildTodayLabel()));
   const appStateRef = useRef(AppState.currentState);
 
   const loadBackendVersion = useCallback(async () => {
@@ -368,6 +434,7 @@ export default function App() {
   );
 
   const today = useMemo(buildTodayLabel, []);
+  const primaryGroup = useMemo(() => appState?.groups[0] ?? null, [appState?.groups]);
 
   const todayTasks = useMemo(() => {
     if (!appState) {
@@ -394,6 +461,104 @@ export default function App() {
       done: todayTasks.filter((task) => task.status === "done").length,
     };
   }, [todayTasks]);
+
+  const copyableTasks = useMemo(
+    () => (appState?.tasks ?? []).slice().sort(compareTaskOrder).slice(0, 12),
+    [appState?.tasks],
+  );
+
+  const openCreateModal = useCallback(() => {
+    setDraftTask(createDefaultDraft(today));
+    setCreateModalVisible(true);
+  }, [today]);
+
+  const applyCopiedTask = useCallback(
+    (taskId: string) => {
+      const sourceTask = copyableTasks.find((task) => task.id === taskId);
+      if (!sourceTask) {
+        return;
+      }
+
+      setDraftTask((current) => ({
+        ...current,
+        copiedFromTaskId: sourceTask.id,
+        title: sourceTask.title,
+        description: sourceTask.description ?? "",
+        priority: sourceTask.priority,
+        scheduledTime: sourceTask.scheduled_time ?? "",
+        recurrenceEnabled: Boolean(sourceTask.recurrence),
+        recurrenceFrequency: sourceTask.recurrence?.frequency ?? "weekly",
+        recurrenceInterval: String(sourceTask.recurrence?.interval_value ?? 1),
+        recurrenceEndDate: sourceTask.recurrence?.end_date ?? current.scheduledDate,
+        recurrenceDaysOfWeek: sourceTask.recurrence?.days_of_week ?? [],
+        recurrenceDayOfMonth: String(sourceTask.recurrence?.day_of_month ?? 1),
+      }));
+    },
+    [copyableTasks],
+  );
+
+  const toggleRecurrenceWeekday = useCallback((day: number) => {
+    setDraftTask((current) => ({
+      ...current,
+      recurrenceDaysOfWeek: current.recurrenceDaysOfWeek.includes(day)
+        ? current.recurrenceDaysOfWeek.filter((value) => value !== day)
+        : current.recurrenceDaysOfWeek.concat(day).sort(),
+    }));
+  }, []);
+
+  const saveTask = useCallback(async () => {
+    if (!sessionToken || !appState?.workspace) {
+      return;
+    }
+
+    const normalizedTitle = draftTask.title.trim();
+    if (!normalizedTitle) {
+      setErrorMessage("タスク名を入力してください。");
+      return;
+    }
+
+    const interval = Number(draftTask.recurrenceInterval || "1");
+    const dayOfMonth = Number(draftTask.recurrenceDayOfMonth || "1");
+
+    const payload: CreateTaskPayload = {
+      workspaceId: appState.workspace.id,
+      title: normalizedTitle,
+      description: draftTask.description.trim(),
+      priority: draftTask.priority,
+      scheduledDate: draftTask.scheduledDate,
+      scheduledTime: draftTask.scheduledTime || null,
+      visibilityType: primaryGroup ? "group" : "personal",
+      groupId: primaryGroup?.id ?? null,
+      recurrence: {
+        enabled: draftTask.recurrenceEnabled,
+        frequency: draftTask.recurrenceEnabled ? draftTask.recurrenceFrequency : undefined,
+        interval: draftTask.recurrenceEnabled ? Math.max(1, interval || 1) : undefined,
+        endDate: draftTask.recurrenceEnabled ? draftTask.recurrenceEndDate : undefined,
+        daysOfWeek:
+          draftTask.recurrenceEnabled && draftTask.recurrenceFrequency === "weekly"
+            ? draftTask.recurrenceDaysOfWeek
+            : undefined,
+        dayOfMonth:
+          draftTask.recurrenceEnabled && draftTask.recurrenceFrequency === "monthly"
+            ? Math.min(31, Math.max(1, dayOfMonth || 1))
+            : null,
+      },
+    };
+
+    setSavingTask(true);
+    setErrorMessage(null);
+
+    try {
+      await createTask(payload, sessionToken);
+      setCreateModalVisible(false);
+      setDraftTask(createDefaultDraft(today));
+      await refreshData();
+    } catch (error) {
+      setErrorMessage(formatApiError(error));
+    } finally {
+      setSavingTask(false);
+    }
+  }, [appState?.workspace, draftTask, primaryGroup, refreshData, sessionToken, today]);
 
   if (loadState === "booting") {
     return (
@@ -454,11 +619,18 @@ export default function App() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refreshData()} />}
       >
         <View style={styles.heroCard}>
-          <Text style={styles.eyebrow}>TASK BOARD</Text>
-          <Text style={styles.heroTitle}>{formatTaskDateLabel(today)}</Text>
-          <Text style={styles.heroSubtitle}>
-            {appState?.workspace?.name ?? "ワークスペース未設定"}
-          </Text>
+          <View style={styles.heroTopRow}>
+            <View style={styles.heroTitleWrap}>
+              <Text style={styles.eyebrow}>TASK BOARD</Text>
+              <Text style={styles.heroTitle}>{formatTaskDateLabel(today)}</Text>
+              <Text style={styles.heroSubtitle}>
+                {primaryGroup?.name ?? appState?.workspace?.name ?? "ワークスペース未設定"}
+              </Text>
+            </View>
+            <Pressable style={styles.fabButton} onPress={openCreateModal}>
+              <Text style={styles.fabButtonText}>＋</Text>
+            </Pressable>
+          </View>
 
           <View style={styles.summaryGrid}>
             <View style={styles.summaryCard}>
@@ -623,6 +795,282 @@ export default function App() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <Modal
+        visible={createModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCreateModalVisible(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setCreateModalVisible(false)}>
+          <Pressable style={[styles.modalCard, styles.largeModalCard]} onPress={() => null}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalTitle}>タスクを追加</Text>
+              <Text style={styles.modalMeta}>
+                追加先: {primaryGroup ? `${primaryGroup.name} に共有` : "個人タスク"}
+              </Text>
+
+              <View style={styles.formSection}>
+                <Text style={styles.fieldLabel}>既存タスクをコピー</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {copyableTasks.map((task) => (
+                    <Pressable
+                      key={task.id}
+                      style={[
+                        styles.copyTaskChip,
+                        draftTask.copiedFromTaskId === task.id && styles.copyTaskChipActive,
+                      ]}
+                      onPress={() => applyCopiedTask(task.id)}
+                    >
+                      <Text
+                        style={[
+                          styles.copyTaskChipText,
+                          draftTask.copiedFromTaskId === task.id && styles.copyTaskChipTextActive,
+                        ]}
+                      >
+                        {task.title}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+
+              <View style={styles.formSection}>
+                <Text style={styles.fieldLabel}>タイトル</Text>
+                <TextInput
+                  value={draftTask.title}
+                  onChangeText={(title) => setDraftTask((current) => ({ ...current, title }))}
+                  placeholder="タスク名"
+                  placeholderTextColor="#A59C91"
+                  style={styles.textInput}
+                />
+              </View>
+
+              <View style={styles.formSection}>
+                <Text style={styles.fieldLabel}>説明</Text>
+                <TextInput
+                  value={draftTask.description}
+                  onChangeText={(description) =>
+                    setDraftTask((current) => ({ ...current, description }))
+                  }
+                  placeholder="説明"
+                  placeholderTextColor="#A59C91"
+                  style={[styles.textInput, styles.multilineInput]}
+                  multiline
+                />
+              </View>
+
+              <View style={styles.formRow}>
+                <View style={styles.formColumn}>
+                  <Text style={styles.fieldLabel}>日付</Text>
+                  <TextInput
+                    value={draftTask.scheduledDate}
+                    onChangeText={(scheduledDate) =>
+                      setDraftTask((current) => ({ ...current, scheduledDate }))
+                    }
+                    placeholder="2026-04-15"
+                    placeholderTextColor="#A59C91"
+                    style={styles.textInput}
+                    autoCapitalize="none"
+                  />
+                </View>
+                <View style={styles.formColumn}>
+                  <Text style={styles.fieldLabel}>時刻</Text>
+                  <TextInput
+                    value={draftTask.scheduledTime}
+                    onChangeText={(scheduledTime) =>
+                      setDraftTask((current) => ({ ...current, scheduledTime }))
+                    }
+                    placeholder="09:00"
+                    placeholderTextColor="#A59C91"
+                    style={styles.textInput}
+                    autoCapitalize="none"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.formSection}>
+                <Text style={styles.fieldLabel}>優先度</Text>
+                <View style={styles.optionRow}>
+                  {(["urgent", "high", "medium", "low"] as const).map((priority) => (
+                    <Pressable
+                      key={priority}
+                      style={[
+                        styles.choiceChip,
+                        draftTask.priority === priority && styles.choiceChipActive,
+                      ]}
+                      onPress={() => setDraftTask((current) => ({ ...current, priority }))}
+                    >
+                      <Text
+                        style={[
+                          styles.choiceChipText,
+                          draftTask.priority === priority && styles.choiceChipTextActive,
+                        ]}
+                      >
+                        {priorityLabel(priority)}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.formSection}>
+                <View style={styles.toggleRow}>
+                  <Text style={styles.fieldLabel}>繰り返し</Text>
+                  <Pressable
+                    style={[
+                      styles.toggleButton,
+                      draftTask.recurrenceEnabled && styles.toggleButtonActive,
+                    ]}
+                    onPress={() =>
+                      setDraftTask((current) => ({
+                        ...current,
+                        recurrenceEnabled: !current.recurrenceEnabled,
+                      }))
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.toggleButtonText,
+                        draftTask.recurrenceEnabled && styles.toggleButtonTextActive,
+                      ]}
+                    >
+                      {draftTask.recurrenceEnabled ? "ON" : "OFF"}
+                    </Text>
+                  </Pressable>
+                </View>
+
+                {draftTask.recurrenceEnabled ? (
+                  <>
+                    <View style={styles.optionRow}>
+                      {(["daily", "weekly", "monthly"] as RecurrenceFrequency[]).map((frequency) => (
+                        <Pressable
+                          key={frequency}
+                          style={[
+                            styles.choiceChip,
+                            draftTask.recurrenceFrequency === frequency && styles.choiceChipActive,
+                          ]}
+                          onPress={() =>
+                            setDraftTask((current) => ({
+                              ...current,
+                              recurrenceFrequency: frequency,
+                            }))
+                          }
+                        >
+                          <Text
+                            style={[
+                              styles.choiceChipText,
+                              draftTask.recurrenceFrequency === frequency &&
+                                styles.choiceChipTextActive,
+                            ]}
+                          >
+                            {frequency === "daily"
+                              ? "毎日"
+                              : frequency === "weekly"
+                                ? "毎週"
+                                : "毎月"}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+
+                    <View style={styles.formRow}>
+                      <View style={styles.formColumn}>
+                        <Text style={styles.fieldLabel}>間隔</Text>
+                        <TextInput
+                          value={draftTask.recurrenceInterval}
+                          onChangeText={(recurrenceInterval) =>
+                            setDraftTask((current) => ({ ...current, recurrenceInterval }))
+                          }
+                          placeholder="1"
+                          placeholderTextColor="#A59C91"
+                          style={styles.textInput}
+                          keyboardType="number-pad"
+                        />
+                      </View>
+                      <View style={styles.formColumn}>
+                        <Text style={styles.fieldLabel}>終了日</Text>
+                        <TextInput
+                          value={draftTask.recurrenceEndDate}
+                          onChangeText={(recurrenceEndDate) =>
+                            setDraftTask((current) => ({ ...current, recurrenceEndDate }))
+                          }
+                          placeholder="2026-05-15"
+                          placeholderTextColor="#A59C91"
+                          style={styles.textInput}
+                          autoCapitalize="none"
+                        />
+                      </View>
+                    </View>
+
+                    {draftTask.recurrenceFrequency === "weekly" ? (
+                      <View style={styles.optionRow}>
+                        {WEEKDAYS.map((day) => (
+                          <Pressable
+                            key={day.value}
+                            style={[
+                              styles.weekdayChip,
+                              draftTask.recurrenceDaysOfWeek.includes(day.value) &&
+                                styles.choiceChipActive,
+                            ]}
+                            onPress={() => toggleRecurrenceWeekday(day.value)}
+                          >
+                            <Text
+                              style={[
+                                styles.choiceChipText,
+                                draftTask.recurrenceDaysOfWeek.includes(day.value) &&
+                                  styles.choiceChipTextActive,
+                              ]}
+                            >
+                              {day.label}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    ) : null}
+
+                    {draftTask.recurrenceFrequency === "monthly" ? (
+                      <View style={styles.formSection}>
+                        <Text style={styles.fieldLabel}>毎月の日付</Text>
+                        <TextInput
+                          value={draftTask.recurrenceDayOfMonth}
+                          onChangeText={(recurrenceDayOfMonth) =>
+                            setDraftTask((current) => ({ ...current, recurrenceDayOfMonth }))
+                          }
+                          placeholder="1"
+                          placeholderTextColor="#A59C91"
+                          style={styles.textInput}
+                          keyboardType="number-pad"
+                        />
+                      </View>
+                    ) : null}
+                  </>
+                ) : null}
+              </View>
+
+              <View style={styles.modalActionRow}>
+                <Pressable
+                  style={styles.secondaryModalButton}
+                  onPress={() => setCreateModalVisible(false)}
+                >
+                  <Text style={styles.secondaryModalButtonText}>閉じる</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.primaryButton, styles.modalPrimaryButton]}
+                  onPress={() => void saveTask()}
+                  disabled={savingTask}
+                >
+                  {savingTask ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.primaryButtonText}>登録</Text>
+                  )}
+                </Pressable>
+              </View>
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -718,6 +1166,15 @@ const styles = StyleSheet.create({
     padding: 22,
     gap: 10,
   },
+  heroTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  heroTitleWrap: {
+    flex: 1,
+  },
   heroTitle: {
     color: TEXT,
     fontSize: 36,
@@ -726,6 +1183,20 @@ const styles = StyleSheet.create({
   heroSubtitle: {
     color: MUTED,
     fontSize: 15,
+  },
+  fabButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 18,
+    backgroundColor: BRAND,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fabButtonText: {
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "700",
+    marginTop: -2,
   },
   summaryGrid: {
     flexDirection: "row",
@@ -906,10 +1377,153 @@ const styles = StyleSheet.create({
     padding: 22,
     gap: 12,
   },
+  largeModalCard: {
+    maxHeight: "86%",
+  },
   modalTitle: {
     color: TEXT,
     fontSize: 26,
     fontWeight: "800",
+  },
+  formSection: {
+    gap: 8,
+    marginTop: 14,
+  },
+  formRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 14,
+  },
+  formColumn: {
+    flex: 1,
+    gap: 8,
+  },
+  fieldLabel: {
+    color: TEXT,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  textInput: {
+    minHeight: 48,
+    borderRadius: 16,
+    backgroundColor: "#F5F2EA",
+    borderWidth: 1,
+    borderColor: BORDER,
+    paddingHorizontal: 14,
+    color: TEXT,
+    fontSize: 15,
+  },
+  multilineInput: {
+    minHeight: 92,
+    paddingTop: 14,
+    textAlignVertical: "top",
+  },
+  optionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  choiceChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: "#F5F2EA",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  weekdayChip: {
+    minWidth: 42,
+    alignItems: "center",
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: "#F5F2EA",
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  choiceChipActive: {
+    backgroundColor: BRAND,
+    borderColor: BRAND,
+  },
+  choiceChipText: {
+    color: TEXT,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  choiceChipTextActive: {
+    color: "#FFFFFF",
+  },
+  copyTaskChip: {
+    maxWidth: 220,
+    marginRight: 8,
+    borderRadius: 16,
+    backgroundColor: "#F5F2EA",
+    borderWidth: 1,
+    borderColor: BORDER,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  copyTaskChipActive: {
+    backgroundColor: "#E5F1EA",
+    borderColor: BRAND,
+  },
+  copyTaskChipText: {
+    color: TEXT,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  copyTaskChipTextActive: {
+    color: BRAND,
+  },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  toggleButton: {
+    minWidth: 68,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: "#F5F2EA",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    alignItems: "center",
+  },
+  toggleButtonActive: {
+    borderColor: BRAND,
+    backgroundColor: "#E5F1EA",
+  },
+  toggleButtonText: {
+    color: MUTED,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  toggleButtonTextActive: {
+    color: BRAND,
+  },
+  modalActionRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 18,
+    marginBottom: 8,
+  },
+  secondaryModalButton: {
+    flex: 1,
+    minHeight: 54,
+    borderRadius: 18,
+    backgroundColor: "#EEE8DC",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+  secondaryModalButtonText: {
+    color: TEXT,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  modalPrimaryButton: {
+    flex: 1,
   },
   modalMeta: {
     color: MUTED,

@@ -24,6 +24,16 @@ export type MobileTaskRecord = {
   deleted_at: string | null;
   photos?: TaskPhotoRecord[];
   reference_photos?: TaskPhotoRecord[];
+  recurrence_rule_id?: string | null;
+  recurrence?: {
+    frequency: "daily" | "weekly" | "monthly";
+    interval_value: number;
+    days_of_week: number[] | null;
+    day_of_month: number | null;
+    start_date: string;
+    end_date: string | null;
+    is_active: boolean;
+  } | null;
 };
 
 export type MobileGroup = {
@@ -89,6 +99,26 @@ export type SessionExchangeResponse = {
 };
 
 export type TaskAction = "start" | "confirm" | "complete" | "pause" | "postpone";
+export type RecurrenceFrequency = "daily" | "weekly" | "monthly";
+
+export type CreateTaskPayload = {
+  workspaceId: string;
+  title: string;
+  description?: string;
+  priority: "urgent" | "high" | "medium" | "low";
+  scheduledDate: string;
+  scheduledTime?: string | null;
+  visibilityType: "group" | "personal";
+  groupId?: string | null;
+  recurrence?: {
+    enabled: boolean;
+    frequency?: RecurrenceFrequency;
+    interval?: number;
+    endDate?: string;
+    daysOfWeek?: number[];
+    dayOfMonth?: number | null;
+  };
+};
 
 function trimTrailingSlash(value: string) {
   return value.replace(/\/+$/, "");
@@ -157,6 +187,20 @@ export async function postTaskAction(taskId: string, action: TaskAction, session
       "Cache-Control": "no-store",
     },
     body: JSON.stringify({ action }),
+  });
+
+  return readJson<{ ok: boolean }>(response);
+}
+
+export async function createTask(payload: CreateTaskPayload, sessionToken: string) {
+  const response = await fetch(createBackendUrl("/api/tasks"), {
+    method: "POST",
+    headers: {
+      ...createAuthHeaders(sessionToken),
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+    },
+    body: JSON.stringify(payload),
   });
 
   return readJson<{ ok: boolean }>(response);
