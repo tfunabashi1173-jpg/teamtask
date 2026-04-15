@@ -166,6 +166,36 @@ export async function sendPushToUsers({
   );
 }
 
+async function resolveNotificationTargetUserIds({
+  workspaceId,
+  groupId,
+}: {
+  workspaceId: string;
+  groupId: string | null;
+}) {
+  const supabase = createSupabaseAdminClient();
+
+  if (groupId) {
+    const membersResult = await supabase
+      .from("group_members")
+      .select("user_id")
+      .eq("group_id", groupId)
+      .eq("is_active", true)
+      .is("left_at", null);
+
+    return ((membersResult.data as { user_id: string }[] | null) ?? []).map((row) => row.user_id);
+  }
+
+  const membersResult = await supabase
+    .from("workspace_members")
+    .select("user_id")
+    .eq("workspace_id", workspaceId)
+    .eq("is_active", true)
+    .is("left_at", null);
+
+  return ((membersResult.data as { user_id: string }[] | null) ?? []).map((row) => row.user_id);
+}
+
 export async function sendTaskActionNotification({
   workspaceId,
   actorUserId,
@@ -183,34 +213,40 @@ export async function sendTaskActionNotification({
   groupId: string | null;
   baseUrl: string;
 }) {
-  const supabase = createSupabaseAdminClient();
-
-  let userIds: string[] = [];
-
-  if (groupId) {
-    const membersResult = await supabase
-      .from("group_members")
-      .select("user_id")
-      .eq("group_id", groupId)
-      .eq("is_active", true)
-      .is("left_at", null);
-
-    userIds = ((membersResult.data as { user_id: string }[] | null) ?? []).map((row) => row.user_id);
-  } else {
-    const membersResult = await supabase
-      .from("workspace_members")
-      .select("user_id")
-      .eq("workspace_id", workspaceId)
-      .eq("is_active", true)
-      .is("left_at", null);
-
-    userIds = ((membersResult.data as { user_id: string }[] | null) ?? []).map((row) => row.user_id);
-  }
+  const userIds = await resolveNotificationTargetUserIds({ workspaceId, groupId });
 
   await sendPushToUsers({
     userIds: userIds.filter((userId) => userId !== actorUserId),
     title: "タスク更新",
     body: `${actorName}さんが「${taskTitle}」を${actionLabel}しました`,
+    url: baseUrl,
+  });
+}
+
+export async function sendUrgentTaskCreatedNotification({
+  workspaceId,
+  actorUserId,
+  actorName,
+  taskTitle,
+  groupId,
+  includeActor,
+  baseUrl,
+}: {
+  workspaceId: string;
+  actorUserId: string;
+  actorName: string;
+  taskTitle: string;
+  groupId: string | null;
+  includeActor?: boolean;
+  baseUrl: string;
+}) {
+  const userIds = await resolveNotificationTargetUserIds({ workspaceId, groupId });
+  const targetUserIds = includeActor ? userIds : userIds.filter((userId) => userId !== actorUserId);
+
+  await sendPushToUsers({
+    userIds: targetUserIds,
+    title: "緊急タスク",
+    body: `${actorName}さんが緊急タスク「${taskTitle}」を登録しました`,
     url: baseUrl,
   });
 }

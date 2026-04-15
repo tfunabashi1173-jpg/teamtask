@@ -98,7 +98,7 @@ create table if not exists public.tasks (
   owner_user_id uuid references public.app_users(id) on delete set null,
   title text not null,
   description text,
-  priority text not null default 'medium' check (priority in ('high', 'medium', 'low')),
+  priority text not null default 'medium' check (priority in ('urgent', 'high', 'medium', 'low')),
   status text not null default 'pending' check (status in ('pending', 'in_progress', 'done', 'skipped')),
   scheduled_date date not null,
   scheduled_time time,
@@ -135,6 +135,17 @@ create table if not exists public.task_photos (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.task_reference_photos (
+  id uuid primary key default gen_random_uuid(),
+  task_id uuid not null references public.tasks(id) on delete cascade,
+  storage_path text not null,
+  file_name text not null,
+  mime_type text not null,
+  uploaded_by uuid not null references public.app_users(id) on delete restrict,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.recurrence_rules (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references public.workspaces(id) on delete cascade,
@@ -143,7 +154,7 @@ create table if not exists public.recurrence_rules (
   owner_user_id uuid references public.app_users(id) on delete set null,
   title_template text not null,
   description_template text,
-  default_priority text not null default 'medium' check (default_priority in ('high', 'medium', 'low')),
+  default_priority text not null default 'medium' check (default_priority in ('urgent', 'high', 'medium', 'low')),
   frequency text not null check (frequency in ('daily', 'weekly', 'monthly')),
   interval_value integer not null default 1 check (interval_value > 0),
   days_of_week smallint[],
@@ -268,6 +279,11 @@ for each row execute function public.set_updated_at();
 drop trigger if exists set_task_photos_updated_at on public.task_photos;
 create trigger set_task_photos_updated_at
 before update on public.task_photos
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_task_reference_photos_updated_at on public.task_reference_photos;
+create trigger set_task_reference_photos_updated_at
+before update on public.task_reference_photos
 for each row execute function public.set_updated_at();
 
 drop trigger if exists set_recurrence_rules_updated_at on public.recurrence_rules;

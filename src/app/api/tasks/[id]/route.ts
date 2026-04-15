@@ -20,7 +20,7 @@ export async function PATCH(
   const body = (await request.json()) as {
     title?: string;
     description?: string | null;
-    priority?: "high" | "medium" | "low";
+    priority?: "urgent" | "high" | "medium" | "low";
     scheduledDate?: string;
     scheduledTime?: string | null;
     recurrence?: {

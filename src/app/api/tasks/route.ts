@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
+import { sendUrgentTaskCreatedNotification } from "@/lib/notifications/web-push";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import {
   generateFutureOccurrenceDates,
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
     workspaceId?: string;
     title?: string;
     description?: string;
-    priority?: "high" | "medium" | "low";
+    priority?: "urgent" | "high" | "medium" | "low";
     scheduledDate?: string;
     scheduledTime?: string | null;
     visibilityType?: "group" | "personal";
@@ -185,6 +186,18 @@ export async function POST(request: NextRequest) {
     action_type: "created",
     after_value: insertResult.data,
   });
+
+  if ((body.priority ?? "medium") === "urgent") {
+    await sendUrgentTaskCreatedNotification({
+      workspaceId: body.workspaceId,
+      actorUserId,
+      actorName: sessionUser.displayName ?? "誰か",
+      taskTitle: trimmedTitle,
+      groupId: body.visibilityType === "group" ? body.groupId ?? null : null,
+      includeActor: true,
+      baseUrl: new URL("/", request.url).toString(),
+    });
+  }
 
   return NextResponse.json({ ok: true, task: insertResult.data });
 }

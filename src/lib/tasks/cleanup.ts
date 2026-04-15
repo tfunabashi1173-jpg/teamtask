@@ -27,14 +27,23 @@ export async function purgeExpiredCompletedTasks(workspaceId: string) {
     .from("task_photos")
     .select("storage_path")
     .in("task_id", taskIds);
+  const referencePhotosResult = await supabase
+    .from("task_reference_photos")
+    .select("storage_path")
+    .in("task_id", taskIds);
 
   const photoPaths =
     ((photosResult.data as { storage_path: string }[] | null) ?? [])
       .map((photo) => photo.storage_path)
       .filter(Boolean);
+  const referencePhotoPaths =
+    ((referencePhotosResult.data as { storage_path: string }[] | null) ?? [])
+      .map((photo) => photo.storage_path)
+      .filter(Boolean);
+  const allPhotoPaths = [...photoPaths, ...referencePhotoPaths];
 
-  if (photoPaths.length > 0) {
-    await supabase.storage.from(getTaskPhotoBucketName()).remove(photoPaths);
+  if (allPhotoPaths.length > 0) {
+    await supabase.storage.from(getTaskPhotoBucketName()).remove(allPhotoPaths);
   }
 
   await supabase.from("tasks").delete().in("id", taskIds);

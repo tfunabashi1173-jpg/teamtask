@@ -66,6 +66,12 @@ function getDateStringWithOffset(days = 0) {
   return date.toISOString().slice(0, 10);
 }
 
+function shiftDateString(value: string, days: number) {
+  const date = new Date(`${value}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 function weekdayFromDate(value: string) {
   return new Date(`${value}T00:00:00`).getDay();
 }
@@ -112,6 +118,7 @@ function buildTaskFormFromTask(task: TaskRecord): TaskFormState {
 }
 
 function formatPriorityIcon(priority: TaskRecord["priority"]) {
+  if (priority === "urgent") return "🚨";
   if (priority === "high") return "🔴";
   if (priority === "medium") return "🟡";
   return "🔵";
@@ -125,7 +132,7 @@ function formatStatus(status: TaskRecord["status"]) {
 }
 
 function sortTasks(tasks: TaskRecord[]) {
-  const rank = { high: 0, medium: 1, low: 2 };
+  const rank = { urgent: 0, high: 1, medium: 2, low: 3 };
 
   return [...tasks].sort((a, b) => {
     if (a.status === "done" && b.status !== "done") return 1;
@@ -138,8 +145,19 @@ function sortTasks(tasks: TaskRecord[]) {
 function logMessage(log: TaskLogRecord) {
   const actor = log.actor?.display_name ?? "誰か";
   const title = log.task?.title ?? "タスク";
+  const beforeStatus =
+    log.before_value &&
+    typeof log.before_value === "object" &&
+    "status" in log.before_value &&
+    typeof log.before_value.status === "string"
+      ? log.before_value.status
+      : null;
 
-  if (log.action_type === "started") return `${actor}さんが「${title}」を開始しました`;
+  if (log.action_type === "started") {
+    return beforeStatus === "done"
+      ? `${actor}さんが「${title}」を再開しました`
+      : `${actor}さんが「${title}」を開始しました`;
+  }
   if (log.action_type === "completed") return `${actor}さんが「${title}」を完了しました`;
   if (log.action_type === "status_changed") {
     return `${actor}さんが「${title}」を中断しました`;
@@ -230,6 +248,7 @@ export function TaskBoard({
   const [notificationTime, setNotificationTime] = useState(
     initialState.workspace?.notification_time?.slice(0, 5) ?? "08:00",
   );
+  const [homeDate, setHomeDate] = useState(getDateStringWithOffset(0));
   const [rangeStart, setRangeStart] = useState(getDateStringWithOffset(0));
   const [rangeEnd, setRangeEnd] = useState(() => {
     const date = new Date();
@@ -261,11 +280,13 @@ export function TaskBoard({
   const sortedTasks = useMemo(
     () =>
       sortTasks(
-        state.tasks.filter(
-          (task) => !task.deleted_at && (!activeGroupId || task.group_id === activeGroupId),
-        ),
+        state.tasks.filter((task) => {
+          if (task.deleted_at) return false;
+          if (activeGroupId && task.group_id !== activeGroupId) return false;
+          return task.scheduled_date === homeDate;
+        }),
       ),
-    [activeGroupId, state.tasks],
+    [activeGroupId, homeDate, state.tasks],
   );
 
   const rangedTasks = useMemo(
@@ -282,12 +303,29 @@ export function TaskBoard({
 
   const counts = useMemo(
     () => ({
-      pending: state.tasks.filter((task) => task.status === "pending" && !task.deleted_at).length,
-      inProgress: state.tasks.filter((task) => task.status === "in_progress" && !task.deleted_at)
-        .length,
-      done: state.tasks.filter((task) => task.status === "done" && !task.deleted_at).length,
+      pending: state.tasks.filter(
+        (task) =>
+          !task.deleted_at &&
+          task.group_id === activeGroupId &&
+          task.scheduled_date === homeDate &&
+          task.status === "pending",
+      ).length,
+      inProgress: state.tasks.filter(
+        (task) =>
+          !task.deleted_at &&
+          task.group_id === activeGroupId &&
+          task.scheduled_date === homeDate &&
+          task.status === "in_progress",
+      ).length,
+      done: state.tasks.filter(
+        (task) =>
+          !task.deleted_at &&
+          task.group_id === activeGroupId &&
+          task.scheduled_date === homeDate &&
+          task.status === "done",
+      ).length,
     }),
-    [state.tasks],
+    [activeGroupId, homeDate, state.tasks],
   );
   const selectedTask =
     selectedTaskId ? state.tasks.find((task) => task.id === selectedTaskId) ?? null : null;
@@ -542,6 +580,15 @@ export function TaskBoard({
           event: "*",
           schema: "public",
           table: "task_photos",
+        },
+        scheduleRefresh,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "task_reference_photos",
         },
         scheduleRefresh,
       )
@@ -919,6 +966,111 @@ export function TaskBoard({
     pushToast("success", "写真を削除しました。");
   }
 
+  async function handleReferencePhotoUpload(taskId: string, file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch(`/api/tasks/${taskId}/reference-photos`, {
+        method: "POST",
+        body: formData,
+      });
+      const json = (await response.json().catch(() => null)) as
+        | { photo?: TaskPhotoRecord }
+        | { error?: string }
+        | null;
+
+      if (!response.ok || !json || !("photo" in json) || !json.photo) {
+        pushToast("error", "説明画像の保存に失敗しました。");
+        return;
+      }
+
+      const createdPhoto = json.photo as TaskPhotoRecord;
+      setState((current) => ({
+        ...current,
+        tasks: current.tasks.map((task) =>
+          task.id === taskId
+            ? {
+                ...task,
+                reference_photos: [...(task.reference_photos ?? []), createdPhoto].slice(0, 2),
+              }
+            : task,
+        ),
+      }));
+      pushToast("success", "説明画像を保存しました。");
+    } catch {
+      pushToast("error", "説明画像の保存に失敗しました。");
+    }
+  }
+
+  async function handleReferencePhotoDelete(taskId: string, photoId: string) {
+    const result = await callJson(`/api/tasks/${taskId}/reference-photos/${photoId}`, {
+      method: "DELETE",
+    });
+    if (!result.ok) {
+      pushToast("error", "説明画像の削除に失敗しました。");
+      return;
+    }
+
+    setState((current) => ({
+      ...current,
+      tasks: current.tasks.map((task) =>
+        task.id === taskId
+          ? {
+              ...task,
+              reference_photos: (task.reference_photos ?? []).filter((photo) => photo.id !== photoId),
+            }
+          : task,
+      ),
+    }));
+    if (previewPhotoUrl) {
+      const target = selectedTask?.reference_photos?.find((photo) => photo.id === photoId);
+      if (target?.preview_url === previewPhotoUrl) {
+        setPreviewPhotoUrl(null);
+      }
+    }
+    pushToast("success", "説明画像を削除しました。");
+  }
+
+  async function handleReferencePhotoReplace(taskId: string, photoId: string, file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch(`/api/tasks/${taskId}/reference-photos/${photoId}`, {
+        method: "PATCH",
+        body: formData,
+      });
+      const json = (await response.json().catch(() => null)) as
+        | { photo?: TaskPhotoRecord }
+        | { error?: string }
+        | null;
+
+      if (!response.ok || !json || !("photo" in json) || !json.photo) {
+        pushToast("error", "説明画像の更新に失敗しました。");
+        return;
+      }
+
+      const updatedPhoto = json.photo as TaskPhotoRecord;
+      setState((current) => ({
+        ...current,
+        tasks: current.tasks.map((task) =>
+          task.id === taskId
+            ? {
+                ...task,
+                reference_photos: (task.reference_photos ?? []).map((photo) =>
+                  photo.id === photoId ? updatedPhoto : photo,
+                ),
+              }
+            : task,
+        ),
+      }));
+      pushToast("success", "説明画像を更新しました。");
+    } catch {
+      pushToast("error", "説明画像の更新に失敗しました。");
+    }
+  }
+
   async function handlePhotoReplace(taskId: string, photoId: string, file: File) {
     const formData = new FormData();
     formData.append("file", file);
@@ -959,7 +1111,7 @@ export function TaskBoard({
   }
 
   async function performTaskAction(task: TaskRecord, action: ActionType) {
-    if (action === "postpone" && task.priority === "high") {
+    if (action === "postpone" && (task.priority === "urgent" || task.priority === "high")) {
       pushToast("error", "最優先タスクは翌日に回せません。");
       return;
     }
@@ -1017,7 +1169,9 @@ export function TaskBoard({
     pushToast(
       "success",
       action === "start"
-        ? `「${task.title}」を開始しました。`
+        ? task.status === "done"
+          ? `「${task.title}」を再開しました。`
+          : `「${task.title}」を開始しました。`
         : action === "complete"
           ? `「${task.title}」を完了しました。`
           : action === "pause"
@@ -1223,7 +1377,8 @@ export function TaskBoard({
               タスク
             </h1>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              {new Date().toLocaleDateString("ja-JP")} ・ {currentGroup?.name ?? "グループ未設定"}
+              {new Date(`${homeDate}T00:00:00`).toLocaleDateString("ja-JP")} ・{" "}
+              {currentGroup?.name ?? "グループ未設定"}
             </p>
           </div>
           <div className="flex gap-2">
@@ -1237,6 +1392,30 @@ export function TaskBoard({
           <SummaryCard label="未着手" value={counts.pending} tone="default" />
           <SummaryCard label="作業中" value={counts.inProgress} tone="warning" />
           <SummaryCard label="完了" value={counts.done} tone="success" />
+        </div>
+
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            className={secondaryButtonClass}
+            onClick={() => setHomeDate((current) => shiftDateString(current, -1))}
+            type="button"
+          >
+            前日
+          </button>
+          <button
+            className={secondaryButtonClass}
+            onClick={() => setHomeDate(getDateStringWithOffset(0))}
+            type="button"
+          >
+            本日
+          </button>
+          <button
+            className={secondaryButtonClass}
+            onClick={() => setHomeDate((current) => shiftDateString(current, 1))}
+            type="button"
+          >
+            翌日
+          </button>
         </div>
 
         <div className="mt-4 flex gap-2">
@@ -1733,6 +1912,13 @@ export function TaskBoard({
           onClose={() => setSelectedTaskId(null)}
           onCopyText={copyText}
           onAction={(action) => void performTaskAction(selectedTask, action)}
+          onReferencePhotoUpload={(file) => void handleReferencePhotoUpload(selectedTask.id, file)}
+          onReferencePhotoDelete={(photoId) =>
+            void handleReferencePhotoDelete(selectedTask.id, photoId)
+          }
+          onReferencePhotoReplace={(photoId, file) =>
+            void handleReferencePhotoReplace(selectedTask.id, photoId, file)
+          }
           onPhotoUpload={(file) => void handlePhotoUpload(selectedTask.id, file)}
           onPhotoDelete={(photoId) => void handlePhotoDelete(selectedTask.id, photoId)}
           onPhotoReplace={(photoId, file) => void handlePhotoReplace(selectedTask.id, photoId, file)}
@@ -2007,6 +2193,7 @@ function TaskModal({
                 }))
               }
             >
+              <option value="urgent">緊急</option>
               <option value="high">高</option>
               <option value="medium">中</option>
               <option value="low">低</option>
@@ -2211,6 +2398,9 @@ function TaskDetailModal({
   onClose,
   onCopyText,
   onAction,
+  onReferencePhotoUpload,
+  onReferencePhotoDelete,
+  onReferencePhotoReplace,
   onPhotoUpload,
   onPhotoDelete,
   onPhotoReplace,
@@ -2220,13 +2410,18 @@ function TaskDetailModal({
   onClose: () => void;
   onCopyText: (label: string, value: string) => Promise<void>;
   onAction: (action: ActionType) => void;
+  onReferencePhotoUpload: (file: File) => void;
+  onReferencePhotoDelete: (photoId: string) => void;
+  onReferencePhotoReplace: (photoId: string, file: File) => void;
   onPhotoUpload: (file: File) => void;
   onPhotoDelete: (photoId: string) => void;
   onPhotoReplace: (photoId: string, file: File) => void;
   onPreview: (url: string) => void;
 }) {
   const [isPhotoSubmitting, setIsPhotoSubmitting] = useState(false);
+  const [isReferencePhotoSubmitting, setIsReferencePhotoSubmitting] = useState(false);
   const addPhotoInputRef = useRef<HTMLInputElement | null>(null);
+  const addReferencePhotoInputRef = useRef<HTMLInputElement | null>(null);
   const shouldOpenPhotoPickerOnDoneRef = useRef(false);
 
   useEffect(() => {
@@ -2298,6 +2493,91 @@ function TaskDetailModal({
               <p className="mt-2 text-sm leading-7 text-[var(--ink-soft)]">{task.description}</p>
             </div>
           ) : null}
+
+          <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-[var(--ink)]">説明画像</p>
+                <p className="mt-1 text-xs text-[var(--muted)]">最大2枚まで登録できます。</p>
+              </div>
+              {(task.reference_photos?.length ?? 0) < 2 ? (
+                <label className={secondaryButtonClass}>
+                  画像追加
+                  <input
+                    ref={addReferencePhotoInputRef}
+                    className="hidden"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    disabled={isReferencePhotoSubmitting}
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0];
+                      event.currentTarget.value = "";
+                      if (!file) return;
+                      setIsReferencePhotoSubmitting(true);
+                      await Promise.resolve(onReferencePhotoUpload(file));
+                      setIsReferencePhotoSubmitting(false);
+                    }}
+                  />
+                </label>
+              ) : (
+                <span className="text-xs font-semibold text-[var(--muted)]">2 / 2枚</span>
+              )}
+            </div>
+
+            {task.reference_photos?.length ? (
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                {task.reference_photos.map((photo) => (
+                  <div key={photo.id} className="relative">
+                    <button
+                      className="block aspect-square w-full overflow-hidden rounded-2xl bg-white"
+                      onClick={() => photo.preview_url && onPreview(photo.preview_url)}
+                      type="button"
+                    >
+                      {photo.preview_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          alt={photo.file_name}
+                          className="h-full w-full object-cover"
+                          src={photo.preview_url}
+                        />
+                      ) : (
+                        <span className="flex h-full items-center justify-center text-xs text-[var(--muted)]">
+                          画像
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--danger)]"
+                      onClick={() => onReferencePhotoDelete(photo.id)}
+                      type="button"
+                    >
+                      削除
+                    </button>
+                    <label className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--ink-soft)]">
+                      更新
+                      <input
+                        className="hidden"
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={async (event) => {
+                          const file = event.target.files?.[0];
+                          event.currentTarget.value = "";
+                          if (!file) return;
+                          setIsReferencePhotoSubmitting(true);
+                          await Promise.resolve(onReferencePhotoReplace(photo.id, file));
+                          setIsReferencePhotoSubmitting(false);
+                        }}
+                      />
+                    </label>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-[var(--muted)]">説明画像はまだありません。</p>
+            )}
+          </div>
 
           {task.recurrence?.is_active ? (
             <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
@@ -2409,7 +2689,7 @@ function TaskDetailModal({
         </div>
 
         <div className="mt-5 flex flex-wrap gap-2">
-          {task.status === "pending" ? (
+          {task.status === "pending" || task.status === "done" ? (
             <ActionButton label="開始" onClick={() => onAction("start")} tone="warning" />
           ) : null}
           {task.status !== "done" ? (
@@ -2428,10 +2708,13 @@ function TaskDetailModal({
           {task.status === "in_progress" ? (
             <ActionButton label="中断" onClick={() => onAction("pause")} tone="neutral" />
           ) : null}
-          {task.status !== "done" && task.priority !== "high" ? (
+          {task.status !== "done" &&
+          task.priority !== "urgent" &&
+          task.priority !== "high" ? (
             <ActionButton label="翌日に回す" onClick={() => onAction("postpone")} tone="neutral" />
           ) : null}
-          {task.status !== "done" && task.priority === "high" ? (
+          {task.status !== "done" &&
+          (task.priority === "urgent" || task.priority === "high") ? (
             <span className="inline-flex items-center rounded-2xl border border-dashed border-[var(--danger)] px-4 py-3 text-sm font-semibold text-[var(--danger)]">
               最優先のため延期不可
             </span>

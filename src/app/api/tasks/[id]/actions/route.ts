@@ -37,7 +37,10 @@ export async function POST(
     return NextResponse.json({ error: "TASK_NOT_FOUND" }, { status: 404 });
   }
 
-  if (body.action === "postpone" && beforeResult.data.priority === "high") {
+  if (
+    body.action === "postpone" &&
+    (beforeResult.data.priority === "urgent" || beforeResult.data.priority === "high")
+  ) {
     return NextResponse.json({ error: "HIGH_PRIORITY_CANNOT_POSTPONE" }, { status: 400 });
   }
 
@@ -49,6 +52,7 @@ export async function POST(
 
   if (body.action === "start") {
     patch.status = "in_progress";
+    patch.completed_at = null;
     actionType = "started";
   }
 
@@ -60,6 +64,7 @@ export async function POST(
 
   if (body.action === "pause") {
     patch.status = "pending";
+    patch.completed_at = null;
     actionType = "status_changed";
   }
 
@@ -91,7 +96,9 @@ export async function POST(
 
   const actionLabel =
     body.action === "start"
-      ? "開始"
+      ? beforeResult.data.status === "done"
+        ? "再開"
+        : "開始"
       : body.action === "complete"
         ? "完了"
         : body.action === "pause"

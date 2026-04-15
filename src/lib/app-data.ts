@@ -28,7 +28,7 @@ export type TaskRecord = {
   id: string;
   title: string;
   description: string | null;
-  priority: "high" | "medium" | "low";
+  priority: "urgent" | "high" | "medium" | "low";
   status: "pending" | "in_progress" | "done" | "skipped";
   scheduled_date: string;
   scheduled_time: string | null;
@@ -37,6 +37,7 @@ export type TaskRecord = {
   owner_user_id: string | null;
   deleted_at: string | null;
   photos?: TaskPhotoRecord[];
+  reference_photos?: TaskPhotoRecord[];
   recurrence_rule_id?: string | null;
   recurrence?: {
     frequency: "daily" | "weekly" | "monthly";
@@ -63,6 +64,9 @@ export type TaskLogRecord = {
   id: string;
   action_type: string;
   created_at: string;
+  before_value?: {
+    status?: string | null;
+  } | null;
   actor: {
     display_name: string;
   } | null;
@@ -286,7 +290,7 @@ export async function getAppState({
       supabase
         .from("task_activity_logs")
         .select(
-          "id,action_type,created_at,actor:app_users!task_activity_logs_actor_user_id_fkey(display_name),task:tasks!task_activity_logs_task_id_fkey(title)",
+          "id,action_type,created_at,before_value,actor:app_users!task_activity_logs_actor_user_id_fkey(display_name),task:tasks!task_activity_logs_task_id_fkey(title)",
         )
         .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
         .order("created_at", { ascending: false })
@@ -331,11 +335,27 @@ export async function getAppState({
       .select("id,task_id,file_name,mime_type,storage_path,created_at")
       .in("task_id", taskIds)
       .order("created_at");
+    const referencePhotoResult = await supabase
+      .from("task_reference_photos")
+      .select("id,task_id,file_name,mime_type,storage_path,created_at")
+      .in("task_id", taskIds)
+      .order("created_at");
 
     const sourceRows =
       (sourceResult.data as { task_id: string; recurrence_rule_id: string }[] | null) ?? [];
     const photoRows =
       (photoResult.data as
+        | {
+            id: string;
+            task_id: string;
+            file_name: string;
+            mime_type: string;
+            storage_path: string;
+            created_at: string;
+          }[]
+        | null) ?? [];
+    const referencePhotoRows =
+      (referencePhotoResult.data as
         | {
             id: string;
             task_id: string;
@@ -386,6 +406,7 @@ export async function getAppState({
 
     const sourceMap = new Map(sourceRows.map((row) => [row.task_id, row.recurrence_rule_id]));
     const photoMap = new Map<string, TaskPhotoRecord[]>();
+    const referencePhotoMap = new Map<string, TaskPhotoRecord[]>();
 
     for (const photo of photoRows) {
       const current = photoMap.get(photo.task_id) ?? [];
@@ -396,11 +417,21 @@ export async function getAppState({
       photoMap.set(photo.task_id, current);
     }
 
+    for (const photo of referencePhotoRows) {
+      const current = referencePhotoMap.get(photo.task_id) ?? [];
+      current.push({
+        ...photo,
+        preview_url: `/api/task-reference-photos/${photo.id}`,
+      });
+      referencePhotoMap.set(photo.task_id, current);
+    }
+
     tasks = baseTasks.map((task) => {
       const recurrenceRuleId = sourceMap.get(task.id) ?? null;
       return {
         ...task,
         photos: photoMap.get(task.id) ?? [],
+        reference_photos: referencePhotoMap.get(task.id) ?? [],
         recurrence_rule_id: recurrenceRuleId,
         recurrence: recurrenceRuleId ? recurrenceMap.get(recurrenceRuleId) ?? null : null,
       };
