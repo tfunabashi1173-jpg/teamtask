@@ -1122,6 +1122,17 @@ export function TaskBoard({
   }, [refreshDevicePermissionNotice]);
 
   useEffect(() => {
+    if (typeof window === "undefined" || activeInviteToken) {
+      return;
+    }
+
+    const pendingInvite = window.localStorage.getItem(PENDING_INVITE_STORAGE_KEY);
+    if (pendingInvite) {
+      setActiveInviteToken(pendingInvite);
+    }
+  }, [activeInviteToken]);
+
+  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -1492,6 +1503,7 @@ export function TaskBoard({
     pushToast("success", "登録申請を送信しました。管理者の承認をお待ちください。");
 
     setActiveInviteToken(null);
+    window.localStorage.removeItem(PENDING_INVITE_STORAGE_KEY);
     const url = new URL(window.location.href);
     url.searchParams.delete("invite");
     window.history.replaceState({}, "", url.toString());
@@ -2538,7 +2550,7 @@ export function TaskBoard({
     return (
       <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts} isProcessing={isProcessing}>
         <Card title="登録申請">
-          {state.activeInvite ? (
+          {state.activeInvite || activeInviteToken ? (
             <>
               <p className="mb-4 text-sm leading-7 text-[var(--muted)]">
                 招待リンクを確認しました。名前を入力して登録申請を送信してください。
@@ -2593,7 +2605,7 @@ export function TaskBoard({
     return (
       <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts} isProcessing={isProcessing}>
         <Card title="所属グループがありません">
-          {state.activeInvite ? (
+          {state.activeInvite || activeInviteToken ? (
             <>
               <p className="mb-4 text-sm leading-7 text-[var(--muted)]">
                 招待リンクを確認しました。名前を入力して登録申請を送信してください。
