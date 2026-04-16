@@ -1,7 +1,6 @@
 import { ImageResponse } from "next/og";
 import { AppIconImage } from "@/lib/app-icon-image";
 
-export const runtime = "edge";
 
 export async function GET() {
   const size = 512;
