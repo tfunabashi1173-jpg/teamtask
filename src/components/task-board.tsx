@@ -509,6 +509,10 @@ export function TaskBoard({
     if (typeof window === "undefined") return false;
     return /Android/i.test(window.navigator.userAgent);
   });
+  const [isLineInAppBrowser] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return /Line\//i.test(window.navigator.userAgent);
+  });
   const isMobile = isIosLike || isAndroid;
   type BeforeInstallPromptEvent = Event & {
     prompt: () => Promise<void>;
@@ -2257,6 +2261,24 @@ export function TaskBoard({
           <p className="text-sm text-[var(--muted)]">
             `NEXT_PUBLIC_SUPABASE_URL` と `SUPABASE_SERVICE_ROLE_KEY` を `.env.local`
             に設定してください。
+          </p>
+        </Card>
+      </Shell>
+    );
+  }
+
+  if (isLineInAppBrowser) {
+    return (
+      <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts}>
+        <Card>
+          <p className="text-sm font-semibold text-[var(--brand)]">
+            外部ブラウザで開いてください
+          </p>
+          <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
+            LINEアプリ内のブラウザではログインできません。
+            {isIosLike
+              ? "右下の「…」→「ブラウザで開く」を選択してください。"
+              : "右上のメニュー→「外部ブラウザで開く」を選択してください。"}
           </p>
         </Card>
       </Shell>
