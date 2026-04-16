@@ -8,12 +8,18 @@ export async function PATCH(request: NextRequest) {
     return errorResponse;
   }
 
-  const body = (await request.json()) as { notificationTime?: string };
+  const body = (await request.json()) as { notificationTime?: string; notificationTime2?: string | null };
   const notificationTime = body.notificationTime?.slice(0, 5);
 
   if (!notificationTime || !/^\d{2}:\d{2}$/.test(notificationTime)) {
     return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
   }
+
+  const notificationTime2Raw = body.notificationTime2;
+  const notificationTime2 =
+    notificationTime2Raw && /^\d{2}:\d{2}$/.test(notificationTime2Raw.slice(0, 5))
+      ? notificationTime2Raw.slice(0, 5)
+      : null;
 
   const supabase = createSupabaseAdminClient();
   const actorResult = await supabase
@@ -45,9 +51,9 @@ export async function PATCH(request: NextRequest) {
 
   const updateResult = await supabase
     .from("workspaces")
-    .update({ notification_time: notificationTime })
+    .update({ notification_time: notificationTime, notification_time_2: notificationTime2 })
     .eq("id", workspaceMemberResult.data.workspace_id)
-    .select("id,name,timezone,notification_time")
+    .select("id,name,timezone,notification_time,notification_time_2")
     .single();
 
   if (updateResult.error) {

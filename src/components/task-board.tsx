@@ -469,6 +469,9 @@ export function TaskBoard({
   const [notificationTime, setNotificationTime] = useState(
     initialState.workspace?.notification_time?.slice(0, 5) ?? "08:00",
   );
+  const [notificationTime2, setNotificationTime2] = useState(
+    initialState.workspace?.notification_time_2?.slice(0, 5) ?? "",
+  );
   const [isSendingTestNotification, setIsSendingTestNotification] = useState(false);
   const [pushSetupNotice, setPushSetupNotice] = useState<PushSetupNotice | null>(null);
   const [devicePermissionNotice, setDevicePermissionNotice] = useState<DevicePermissionNotice | null>(null);
@@ -1472,7 +1475,10 @@ export function TaskBoard({
     setWorkspaceSettingsPending(true);
     const result = await callJson("/api/workspace/settings", {
       method: "PATCH",
-      body: JSON.stringify({ notificationTime }),
+      body: JSON.stringify({
+        notificationTime,
+        notificationTime2: notificationTime2 || null,
+      }),
     });
     setWorkspaceSettingsPending(false);
 
@@ -1491,7 +1497,7 @@ export function TaskBoard({
     window.localStorage.removeItem(buildMorningNotificationStorageKey(workspace.id, getWorkspaceLocalParts(new Date(), workspace.timezone || "Asia/Tokyo").date));
     void maybeSendMorningLocalNotification();
     scheduleMorningLocalNotificationCheck();
-    pushToast("success", "朝通知の時刻を更新しました。");
+    pushToast("success", "通知時刻を更新しました。");
   }
 
   async function handlePushSetupAction() {
@@ -3469,15 +3475,23 @@ export function TaskBoard({
               <div>
                     <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">通知設定</p>
                     <div className="mt-2 grid gap-3">
-                      <FormField label="朝通知時刻">
+                      <FormField label="朝通知時刻（タスクあり）">
                         <NativePickerField
                           type="time"
                           value={notificationTime}
                           onChange={(event) => setNotificationTime(event.target.value)}
                         />
                       </FormField>
+                      <FormField label="夕方通知時刻（未完了リマインド）">
+                        <NativePickerField
+                          type="time"
+                          value={notificationTime2}
+                          onChange={(event) => setNotificationTime2(event.target.value)}
+                        />
+                      </FormField>
                       <p className="text-xs text-[var(--muted)]">
                         タイムゾーン: {state.workspace?.timezone ?? "Asia/Tokyo"}
+                        {"　"}夕方通知は未完了タスクがある場合のみ送信
                       </p>
                       <button
                         className={primaryButtonClass}
