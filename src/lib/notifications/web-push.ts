@@ -327,7 +327,7 @@ export async function sendMorningTaskNotifications({
   await sendPushToUsers({
     userIds,
     title: groupName,
-    body: `未完了タスクが ${tasks.length} 件あります。`,
+    body: `本日は ${tasks.length} 件のタスクがあります。`,
     url: baseUrl,
   });
 
@@ -402,7 +402,7 @@ export async function sendEveningTaskNotifications({
   await sendPushToUsers({
     userIds,
     title: groupName,
-    body: `本日 ${tasks.length} 件のタスクが残っています。`,
+    body: `未完了タスクが ${tasks.length} 件あります。`,
     url: baseUrl,
   });
 
