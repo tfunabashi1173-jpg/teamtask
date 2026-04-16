@@ -2414,14 +2414,15 @@ export function TaskBoard({
                     ホーム画面に追加
                   </button>
                 ) : (
-                  <ol className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-                    <li>1. アドレスバー右端の<span className="font-semibold">インストールアイコン</span>をタップ</li>
-                    <li className="text-xs text-[var(--muted)]/70">（アイコンが表示されない場合）</li>
-                    <li>2. Chromeのメニュー（⋮）を開く</li>
-                    <li>
-                      3.「<span className="font-semibold">アプリをインストール</span>」または「<span className="font-semibold">ホーム画面に追加</span>」を選択
-                    </li>
-                  </ol>
+                  <div className="space-y-3 text-sm leading-6 text-[var(--muted)]">
+                    <ol className="space-y-1">
+                      <li>1. アドレスバー右端の<span className="font-semibold">インストールアイコン</span>をタップ</li>
+                      <li>2. または Chromeメニュー（⋮）→「<span className="font-semibold">アプリをインストール</span>」</li>
+                    </ol>
+                    <p className="rounded-xl bg-[var(--chip)] px-3 py-2 text-xs leading-5">
+                      アプリを削除した直後はChromeの制限でインストールが表示されないことがあります。その場合は Chrome設定 → プライバシーとセキュリティ → サイトの設定 → 保存されているデータ → このサイトを削除 → ページを再読み込みしてください。
+                    </p>
+                  </div>
                 )}
               </div>
             )}
