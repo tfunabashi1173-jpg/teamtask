@@ -116,6 +116,18 @@ function formatDateInputValue(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function formatDateDisplay(value: string) {
+  if (!value) return "日付を選択";
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) return value;
+  return `${year}/${month}/${day}`;
+}
+
+function formatTimeDisplay(value: string) {
+  if (!value) return "時刻を選択";
+  return value.slice(0, 5);
+}
+
 function formatHomeHeadingDate(value: string) {
   const date = new Date(`${value}T00:00:00`);
   return new Intl.DateTimeFormat("ja-JP", {
@@ -2442,16 +2454,14 @@ export function TaskBoard({
             </div>
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <FormField label="開始日">
-                <input
-                  className={dateTimeInputClass}
+                <NativePickerField
                   type="date"
                   value={rangeStart}
                   onChange={(event) => setRangeStart(event.target.value)}
                 />
               </FormField>
               <FormField label="終了日">
-                <input
-                  className={dateTimeInputClass}
+                <NativePickerField
                   type="date"
                   value={rangeEnd}
                   onChange={(event) => setRangeEnd(event.target.value)}
@@ -2686,8 +2696,7 @@ export function TaskBoard({
 
                   {!row.recurrenceEnabled ? (
                     <FormField label="実行日">
-                      <input
-                        className={dateTimeInputClass}
+                      <NativePickerField
                         type="date"
                         value={row.scheduledDate}
                         onChange={(event) =>
@@ -2755,8 +2764,7 @@ export function TaskBoard({
                       <div className="mt-4 grid gap-3">
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                           <FormField label="開始日">
-                            <input
-                              className={dateTimeInputClass}
+                            <NativePickerField
                               type="date"
                               value={row.scheduledDate}
                               onChange={(event) =>
@@ -2769,8 +2777,7 @@ export function TaskBoard({
                             />
                           </FormField>
                           <FormField label="終了日">
-                            <input
-                              className={dateTimeInputClass}
+                            <NativePickerField
                               type="date"
                               value={row.recurrenceEndDate}
                               onChange={(event) => updateBatchRow(row.id, { recurrenceEndDate: event.target.value })}
@@ -2945,8 +2952,7 @@ export function TaskBoard({
                     </td>
                     <td className="border-y border-black/5 bg-white px-3 py-4">
                       {!row.recurrenceEnabled ? (
-                        <input
-                          className={dateTimeInputClass}
+                        <NativePickerField
                           type="date"
                           value={row.scheduledDate}
                           onChange={(event) =>
@@ -3064,8 +3070,7 @@ export function TaskBoard({
                     <td className="border-y border-black/5 bg-white px-3 py-4">
                       {row.recurrenceEnabled ? (
                         <div className="grid gap-2">
-                          <input
-                            className={dateTimeInputClass}
+                          <NativePickerField
                             type="date"
                             value={row.scheduledDate}
                             onChange={(event) =>
@@ -3076,8 +3081,7 @@ export function TaskBoard({
                               })
                             }
                           />
-                          <input
-                            className={dateTimeInputClass}
+                          <NativePickerField
                             type="date"
                             value={row.recurrenceEndDate}
                             onChange={(event) => updateBatchRow(row.id, { recurrenceEndDate: event.target.value })}
@@ -3272,8 +3276,7 @@ export function TaskBoard({
                     <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">通知設定</p>
                     <div className="mt-2 grid gap-3">
                       <FormField label="朝通知時刻">
-                        <input
-                          className={dateTimeInputClass}
+                        <NativePickerField
                           type="time"
                           value={notificationTime}
                           onChange={(event) => setNotificationTime(event.target.value)}
@@ -3815,8 +3818,7 @@ function TaskModal({
           ) : null}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1.1fr_1fr]">
             <FormField label="実行日">
-              <input
-                className={`${inputClass} ${form.recurrenceEnabled ? "bg-[var(--chip)] text-[var(--muted)]" : ""}`}
+              <NativePickerField
                 type="date"
                 value={form.scheduledDate}
                 onChange={(event) =>
@@ -3938,13 +3940,12 @@ function TaskModal({
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <FormField label="期間開始">
-                    <div className={`${inputClass} bg-[var(--chip)] text-[var(--ink-soft)]`}>
-                      {form.scheduledDate}
+                    <div className={`${inputClass} overflow-hidden bg-[var(--chip)] text-[var(--ink-soft)]`}>
+                      <span className="block truncate">{formatDateDisplay(form.scheduledDate)}</span>
                     </div>
                   </FormField>
                   <FormField label="期間終了">
-                    <input
-                      className={inputClass}
+                    <NativePickerField
                       type="date"
                       value={form.recurrenceEndDate}
                       onChange={(event) =>
@@ -4427,6 +4428,40 @@ function FormField({
   );
 }
 
+function NativePickerField({
+  type,
+  value,
+  onChange,
+  disabled = false,
+}: {
+  type: "date" | "time";
+  value: string;
+  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  disabled?: boolean;
+}) {
+  const displayValue = type === "date" ? formatDateDisplay(value) : formatTimeDisplay(value);
+
+  return (
+    <div className={`relative min-w-0 ${disabled ? "opacity-70" : ""}`}>
+      <div
+        className={`flex w-full min-w-0 items-center rounded-2xl border border-black/10 px-4 py-3 text-sm transition-shadow ${
+          disabled ? "bg-[var(--chip)] text-[var(--muted)]" : "bg-white text-[var(--ink)]"
+        }`}
+      >
+        <span className="truncate">{displayValue}</span>
+      </div>
+      <input
+        aria-label={type === "date" ? "日付を選択" : "時刻を選択"}
+        className="absolute inset-0 h-full w-full min-w-0 cursor-pointer opacity-0 disabled:pointer-events-none"
+        disabled={disabled}
+        onChange={onChange}
+        type={type}
+        value={value}
+      />
+    </div>
+  );
+}
+
 function Footer({
   appVersion,
   commitSha,
@@ -4448,8 +4483,6 @@ function Footer({
 
 const inputClass =
   "w-full min-w-0 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-shadow focus:border-[var(--brand)]/50 focus:ring-2 focus:ring-[var(--brand)]/10";
-const dateTimeInputClass =
-  "w-full min-w-0 max-w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-shadow focus:border-[var(--brand)]/50 focus:ring-2 focus:ring-[var(--brand)]/10";
 const primaryButtonClass =
   "rounded-2xl bg-[var(--brand)] px-5 py-3.5 text-sm font-semibold text-white transition-transform active:scale-[0.97]";
 const primaryIconButtonClass =
