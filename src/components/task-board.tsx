@@ -2263,7 +2263,7 @@ export function TaskBoard({
     );
   }
 
-  if (isMobile && !isPwaMode) {
+  if (isMobile && !isPwaMode && !inviteToken) {
     return (
       <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts} isProcessing={isProcessing}>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -2420,6 +2420,11 @@ export function TaskBoard({
             <div className="mt-4 rounded-2xl bg-[var(--chip)] px-4 py-4 text-sm text-[var(--ink-soft)]">
               申請名: {state.pendingOwnRequest.requested_name}
             </div>
+            {isMobile && !isPwaMode ? (
+              <div className="mt-4 rounded-2xl bg-[var(--chip)] px-4 py-4 text-sm leading-6 text-[var(--muted)]">
+                承認後はホーム画面に追加したアプリから起動してください。
+              </div>
+            ) : null}
           </Card>
         </Shell>
       );
@@ -2470,6 +2475,11 @@ export function TaskBoard({
             <div className="mt-4 rounded-2xl bg-[var(--chip)] px-4 py-4 text-sm text-[var(--ink-soft)]">
               申請名: {state.pendingOwnRequest.requested_name}
             </div>
+            {isMobile && !isPwaMode ? (
+              <div className="mt-4 rounded-2xl bg-[var(--chip)] px-4 py-4 text-sm leading-6 text-[var(--muted)]">
+                承認後はホーム画面に追加したアプリから起動してください。
+              </div>
+            ) : null}
           </Card>
         </Shell>
       );
