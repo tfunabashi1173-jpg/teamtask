@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { sendEveningTaskNotifications } from "@/lib/notifications/web-push";
 
-const EVENING_NOTIFICATION_WINDOW_MINUTES = 90;
+// Slightly larger than the 5-min cron interval to tolerate timing drift
+const EVENING_NOTIFICATION_WINDOW_MINUTES = 7;
 
 function isAuthorized(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
