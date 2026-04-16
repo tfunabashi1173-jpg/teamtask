@@ -1345,7 +1345,7 @@ export function TaskBoard({
       return;
     }
 
-    window.location.href = "/";
+    window.location.reload();
   }
 
   async function handleBootstrap() {
