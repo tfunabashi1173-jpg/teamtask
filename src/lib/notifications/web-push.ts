@@ -315,8 +315,8 @@ export async function sendMorningTaskNotifications({
 
   await sendPushToUsers({
     userIds,
-    title: `${workspaceName} 今日のタスク`,
-    body: `本日の未完了タスクが ${tasks.length} 件あります。`,
+    title: `今日のタスク`,
+    body: `未完了タスクが ${tasks.length} 件あります。`,
     url: baseUrl,
   });
 
@@ -379,8 +379,8 @@ export async function sendEveningTaskNotifications({
 
   await sendPushToUsers({
     userIds,
-    title: `${workspaceName} 未完了タスク`,
-    body: `本日の未完了タスクが ${tasks.length} 件残っています。`,
+    title: `未完了タスク`,
+    body: `本日 ${tasks.length} 件のタスクが残っています。`,
     url: baseUrl,
   });
 
