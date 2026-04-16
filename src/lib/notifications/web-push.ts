@@ -303,19 +303,30 @@ export async function sendMorningTaskNotifications({
     throw new Error(deliveryClaimResult.error.message);
   }
 
-  const workspaceMembersResult = await supabase
-    .from("workspace_members")
-    .select("user_id")
-    .eq("workspace_id", workspaceId)
-    .eq("is_active", true)
-    .is("left_at", null);
+  const [workspaceMembersResult, groupResult] = await Promise.all([
+    supabase
+      .from("workspace_members")
+      .select("user_id")
+      .eq("workspace_id", workspaceId)
+      .eq("is_active", true)
+      .is("left_at", null),
+    supabase
+      .from("groups")
+      .select("name")
+      .eq("workspace_id", workspaceId)
+      .eq("is_active", true)
+      .order("name")
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
   const userIds =
     ((workspaceMembersResult.data as { user_id: string }[] | null) ?? []).map((row) => row.user_id);
+  const groupName = (groupResult.data as { name: string } | null)?.name ?? "今日のタスク";
 
   await sendPushToUsers({
     userIds,
-    title: `今日のタスク`,
+    title: groupName,
     body: `未完了タスクが ${tasks.length} 件あります。`,
     url: baseUrl,
   });
@@ -367,19 +378,30 @@ export async function sendEveningTaskNotifications({
     throw new Error(deliveryClaimResult.error.message);
   }
 
-  const workspaceMembersResult = await supabase
-    .from("workspace_members")
-    .select("user_id")
-    .eq("workspace_id", workspaceId)
-    .eq("is_active", true)
-    .is("left_at", null);
+  const [workspaceMembersResult, groupResult] = await Promise.all([
+    supabase
+      .from("workspace_members")
+      .select("user_id")
+      .eq("workspace_id", workspaceId)
+      .eq("is_active", true)
+      .is("left_at", null),
+    supabase
+      .from("groups")
+      .select("name")
+      .eq("workspace_id", workspaceId)
+      .eq("is_active", true)
+      .order("name")
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
   const userIds =
     ((workspaceMembersResult.data as { user_id: string }[] | null) ?? []).map((row) => row.user_id);
+  const groupName = (groupResult.data as { name: string } | null)?.name ?? "未完了タスク";
 
   await sendPushToUsers({
     userIds,
-    title: `未完了タスク`,
+    title: groupName,
     body: `本日 ${tasks.length} 件のタスクが残っています。`,
     url: baseUrl,
   });
