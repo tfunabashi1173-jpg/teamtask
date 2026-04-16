@@ -2849,7 +2849,7 @@ export function TaskBoard({
       ) : null}
 
       {screenMode === "bulk" ? (
-        <OverlayModal onClose={() => setScreenMode("tasks")} maxWidthClass="max-w-5xl">
+        <OverlayModal onClose={() => setScreenMode("tasks")} maxWidthClass="max-w-[min(96vw,1500px)]">
           <div>
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -3140,7 +3140,19 @@ export function TaskBoard({
           </div>
 
           <div className="mt-5 hidden overflow-x-auto lg:block">
-            <table className="min-w-[1220px] table-fixed border-separate border-spacing-y-3">
+            <table className="min-w-[1320px] w-full table-fixed border-separate border-spacing-y-3">
+              <colgroup>
+                <col className="w-[5%]" />
+                <col className="w-[16%]" />
+                <col className="w-[19%]" />
+                <col className="w-[13%]" />
+                <col className="w-[10%]" />
+                <col className="w-[10%]" />
+                <col className="w-[9%]" />
+                <col className="w-[8%]" />
+                <col className="w-[7%]" />
+                <col className="w-[3%]" />
+              </colgroup>
               <thead>
                 <tr className="text-left text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
                   <th className="px-3 py-2">No</th>
@@ -3158,10 +3170,10 @@ export function TaskBoard({
               <tbody>
                 {batchRows.map((row, index) => (
                   <tr key={row.id} className="align-top">
-                    <td className="rounded-l-[24px] border border-black/5 bg-white px-3 py-4 text-sm font-semibold text-[var(--ink)]">
+                    <td className="rounded-l-[24px] border border-black/5 bg-white px-2 py-4 text-sm font-semibold text-[var(--ink)]">
                       {index + 1}
                     </td>
-                    <td className="border-y border-black/5 bg-white px-3 py-4">
+                    <td className="border-y border-black/5 bg-white px-2 py-4">
                       <div className="grid gap-2">
                         <input
                           className={inputClass}
@@ -3171,7 +3183,7 @@ export function TaskBoard({
                         />
                       </div>
                     </td>
-                    <td className="border-y border-black/5 bg-white px-3 py-4">
+                    <td className="border-y border-black/5 bg-white px-2 py-4">
                       <textarea
                         className={`${inputClass} min-h-28`}
                         value={row.description}
@@ -3179,7 +3191,7 @@ export function TaskBoard({
                         onChange={(event) => updateBatchRow(row.id, { description: event.target.value })}
                       />
                     </td>
-                    <td className="border-y border-black/5 bg-white px-3 py-4">
+                    <td className="border-y border-black/5 bg-white px-2 py-4">
                       <div className="grid gap-2">
                         <label className={`${secondaryButtonClass} inline-flex w-full justify-center`}>
                           追加
@@ -3228,7 +3240,7 @@ export function TaskBoard({
                         </div>
                       </div>
                     </td>
-                    <td className="border-y border-black/5 bg-white px-3 py-4">
+                    <td className="border-y border-black/5 bg-white px-2 py-4">
                       {!row.recurrenceEnabled ? (
                         <NativePickerField
                           type="date"
@@ -3247,7 +3259,7 @@ export function TaskBoard({
                         </div>
                       )}
                     </td>
-                    <td className="border-y border-black/5 bg-white px-3 py-4">
+                    <td className="border-y border-black/5 bg-white px-2 py-4">
                       <div className="grid grid-cols-1 gap-2">
                         {(["morning", "afternoon", "anytime"] as const).map((slot) => (
                           <button
@@ -3261,7 +3273,7 @@ export function TaskBoard({
                         ))}
                       </div>
                     </td>
-                    <td className="border-y border-black/5 bg-white px-3 py-4">
+                    <td className="border-y border-black/5 bg-white px-2 py-4">
                       <div className="flex flex-wrap gap-2">
                         {(["urgent", "high", "medium", "low"] as const).map((priority) => (
                           <button
@@ -3275,7 +3287,7 @@ export function TaskBoard({
                         ))}
                       </div>
                     </td>
-                    <td className="border-y border-black/5 bg-white px-3 py-4">
+                    <td className="border-y border-black/5 bg-white px-2 py-4">
                       <button
                         className={row.recurrenceEnabled ? segmentedActiveButtonClass : segmentedButtonClass}
                         onClick={() =>
@@ -3345,7 +3357,7 @@ export function TaskBoard({
                         </div>
                       ) : null}
                     </td>
-                    <td className="border-y border-black/5 bg-white px-3 py-4">
+                    <td className="border-y border-black/5 bg-white px-2 py-4">
                       {row.recurrenceEnabled ? (
                         <div className="grid gap-2">
                           <NativePickerField
@@ -3371,7 +3383,7 @@ export function TaskBoard({
                         </div>
                       )}
                     </td>
-                    <td className="rounded-r-[24px] border border-black/5 bg-white px-3 py-4">
+                    <td className="rounded-r-[24px] border border-black/5 bg-white px-2 py-4">
                       <button
                         className={miniDangerButtonClass}
                         onClick={() =>
