@@ -248,6 +248,17 @@ function formatPriorityIcon(priority: TaskRecord["priority"]) {
   return "⚪️";
 }
 
+function formatTaskTitleIcon(task: TaskRecord) {
+  if (task.status === "in_progress") return "🛠️";
+  if (task.status === "awaiting_confirmation") return "👀";
+  if (task.status === "done") return "✅";
+  return formatPriorityIcon(task.priority);
+}
+
+function taskCardSurfaceClass(task: TaskRecord) {
+  return task.status === "done" ? "bg-[#f3f4f6]" : "bg-[var(--chip)]";
+}
+
 function formatStatus(status: TaskRecord["status"]) {
   if (status === "pending") return "未着手";
   if (status === "in_progress") return "作業中";
@@ -2348,18 +2359,17 @@ export function TaskBoard({
               {sortedTasks.map((task) => (
                 <button
                   key={task.id}
-                  className="w-full rounded-[24px] border border-black/5 bg-[var(--surface)] px-4 py-4 text-left transition-transform active:scale-[0.99]"
+                  className={`w-full rounded-[24px] border border-black/5 px-4 py-4 text-left transition-transform active:scale-[0.99] ${taskCardSurfaceClass(task)}`}
                   onClick={() => openTaskDetail(task)}
                   type="button"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h2 className="font-[family-name:var(--font-heading)] text-base tracking-[-0.01em]">
-                        {task.status !== "done" ? `${formatPriorityIcon(task.priority)} ` : ""}
-                        {task.status === "done" ? "✅ " : ""}
+                      <h2 className="font-[family-name:var(--font-heading)] text-sm leading-6 tracking-[-0.01em] text-[var(--ink)]">
+                        {formatTaskTitleIcon(task)}{" "}
                         {task.title}
                       </h2>
-                      <p className="mt-2 text-sm text-[var(--muted)]">
+                      <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
                         {slotLabel(scheduledTimeToSlot(task.scheduled_time))} / {formatStatus(task.status)}
                       </p>
                     </div>
@@ -2452,12 +2462,14 @@ export function TaskBoard({
 
           <section className="mt-5 grid gap-4">
             {rangedTasks.map((task) => (
-              <Card key={task.id}>
+              <section
+                key={task.id}
+                className={`rounded-[28px] border border-black/5 px-5 py-5 shadow-[0_14px_28px_rgba(31,41,51,0.05)] ${taskCardSurfaceClass(task)}`}
+              >
                 <div className="grid gap-3">
                   <div className="min-w-0">
-                    <h2 className="font-[family-name:var(--font-heading)] text-lg leading-tight tracking-[-0.03em]">
-                      {task.status !== "done" ? `${formatPriorityIcon(task.priority)} ` : ""}
-                      {task.status === "done" ? "✅ " : ""}
+                    <h2 className="font-[family-name:var(--font-heading)] text-sm leading-6 tracking-[-0.01em] text-[var(--ink)]">
+                      {formatTaskTitleIcon(task)}{" "}
                       {task.title}
                     </h2>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -2499,7 +2511,7 @@ export function TaskBoard({
                     </button>
                   </div>
                 </div>
-              </Card>
+              </section>
             ))}
           </section>
         </OverlayModal>
@@ -3830,12 +3842,11 @@ function TaskDetailModal({
         <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-black/12" />
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">
-              {task.status !== "done" ? `${formatPriorityIcon(task.priority)} ` : ""}
-              {task.status === "done" ? "✅ " : ""}
+            <h3 className="font-[family-name:var(--font-heading)] text-sm leading-6 tracking-[-0.01em] text-[var(--ink)]">
+              {formatTaskTitleIcon(task)}{" "}
               {task.title}
             </h3>
-            <p className="mt-2 text-sm text-[var(--muted)]">
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
               {slotLabel(scheduledTimeToSlot(task.scheduled_time))} / {formatStatus(task.status)}
             </p>
           </div>
