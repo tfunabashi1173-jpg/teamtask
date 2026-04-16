@@ -2440,10 +2440,10 @@ export function TaskBoard({
                 一括登録
               </button>
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <FormField label="開始日">
                 <input
-                  className={inputClass}
+                  className={dateTimeInputClass}
                   type="date"
                   value={rangeStart}
                   onChange={(event) => setRangeStart(event.target.value)}
@@ -2451,7 +2451,7 @@ export function TaskBoard({
               </FormField>
               <FormField label="終了日">
                 <input
-                  className={inputClass}
+                  className={dateTimeInputClass}
                   type="date"
                   value={rangeEnd}
                   onChange={(event) => setRangeEnd(event.target.value)}
@@ -2600,7 +2600,7 @@ export function TaskBoard({
             </div>
           </div>
 
-          <div className="mt-5 grid gap-4">
+          <div className="mt-5 grid gap-4 lg:hidden">
             {batchRows.map((row, index) => (
               <Card key={row.id}>
                 <div className="flex items-center justify-between gap-3">
@@ -2687,7 +2687,7 @@ export function TaskBoard({
                   {!row.recurrenceEnabled ? (
                     <FormField label="実行日">
                       <input
-                        className={inputClass}
+                        className={dateTimeInputClass}
                         type="date"
                         value={row.scheduledDate}
                         onChange={(event) =>
@@ -2753,10 +2753,10 @@ export function TaskBoard({
 
                     {row.recurrenceEnabled ? (
                       <div className="mt-4 grid gap-3">
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                           <FormField label="開始日">
                             <input
-                              className={inputClass}
+                              className={dateTimeInputClass}
                               type="date"
                               value={row.scheduledDate}
                               onChange={(event) =>
@@ -2770,7 +2770,7 @@ export function TaskBoard({
                           </FormField>
                           <FormField label="終了日">
                             <input
-                              className={inputClass}
+                              className={dateTimeInputClass}
                               type="date"
                               value={row.recurrenceEndDate}
                               onChange={(event) => updateBatchRow(row.id, { recurrenceEndDate: event.target.value })}
@@ -2852,6 +2852,261 @@ export function TaskBoard({
                 </div>
               </Card>
             ))}
+          </div>
+
+          <div className="mt-5 hidden overflow-x-auto lg:block">
+            <table className="min-w-[1220px] table-fixed border-separate border-spacing-y-3">
+              <thead>
+                <tr className="text-left text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
+                  <th className="px-3 py-2">No</th>
+                  <th className="px-3 py-2">タイトル</th>
+                  <th className="px-3 py-2">説明</th>
+                  <th className="px-3 py-2">画像</th>
+                  <th className="px-3 py-2">実行日</th>
+                  <th className="px-3 py-2">時間帯</th>
+                  <th className="px-3 py-2">優先度</th>
+                  <th className="px-3 py-2">繰り返し</th>
+                  <th className="px-3 py-2">期間</th>
+                  <th className="px-3 py-2">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {batchRows.map((row, index) => (
+                  <tr key={row.id} className="align-top">
+                    <td className="rounded-l-[24px] border border-black/5 bg-white px-3 py-4 text-sm font-semibold text-[var(--ink)]">
+                      {index + 1}
+                    </td>
+                    <td className="border-y border-black/5 bg-white px-3 py-4">
+                      <div className="grid gap-2">
+                        <input
+                          className={inputClass}
+                          value={row.title}
+                          placeholder="タスク名"
+                          onChange={(event) => updateBatchRow(row.id, { title: event.target.value })}
+                        />
+                      </div>
+                    </td>
+                    <td className="border-y border-black/5 bg-white px-3 py-4">
+                      <textarea
+                        className={`${inputClass} min-h-28`}
+                        value={row.description}
+                        placeholder="説明"
+                        onChange={(event) => updateBatchRow(row.id, { description: event.target.value })}
+                      />
+                    </td>
+                    <td className="border-y border-black/5 bg-white px-3 py-4">
+                      <div className="grid gap-2">
+                        <label className={`${secondaryButtonClass} inline-flex w-full justify-center`}>
+                          追加
+                          <input
+                            className="hidden"
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={(event) => {
+                              const files = Array.from(event.currentTarget.files ?? []).filter((file) =>
+                                file.type.startsWith("image/"),
+                              );
+                              updateBatchRow(row.id, {
+                                pendingReferenceFiles: [...row.pendingReferenceFiles, ...files].slice(0, 2),
+                              });
+                              event.currentTarget.value = "";
+                            }}
+                          />
+                        </label>
+                        <div className="grid gap-2">
+                          {row.pendingReferenceFiles.length > 0 ? (
+                            row.pendingReferenceFiles.map((file, fileIndex) => (
+                              <div
+                                key={`${row.id}-${file.name}-${fileIndex}-table`}
+                                className="rounded-2xl bg-[var(--surface)] px-3 py-2"
+                              >
+                                <p className="truncate text-xs font-semibold text-[var(--ink-soft)]">{file.name}</p>
+                                <button
+                                  className="mt-1 text-xs font-semibold text-[var(--danger)]"
+                                  onClick={() =>
+                                    updateBatchRow(row.id, {
+                                      pendingReferenceFiles: row.pendingReferenceFiles.filter(
+                                        (_, indexValue) => indexValue !== fileIndex,
+                                      ),
+                                    })
+                                  }
+                                  type="button"
+                                >
+                                  削除
+                                </button>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-xs text-[var(--muted)]">未追加</p>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="border-y border-black/5 bg-white px-3 py-4">
+                      {!row.recurrenceEnabled ? (
+                        <input
+                          className={dateTimeInputClass}
+                          type="date"
+                          value={row.scheduledDate}
+                          onChange={(event) =>
+                            updateBatchRow(row.id, {
+                              scheduledDate: event.target.value,
+                              recurrenceDaysOfWeek: [weekdayFromDate(event.target.value)],
+                              recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
+                            })
+                          }
+                        />
+                      ) : (
+                        <div className="rounded-2xl bg-[var(--chip)] px-3 py-3 text-sm text-[var(--muted)]">
+                          繰り返し時は期間で管理
+                        </div>
+                      )}
+                    </td>
+                    <td className="border-y border-black/5 bg-white px-3 py-4">
+                      <div className="grid grid-cols-1 gap-2">
+                        {(["morning", "afternoon", "anytime"] as const).map((slot) => (
+                          <button
+                            key={`${row.id}-${slot}-table`}
+                            className={selectedSlotButtonClass(scheduledTimeToSlot(row.scheduledTime) === slot)}
+                            onClick={() => updateBatchRow(row.id, { scheduledTime: slotToScheduledTime(slot) })}
+                            type="button"
+                          >
+                            {slotLabel(slot)}
+                          </button>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="border-y border-black/5 bg-white px-3 py-4">
+                      <div className="flex flex-wrap gap-2">
+                        {(["urgent", "high", "medium", "low"] as const).map((priority) => (
+                          <button
+                            key={`${row.id}-${priority}-table`}
+                            className={priorityPillClass(row.priority === priority)}
+                            onClick={() => updateBatchRow(row.id, { priority })}
+                            type="button"
+                          >
+                            {formatPriorityIcon(priority)}
+                          </button>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="border-y border-black/5 bg-white px-3 py-4">
+                      <button
+                        className={row.recurrenceEnabled ? segmentedActiveButtonClass : segmentedButtonClass}
+                        onClick={() =>
+                          updateBatchRow(row.id, {
+                            recurrenceEnabled: !row.recurrenceEnabled,
+                            recurrenceEndDate:
+                              !row.recurrenceEnabled && !row.recurrenceEndDate ? row.scheduledDate : row.recurrenceEndDate,
+                          })
+                        }
+                        type="button"
+                      >
+                        {row.recurrenceEnabled ? "ON" : "OFF"}
+                      </button>
+                      {row.recurrenceEnabled ? (
+                        <div className="mt-3 grid gap-2">
+                          <select
+                            className={inputClass}
+                            value={row.recurrenceFrequency}
+                            onChange={(event) =>
+                              updateBatchRow(row.id, {
+                                recurrenceFrequency: event.target.value as TaskFormState["recurrenceFrequency"],
+                              })
+                            }
+                          >
+                            <option value="daily">毎日</option>
+                            <option value="weekly">曜日指定（毎週）</option>
+                            <option value="monthly">毎月</option>
+                          </select>
+                          <input
+                            className={inputClass}
+                            type="number"
+                            min={1}
+                            value={row.recurrenceInterval}
+                            onChange={(event) =>
+                              updateBatchRow(row.id, {
+                                recurrenceInterval: Math.max(1, Number(event.target.value || 1)),
+                              })
+                            }
+                          />
+                          {row.recurrenceFrequency === "weekly" ? (
+                            <div className="flex flex-wrap gap-1">
+                              {WEEKDAY_OPTIONS.map((option) => {
+                                const checked = row.recurrenceDaysOfWeek.includes(option.value);
+                                return (
+                                  <button
+                                    key={`${row.id}-${option.value}-table`}
+                                    className={`rounded-xl border px-2 py-1 text-xs font-semibold ${
+                                      checked
+                                        ? "border-[var(--brand)] bg-[var(--brand)] text-white"
+                                        : "border-black/10 bg-white text-[var(--ink-soft)]"
+                                    }`}
+                                    onClick={() =>
+                                      updateBatchRow(row.id, {
+                                        recurrenceDaysOfWeek: checked
+                                          ? row.recurrenceDaysOfWeek.filter((value) => value !== option.value)
+                                          : [...row.recurrenceDaysOfWeek, option.value].sort(),
+                                      })
+                                    }
+                                    type="button"
+                                  >
+                                    {option.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="border-y border-black/5 bg-white px-3 py-4">
+                      {row.recurrenceEnabled ? (
+                        <div className="grid gap-2">
+                          <input
+                            className={dateTimeInputClass}
+                            type="date"
+                            value={row.scheduledDate}
+                            onChange={(event) =>
+                              updateBatchRow(row.id, {
+                                scheduledDate: event.target.value,
+                                recurrenceDaysOfWeek: [weekdayFromDate(event.target.value)],
+                                recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
+                              })
+                            }
+                          />
+                          <input
+                            className={dateTimeInputClass}
+                            type="date"
+                            value={row.recurrenceEndDate}
+                            onChange={(event) => updateBatchRow(row.id, { recurrenceEndDate: event.target.value })}
+                          />
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl bg-[var(--chip)] px-3 py-3 text-sm text-[var(--muted)]">
+                          単発タスク
+                        </div>
+                      )}
+                    </td>
+                    <td className="rounded-r-[24px] border border-black/5 bg-white px-3 py-4">
+                      <button
+                        className={miniDangerButtonClass}
+                        onClick={() =>
+                          setBatchRows((current) =>
+                            current.length <= 1 ? current : current.filter((item) => item.id !== row.id),
+                          )
+                        }
+                        type="button"
+                        disabled={batchRows.length <= 1}
+                      >
+                        削除
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2">
@@ -3018,7 +3273,7 @@ export function TaskBoard({
                     <div className="mt-2 grid gap-3">
                       <FormField label="朝通知時刻">
                         <input
-                          className={inputClass}
+                          className={dateTimeInputClass}
                           type="time"
                           value={notificationTime}
                           onChange={(event) => setNotificationTime(event.target.value)}
@@ -3558,7 +3813,7 @@ function TaskModal({
               ))}
             </div>
           ) : null}
-          <div className="grid gap-3 sm:grid-cols-[1.1fr_1fr]">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1.1fr_1fr]">
             <FormField label="実行日">
               <input
                 className={`${inputClass} ${form.recurrenceEnabled ? "bg-[var(--chip)] text-[var(--muted)]" : ""}`}
@@ -4193,6 +4448,8 @@ function Footer({
 
 const inputClass =
   "w-full min-w-0 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-shadow focus:border-[var(--brand)]/50 focus:ring-2 focus:ring-[var(--brand)]/10";
+const dateTimeInputClass =
+  "w-full min-w-0 max-w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-shadow focus:border-[var(--brand)]/50 focus:ring-2 focus:ring-[var(--brand)]/10";
 const primaryButtonClass =
   "rounded-2xl bg-[var(--brand)] px-5 py-3.5 text-sm font-semibold text-white transition-transform active:scale-[0.97]";
 const primaryIconButtonClass =
