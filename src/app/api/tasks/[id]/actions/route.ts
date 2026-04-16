@@ -22,17 +22,19 @@ export async function POST(
   }
 
   const supabase = createSupabaseAdminClient();
-  const actorResult = await supabase
-    .from("app_users")
-    .select("id,display_name")
-    .eq("line_user_id", sessionUser.lineUserId)
-    .single();
+  const [actorResult, beforeResult] = await Promise.all([
+    supabase
+      .from("app_users")
+      .select("id,display_name")
+      .eq("line_user_id", sessionUser.lineUserId)
+      .single(),
+    supabase.from("tasks").select("*").eq("id", id).single(),
+  ]);
 
   if (actorResult.error) {
     return NextResponse.json({ error: "ACTOR_NOT_FOUND" }, { status: 404 });
   }
 
-  const beforeResult = await supabase.from("tasks").select("*").eq("id", id).single();
   if (beforeResult.error) {
     return NextResponse.json({ error: "TASK_NOT_FOUND" }, { status: 404 });
   }

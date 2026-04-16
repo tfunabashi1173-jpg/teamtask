@@ -494,7 +494,6 @@ export function TaskBoard({
       (window.navigator as Navigator & { standalone?: boolean }).standalone === true
     );
   });
-  const [showPwaGuide, setShowPwaGuide] = useState(true);
   const [isIosLike] = useState(() => {
     if (typeof window === "undefined") return false;
 
@@ -503,6 +502,16 @@ export function TaskBoard({
     const iPadOnMac = /Macintosh/i.test(ua) && "ontouchend" in document;
     return iOSDevice || iPadOnMac;
   });
+  const [isAndroid] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return /Android/i.test(window.navigator.userAgent);
+  });
+  const isMobile = isIosLike || isAndroid;
+  type BeforeInstallPromptEvent = Event & {
+    prompt: () => Promise<void>;
+    userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+  };
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const activeGroupId = state.groups.some((group) => group.id === currentGroupId)
     ? currentGroupId
     : (state.groups[0]?.id ?? "");
@@ -1204,6 +1213,15 @@ export function TaskBoard({
   }, [consumePendingLineLogin, queue.length, refreshAppState]);
 
   useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e as BeforeInstallPromptEvent);
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  useEffect(() => {
     if (!isOnline || queue.length === 0) return;
 
     let cancelled = false;
@@ -1343,7 +1361,16 @@ export function TaskBoard({
       return;
     }
 
-    window.location.reload();
+    await refreshAppState();
+  }
+
+  async function handleInstallPwa() {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    const choice = await installPrompt.userChoice;
+    if (choice.outcome === "accepted") {
+      setInstallPrompt(null);
+    }
   }
 
   async function handleMembershipRequest() {
@@ -1368,7 +1395,7 @@ export function TaskBoard({
     }
 
     pushToast("success", "登録申請を送信しました。管理者の承認をお待ちください。");
-    window.location.reload();
+    await refreshAppState();
   }
 
   async function handleCreateInvite(groupId: string) {
@@ -1403,7 +1430,7 @@ export function TaskBoard({
     }
 
     pushToast("success", "申請を承認しました。");
-    window.location.reload();
+    await refreshAppState();
   }
 
   async function handleRejectRequest(requestId: string) {
@@ -1416,7 +1443,7 @@ export function TaskBoard({
     }
 
     pushToast("success", "申請を却下しました。");
-    window.location.reload();
+    await refreshAppState();
   }
 
   async function handleRemoveMember(userId: string) {
@@ -1427,7 +1454,7 @@ export function TaskBoard({
     }
 
     pushToast("success", "メンバーを削除しました。履歴は保持されます。");
-    window.location.reload();
+    await refreshAppState();
   }
 
   async function handleLeaveCurrentGroup() {
@@ -1468,7 +1495,7 @@ export function TaskBoard({
     }
 
     pushToast("success", `「${currentGroup.name}」から退出しました。`);
-    window.location.reload();
+    await refreshAppState();
   }
 
   async function handleSaveWorkspaceSettings() {
@@ -1892,7 +1919,6 @@ export function TaskBoard({
       ...current,
       tasks: current.tasks.filter((task) => task.id !== taskId),
     }));
-    await syncLatestState();
   }
 
   async function copyText(label: string, value: string) {
@@ -2186,7 +2212,16 @@ export function TaskBoard({
             ? `「${task.title}」を中断しました。`
             : `「${task.title}」を翌日に回しました。`,
     );
-    await syncLatestState();
+
+    const updatedTask = (result.json as { task?: TaskRecord } | null)?.task;
+    if (updatedTask) {
+      setState((current) => ({
+        ...current,
+        tasks: current.tasks.map((t) => (t.id === task.id ? { ...t, ...updatedTask } : t)),
+      }));
+    } else {
+      await syncLatestState();
+    }
   }
 
   if (!state.authConfigured) {
@@ -2506,28 +2541,52 @@ export function TaskBoard({
         </Card>
       ) : null}
 
-      {!isPwaMode && showPwaGuide ? (
-        <Card>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-[var(--brand)]">
-                通知を受けるにはPWA登録が必要です
-              </p>
-              <p className="mt-2 text-sm leading-7 text-[var(--muted)]">
-                {isIosLike
-                  ? "Safariの共有メニューから「ホーム画面に追加」を行ってください。ホーム画面から起動すると通知とPWA機能を使えます。"
-                  : "このページをホーム画面に追加してください。PWAとして起動すると通知とオフライン機能を使えます。"}
-              </p>
-            </div>
-            <button
-              className={secondaryButtonClass}
-              onClick={() => setShowPwaGuide(false)}
-              type="button"
-            >
-              閉じる
-            </button>
+      {!isPwaMode && isMobile ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            <p className="text-base font-bold text-[var(--brand)]">
+              ホーム画面から起動してください
+            </p>
+            {isIosLike ? (
+              <ol className="mt-4 space-y-2 text-sm leading-6 text-[var(--muted)]">
+                <li>1. Safariで開く</li>
+                <li>
+                  2. 画面下部の共有ボタン（
+                  <span className="font-semibold">□↑</span>
+                  ）をタップ
+                </li>
+                <li>
+                  3.「<span className="font-semibold">ホーム画面に追加</span>」を選択
+                </li>
+                <li>
+                  4.「<span className="font-semibold">追加</span>」をタップ
+                </li>
+              </ol>
+            ) : (
+              <div className="mt-4">
+                {installPrompt ? (
+                  <button
+                    className="w-full rounded-lg bg-[var(--brand)] py-2.5 text-sm font-semibold text-white"
+                    onClick={() => void handleInstallPwa()}
+                    type="button"
+                  >
+                    ホーム画面に追加
+                  </button>
+                ) : (
+                  <ol className="space-y-2 text-sm leading-6 text-[var(--muted)]">
+                    <li>1. Chromeのメニュー（⋮）を開く</li>
+                    <li>
+                      2.「<span className="font-semibold">ホーム画面に追加</span>」を選択
+                    </li>
+                    <li>
+                      3.「<span className="font-semibold">追加</span>」をタップ
+                    </li>
+                  </ol>
+                )}
+              </div>
+            )}
           </div>
-        </Card>
+        </div>
       ) : null}
 
       {isPwaMode && pushSetupNotice ? (

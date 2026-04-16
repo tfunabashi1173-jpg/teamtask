@@ -24,31 +24,23 @@ export async function DELETE(
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 
-  await supabase
-    .from("app_users")
-    .update({
-      is_active: false,
-      deactivated_at: new Date().toISOString(),
-    })
-    .eq("id", userId);
-
-  await supabase
-    .from("workspace_members")
-    .update({
-      is_active: false,
-      left_at: new Date().toISOString(),
-    })
-    .eq("user_id", userId)
-    .eq("is_active", true);
-
-  await supabase
-    .from("group_members")
-    .update({
-      is_active: false,
-      left_at: new Date().toISOString(),
-    })
-    .eq("user_id", userId)
-    .eq("is_active", true);
+  const now = new Date().toISOString();
+  await Promise.all([
+    supabase
+      .from("app_users")
+      .update({ is_active: false, deactivated_at: now })
+      .eq("id", userId),
+    supabase
+      .from("workspace_members")
+      .update({ is_active: false, left_at: now })
+      .eq("user_id", userId)
+      .eq("is_active", true),
+    supabase
+      .from("group_members")
+      .update({ is_active: false, left_at: now })
+      .eq("user_id", userId)
+      .eq("is_active", true),
+  ]);
 
   return NextResponse.json({ ok: true });
 }
