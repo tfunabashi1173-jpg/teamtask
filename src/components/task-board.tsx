@@ -2481,224 +2481,251 @@ export function TaskBoard({
       toasts={toasts}
       enablePushPrompt
     >
-      <Card>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand)]/60">
-              TASK BOARD
-            </p>
-            <div
-              key={homeDateMotionKey}
-              className={`${
-                homeDateMotion === "prev"
-                  ? "home-date-slide-prev"
-                  : homeDateMotion === "next"
-                    ? "home-date-slide-next"
-                    : "home-date-slide-reset"
-              }`}
-            >
-              <h1 className="mt-1.5 font-[family-name:var(--font-heading)] text-[1.85rem] leading-none tracking-[-0.03em]">
-                {formatHomeHeadingDate(homeDate)}
-              </h1>
-              <p className="mt-1.5 text-xs font-medium text-[var(--muted)]">
-                {homeDateOffset === 0
-                  ? "本日"
-                  : homeDateOffset > 0
-                    ? `${homeDateOffset}日後`
-                    : `${Math.abs(homeDateOffset)}日前`}
-              </p>
-            </div>
-          </div>
-          <button className={primaryIconButtonClass} onClick={openCreateTask} type="button">
-            +
-          </button>
-        </div>
-
-        <div className="mt-4 grid grid-cols-4 gap-2">
-          <SummaryCard label="未着手" value={counts.pending} tone="default" />
-          <SummaryCard label="作業中" value={counts.inProgress} tone="warning" />
-          <SummaryCard label="確認待ち" value={counts.awaitingConfirmation} tone="warning" />
-          <SummaryCard label="完了" value={counts.done} tone="success" />
-        </div>
-
-        <div className="mt-3 grid grid-cols-3 gap-1.5">
-          <button
-            className={homeDateOffset < 0 ? segmentedActiveButtonClass : segmentedButtonClass}
-            onClick={() => moveHomeDate(-1)}
-            type="button"
-          >
-            前日
-          </button>
-          <button
-            className={homeDateOffset === 0 ? segmentedActiveButtonClass : segmentedButtonClass}
-            onClick={resetHomeDateToToday}
-            type="button"
-          >
-            本日
-          </button>
-          <button
-            className={homeDateOffset > 0 ? segmentedActiveButtonClass : segmentedButtonClass}
-            onClick={() => moveHomeDate(1)}
-            type="button"
-          >
-            翌日
-          </button>
-        </div>
-
-        <div className="mt-3 flex items-center gap-2">
-          <select
-            className={`${selectCardClass} flex-1`}
-            value={activeGroupId}
-            onChange={(event) => setCurrentGroupId(event.target.value)}
-          >
-            {state.groups.map((group) => (
-              <option key={group.id} value={group.id}>
-                {group.name}
-              </option>
-            ))}
-          </select>
-          <button
-            className={squareUtilityButtonClass}
-            onClick={() => setScreenMode("tasks")}
-            type="button"
-          >
-            <span className="text-base leading-none">≡</span>
-            <span>一覧</span>
-          </button>
-          <button
-            className={squareUtilityButtonClass}
-            onClick={() => setShowGroupModal(true)}
-            type="button"
-            disabled={!currentGroup}
-          >
-            <span className="text-base leading-none">⌘</span>
-            <span>詳細</span>
-          </button>
-        </div>
-
-        {!isOnline || syncState !== "idle" ? (
-          <div className="mt-4 rounded-2xl bg-[var(--chip)] px-4 py-3 text-sm text-[var(--ink-soft)]">
-            {!isOnline
-              ? "圏外のため操作は端末に保留されます"
-              : syncState === "queued"
-                ? `保留 ${queue.length}件を同期待ちです`
-                : syncState === "syncing"
-                  ? "保留中の操作を同期しています"
-                  : "同期に失敗しました。通信状態を確認してください"}
-          </div>
-        ) : null}
-      </Card>
-
-      {state.appUser.role === "admin" && state.pendingRequests.length > 0 ? (
-        <Card>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-[var(--danger)]">承認待ち申請があります</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                {state.pendingRequests.length}件の申請が管理画面で承認待ちです。
-              </p>
-            </div>
-            <button
-              className={secondaryButtonClass}
-              onClick={() => setShowManageModal(true)}
-              type="button"
-            >
-              確認
-            </button>
-          </div>
-        </Card>
-      ) : null}
-
-
-      {isPwaMode && pushSetupNotice ? (
-        <Card>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p
-                className={`text-sm font-semibold ${
-                  pushSetupNotice.tone === "error" ? "text-[var(--danger)]" : "text-[var(--brand)]"
-                }`}
-              >
-                通知設定の案内
-              </p>
-              <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{pushSetupNotice.message}</p>
-            </div>
-            {pushSetupNotice.actionLabel ? (
-              <button className={secondaryButtonClass} onClick={handlePushSetupAction} type="button">
-                {pushSetupNotice.actionLabel}
-              </button>
-            ) : null}
-          </div>
-        </Card>
-      ) : null}
-
-      {devicePermissionNotice ? (
-        <Card>
-          <p className="text-sm font-semibold text-[var(--brand)]">権限の案内</p>
-          <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{devicePermissionNotice.message}</p>
-        </Card>
-      ) : null}
-
       {screenMode === "home" ? (
-        <Card>
-          <h2 className="mb-4 font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">タスク</h2>
-          {sortedTasks.length === 0 ? (
-            <p className="text-sm text-[var(--muted)]">今日のタスクはありません。</p>
-          ) : (
-            <section className="grid gap-3">
-              {sortedTasks.map((task) => (
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.95fr)] lg:items-start">
+          <div className="grid gap-5">
+            <Card>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand)]/60">
+                    TASK BOARD
+                  </p>
+                  <div
+                    key={homeDateMotionKey}
+                    className={`${
+                      homeDateMotion === "prev"
+                        ? "home-date-slide-prev"
+                        : homeDateMotion === "next"
+                          ? "home-date-slide-next"
+                          : "home-date-slide-reset"
+                    }`}
+                  >
+                    <h1 className="mt-1.5 font-[family-name:var(--font-heading)] text-[1.85rem] leading-none tracking-[-0.03em] lg:text-[2.3rem]">
+                      {formatHomeHeadingDate(homeDate)}
+                    </h1>
+                    <p className="mt-1.5 text-xs font-medium text-[var(--muted)]">
+                      {homeDateOffset === 0
+                        ? "本日"
+                        : homeDateOffset > 0
+                          ? `${homeDateOffset}日後`
+                          : `${Math.abs(homeDateOffset)}日前`}
+                    </p>
+                  </div>
+                </div>
+                <button className={primaryIconButtonClass} onClick={openCreateTask} type="button">
+                  +
+                </button>
+              </div>
+
+              <div className="mt-4 grid grid-cols-4 gap-2 lg:gap-3">
+                <SummaryCard label="未着手" value={counts.pending} tone="default" />
+                <SummaryCard label="作業中" value={counts.inProgress} tone="warning" />
+                <SummaryCard label="確認待ち" value={counts.awaitingConfirmation} tone="warning" />
+                <SummaryCard label="完了" value={counts.done} tone="success" />
+              </div>
+
+              <div className="mt-3 grid grid-cols-3 gap-1.5 lg:max-w-md lg:gap-2">
                 <button
-                  key={task.id}
-                  className={`w-full rounded-[24px] border border-black/5 px-4 py-4 text-left transition-transform active:scale-[0.99] ${taskCardSurfaceClass(task)}`}
-                  onClick={() => openTaskDetail(task)}
+                  className={homeDateOffset < 0 ? segmentedActiveButtonClass : segmentedButtonClass}
+                  onClick={() => moveHomeDate(-1)}
                   type="button"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h2 className="font-[family-name:var(--font-heading)] text-sm leading-6 tracking-[-0.01em] text-[var(--ink)]">
-                        {formatTaskTitleIcon(task)}{" "}
-                        {task.title}
-                      </h2>
-                      <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                        {slotLabel(scheduledTimeToSlot(task.scheduled_time))} / {formatStatus(task.status)}
-                      </p>
-                    </div>
-                  </div>
+                  前日
                 </button>
-              ))}
-            </section>
-          )}
-        </Card>
-      ) : null}
+                <button
+                  className={homeDateOffset === 0 ? segmentedActiveButtonClass : segmentedButtonClass}
+                  onClick={resetHomeDateToToday}
+                  type="button"
+                >
+                  本日
+                </button>
+                <button
+                  className={homeDateOffset > 0 ? segmentedActiveButtonClass : segmentedButtonClass}
+                  onClick={() => moveHomeDate(1)}
+                  type="button"
+                >
+                  翌日
+                </button>
+              </div>
 
-      {screenMode === "home" ? (
-        <Card>
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">通知</h2>
-            {olderLogs.length > 0 ? (
-              <button
-                className="text-sm font-semibold text-[var(--brand)]"
-                onClick={() => setScreenMode("notifications")}
-                type="button"
-              >
-                過去 {olderLogs.length} 件
-              </button>
+              <div className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-center">
+                <select
+                  className={`${selectCardClass} flex-1`}
+                  value={activeGroupId}
+                  onChange={(event) => setCurrentGroupId(event.target.value)}
+                >
+                  {state.groups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="grid grid-cols-2 gap-2 lg:w-auto">
+                  <button
+                    className={squareUtilityButtonClass}
+                    onClick={() => setScreenMode("tasks")}
+                    type="button"
+                  >
+                    <span className="text-base leading-none">≡</span>
+                    <span>一覧</span>
+                  </button>
+                  <button
+                    className={squareUtilityButtonClass}
+                    onClick={() => setShowGroupModal(true)}
+                    type="button"
+                    disabled={!currentGroup}
+                  >
+                    <span className="text-base leading-none">⌘</span>
+                    <span>詳細</span>
+                  </button>
+                </div>
+              </div>
+
+              {!isOnline || syncState !== "idle" ? (
+                <div className="mt-4 rounded-2xl bg-[var(--chip)] px-4 py-3 text-sm text-[var(--ink-soft)]">
+                  {!isOnline
+                    ? "圏外のため操作は端末に保留されます"
+                    : syncState === "queued"
+                      ? `保留 ${queue.length}件を同期待ちです`
+                      : syncState === "syncing"
+                        ? "保留中の操作を同期しています"
+                        : "同期に失敗しました。通信状態を確認してください"}
+                </div>
+              ) : null}
+            </Card>
+
+            <Card>
+              <h2 className="mb-4 font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">タスク</h2>
+              {sortedTasks.length === 0 ? (
+                <p className="text-sm text-[var(--muted)]">今日のタスクはありません。</p>
+              ) : (
+                <section className="grid gap-3 lg:grid-cols-2">
+                  {sortedTasks.map((task) => (
+                    <button
+                      key={task.id}
+                      className={`w-full rounded-[24px] border border-black/5 px-4 py-4 text-left transition-transform active:scale-[0.99] ${taskCardSurfaceClass(task)}`}
+                      onClick={() => openTaskDetail(task)}
+                      type="button"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h2 className="font-[family-name:var(--font-heading)] text-sm leading-6 tracking-[-0.01em] text-[var(--ink)]">
+                            {formatTaskTitleIcon(task)}{" "}
+                            {task.title}
+                          </h2>
+                          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                            {slotLabel(scheduledTimeToSlot(task.scheduled_time))} / {formatStatus(task.status)}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </section>
+              )}
+            </Card>
+          </div>
+
+          <div className="grid gap-5">
+            {state.appUser.role === "admin" && state.pendingRequests.length > 0 ? (
+              <Card>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--danger)]">承認待ち申請があります</p>
+                    <p className="mt-1 text-sm text-[var(--muted)]">
+                      {state.pendingRequests.length}件の申請が管理画面で承認待ちです。
+                    </p>
+                  </div>
+                  <button
+                    className={secondaryButtonClass}
+                    onClick={() => setShowManageModal(true)}
+                    type="button"
+                  >
+                    確認
+                  </button>
+                </div>
+              </Card>
             ) : null}
+
+            {isPwaMode && pushSetupNotice ? (
+              <Card>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p
+                      className={`text-sm font-semibold ${
+                        pushSetupNotice.tone === "error" ? "text-[var(--danger)]" : "text-[var(--brand)]"
+                      }`}
+                    >
+                      通知設定の案内
+                    </p>
+                    <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{pushSetupNotice.message}</p>
+                  </div>
+                  {pushSetupNotice.actionLabel ? (
+                    <button className={secondaryButtonClass} onClick={handlePushSetupAction} type="button">
+                      {pushSetupNotice.actionLabel}
+                    </button>
+                  ) : null}
+                </div>
+              </Card>
+            ) : null}
+
+            {devicePermissionNotice ? (
+              <Card>
+                <p className="text-sm font-semibold text-[var(--brand)]">権限の案内</p>
+                <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{devicePermissionNotice.message}</p>
+              </Card>
+            ) : null}
+
+            <Card>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">通知</h2>
+                {olderLogs.length > 0 ? (
+                  <button
+                    className="text-sm font-semibold text-[var(--brand)]"
+                    onClick={() => setScreenMode("notifications")}
+                    type="button"
+                  >
+                    過去 {olderLogs.length} 件
+                  </button>
+                ) : null}
+              </div>
+              <div className="mt-4">
+                {latestLog ? (
+                  <NotificationBubble
+                    isOpen={openNotificationId === latestLog.id}
+                    log={latestLog}
+                    onClose={() => setOpenNotificationId(null)}
+                    onDismiss={() => handleDismissLog(latestLog.id)}
+                    onOpen={() => setOpenNotificationId(latestLog.id)}
+                  />
+                ) : (
+                  <p className="text-sm text-[var(--muted)]">通知はまだありません。</p>
+                )}
+              </div>
+            </Card>
+
+            <section className="grid grid-cols-2 gap-3">
+              {state.appUser.role === "admin" ? (
+                <button
+                  className={bottomActionButtonClass}
+                  onClick={() => setShowManageModal(true)}
+                  type="button"
+                >
+                  管理
+                </button>
+              ) : (
+                <div />
+              )}
+              <button
+                className={bottomActionButtonClass}
+                onClick={handleLogout}
+                type="button"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "処理中" : "ログアウト"}
+              </button>
+            </section>
           </div>
-          <div className="mt-4">
-            {latestLog ? (
-              <NotificationBubble
-                isOpen={openNotificationId === latestLog.id}
-                log={latestLog}
-                onClose={() => setOpenNotificationId(null)}
-                onDismiss={() => handleDismissLog(latestLog.id)}
-                onOpen={() => setOpenNotificationId(latestLog.id)}
-              />
-            ) : (
-              <p className="text-sm text-[var(--muted)]">通知はまだありません。</p>
-            )}
-          </div>
-        </Card>
+        </div>
       ) : null}
 
       {screenMode === "tasks" ? (
@@ -3644,28 +3671,6 @@ export function TaskBoard({
           </div>
         </div>
       ) : null}
-
-      <section className="grid grid-cols-2 gap-3">
-        {state.appUser.role === "admin" ? (
-          <button
-            className={bottomActionButtonClass}
-            onClick={() => setShowManageModal(true)}
-            type="button"
-          >
-            管理
-          </button>
-        ) : (
-          <div />
-        )}
-        <button
-          className={bottomActionButtonClass}
-          onClick={handleLogout}
-          type="button"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? "処理中" : "ログアウト"}
-        </button>
-      </section>
 
       {createTaskOpen ? (
         <TaskModal
