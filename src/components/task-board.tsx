@@ -750,14 +750,8 @@ export function TaskBoard({
         return false;
       }
 
-      // Already consumed by another context (e.g. browser after PWA initiated login)
-      if (status === "consumed") {
-        window.localStorage.removeItem(LINE_LOGIN_ATTEMPT_STORAGE_KEY);
-        consumedLoginAttemptRef.current = attemptId;
-        await refreshAppState();
-        return false;
-      }
-
+      // "completed" = first consumer, "consumed" = already consumed by another context (e.g. browser)
+      // Both cases call consume so this context (e.g. PWA) gets its own session cookie.
       const consumeResult = await callJson("/api/auth/line/consume", {
         method: "POST",
         body: JSON.stringify({ attemptId }),
@@ -770,7 +764,9 @@ export function TaskBoard({
       window.localStorage.removeItem(LINE_LOGIN_ATTEMPT_STORAGE_KEY);
       consumedLoginAttemptRef.current = attemptId;
       await refreshAppState();
-      pushToast("success", "LINEログインが完了しました。");
+      if (status === "completed") {
+        pushToast("success", "LINEログインが完了しました。");
+      }
       return true;
     } finally {
       lineLoginSyncingRef.current = false;

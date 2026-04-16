@@ -54,9 +54,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Login attempt is not completed yet." }, { status: 409 });
   }
 
-  if (result.data.status === "consumed") {
-    return NextResponse.json({ error: "Login attempt already consumed." }, { status: 409 });
-  }
 
   if (!isStoredSessionPayload(result.data.session_payload)) {
     return NextResponse.json({ error: "Login session payload is invalid." }, { status: 422 });
