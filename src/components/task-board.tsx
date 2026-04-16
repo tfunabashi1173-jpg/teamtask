@@ -814,6 +814,7 @@ export function TaskBoard({
     const pendingTasks = state.tasks.filter(
       (task) =>
         !task.deleted_at &&
+        (!activeGroupId || task.group_id === activeGroupId) &&
         task.scheduled_date === localNow.date &&
         task.status !== "done",
     );
@@ -824,8 +825,8 @@ export function TaskBoard({
     }
 
     const shown = await showLocalNotification({
-      title: `${state.workspace.name} 今日のタスク`,
-      body: `本日の未完了タスクが ${pendingTasks.length} 件あります。`,
+      title: currentGroup?.name ?? "タスク",
+      body: `本日のタスク ${pendingTasks.length} 件あります。`,
       url: "/",
     });
 
@@ -835,7 +836,7 @@ export function TaskBoard({
 
     window.localStorage.setItem(storageKey, new Date().toISOString());
     return true;
-  }, [showLocalNotification, state.tasks, state.workspace]);
+  }, [activeGroupId, currentGroup?.name, showLocalNotification, state.tasks, state.workspace]);
 
   const scheduleMorningLocalNotificationCheck = useCallback(() => {
     if (typeof window === "undefined" || !state.workspace?.id) {
