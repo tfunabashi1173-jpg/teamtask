@@ -1352,7 +1352,7 @@ export function TaskBoard({
     const refreshState = async () => {
       if (cancelled) return;
 
-      const ok = await refreshAppState();
+      const ok = await refreshAppStateRef.current?.();
       if (cancelled || !ok) {
         return;
       }
@@ -1424,7 +1424,9 @@ export function TaskBoard({
       }
       void supabase.removeChannel(channel);
     };
-  }, [effectiveSessionUser, inviteToken, refreshAppState, state.workspace?.id]);
+    // refreshAppStateRef is a stable ref — intentionally excluded from deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveSessionUser, inviteToken, state.workspace?.id]);
 
   async function handleLogout() {
     setIsSubmitting(true);
