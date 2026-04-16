@@ -80,6 +80,7 @@ const QUEUE_STORAGE_KEY = "team-task.queue.v2";
 const MEMBER_NAME_STORAGE_KEY = "team-task.member-name";
 const VERSION_CHECK_STORAGE_KEY = "team-task.version-check";
 const LINE_LOGIN_ATTEMPT_STORAGE_KEY = "team-task.line-login-attempt";
+const MORNING_NOTIFICATION_STORAGE_PREFIX = "team-task.local-morning-notification.v1";
 const WEEKDAY_OPTIONS = [
   { value: 0, label: "日" },
   { value: 1, label: "月" },
@@ -126,6 +127,50 @@ function formatDateDisplay(value: string) {
 function formatTimeDisplay(value: string) {
   if (!value) return "時刻を選択";
   return value.slice(0, 5);
+}
+
+function getWorkspaceLocalParts(now: Date, timezone: string) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(now);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  return {
+    date: `${values.year}-${values.month}-${values.day}`,
+    hour: Number(values.hour),
+    minute: Number(values.minute),
+  };
+}
+
+function parseNotificationMinutes(value: string) {
+  const [hourText, minuteText] = value.slice(0, 5).split(":");
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+
+  if (
+    !Number.isInteger(hour) ||
+    !Number.isInteger(minute) ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    return null;
+  }
+
+  return hour * 60 + minute;
+}
+
+function buildMorningNotificationStorageKey(workspaceId: string, date: string) {
+  return `${MORNING_NOTIFICATION_STORAGE_PREFIX}:${workspaceId}:${date}`;
 }
 
 function formatHomeHeadingDate(value: string) {
@@ -529,6 +574,7 @@ export function TaskBoard({
   const currentGroup = state.groups.find((group) => group.id === activeGroupId) ?? null;
   const lastVersionCheckAtRef = useRef(0);
   const lineLoginSyncingRef = useRef(false);
+  const morningNotificationTimerRef = useRef<number | null>(null);
   const effectiveSessionUser = useMemo(
     () =>
       currentSessionUser ??
@@ -702,6 +748,113 @@ export function TaskBoard({
       lineLoginSyncingRef.current = false;
     }
   }, [loginAttempt, refreshAppState]);
+
+  const showLocalNotification = useCallback(
+    async ({
+      title,
+      body,
+      url,
+    }: {
+      title: string;
+      body: string;
+      url: string;
+    }) => {
+      if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("Notification" in window)) {
+        return false;
+      }
+
+      if (Notification.permission !== "granted") {
+        return false;
+      }
+
+      const registration =
+        (await navigator.serviceWorker.getRegistration()) ??
+        (await navigator.serviceWorker.register("/sw.js"));
+
+      await registration.showNotification(title, {
+        body,
+        data: { url },
+        badge: "/favicon.ico",
+        icon: "/favicon.ico",
+      });
+
+      return true;
+    },
+    [],
+  );
+
+  const maybeSendMorningLocalNotification = useCallback(async () => {
+    if (
+      typeof window === "undefined" ||
+      !state.workspace?.id ||
+      !("Notification" in window) ||
+      Notification.permission !== "granted"
+    ) {
+      return false;
+    }
+
+    const timezone = state.workspace.timezone || "Asia/Tokyo";
+    const notificationTime = (state.workspace.notification_time ?? "08:00").slice(0, 5);
+    const dueMinutes = parseNotificationMinutes(notificationTime);
+    if (dueMinutes === null) {
+      return false;
+    }
+
+    const localNow = getWorkspaceLocalParts(new Date(), timezone);
+    const currentMinutes = localNow.hour * 60 + localNow.minute;
+    if (currentMinutes < dueMinutes) {
+      return false;
+    }
+
+    const storageKey = buildMorningNotificationStorageKey(state.workspace.id, localNow.date);
+    if (window.localStorage.getItem(storageKey)) {
+      return false;
+    }
+
+    const pendingTasks = state.tasks.filter(
+      (task) =>
+        !task.deleted_at &&
+        task.scheduled_date === localNow.date &&
+        task.status !== "done",
+    );
+
+    if (pendingTasks.length === 0) {
+      window.localStorage.setItem(storageKey, "empty");
+      return false;
+    }
+
+    const shown = await showLocalNotification({
+      title: `${state.workspace.name} 今日のタスク`,
+      body: `本日の未完了タスクが ${pendingTasks.length} 件あります。`,
+      url: "/",
+    });
+
+    if (!shown) {
+      return false;
+    }
+
+    window.localStorage.setItem(storageKey, new Date().toISOString());
+    return true;
+  }, [showLocalNotification, state.tasks, state.workspace]);
+
+  const scheduleMorningLocalNotificationCheck = useCallback(() => {
+    if (typeof window === "undefined" || !state.workspace?.id) {
+      return;
+    }
+
+    if (morningNotificationTimerRef.current) {
+      window.clearTimeout(morningNotificationTimerRef.current);
+      morningNotificationTimerRef.current = null;
+    }
+
+    const now = new Date();
+    const delay = Math.max(15_000, (60 - now.getSeconds()) * 1000);
+
+    morningNotificationTimerRef.current = window.setTimeout(() => {
+      void maybeSendMorningLocalNotification();
+      scheduleMorningLocalNotificationCheck();
+    }, delay);
+  }, [maybeSendMorningLocalNotification, state.workspace]);
 
   const ensureLatestBuild = useCallback(async () => {
     const now = Date.now();
@@ -895,6 +1048,43 @@ export function TaskBoard({
       document.removeEventListener("visibilitychange", handleResume);
     };
   }, [refreshDevicePermissionNotice]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    void maybeSendMorningLocalNotification();
+    scheduleMorningLocalNotificationCheck();
+
+    const handleWake = () => {
+      if (document.visibilityState === "visible") {
+        void maybeSendMorningLocalNotification();
+        scheduleMorningLocalNotificationCheck();
+      }
+    };
+
+    const handleOnline = () => {
+      void maybeSendMorningLocalNotification();
+      scheduleMorningLocalNotificationCheck();
+    };
+
+    document.addEventListener("visibilitychange", handleWake);
+    window.addEventListener("focus", handleWake);
+    window.addEventListener("pageshow", handleWake);
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      if (morningNotificationTimerRef.current) {
+        window.clearTimeout(morningNotificationTimerRef.current);
+        morningNotificationTimerRef.current = null;
+      }
+      document.removeEventListener("visibilitychange", handleWake);
+      window.removeEventListener("focus", handleWake);
+      window.removeEventListener("pageshow", handleWake);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [maybeSendMorningLocalNotification, scheduleMorningLocalNotificationCheck]);
 
   useEffect(() => {
     if (!authError) return;
@@ -1297,6 +1487,9 @@ export function TaskBoard({
     }
 
     setState((current) => ({ ...current, workspace }));
+    window.localStorage.removeItem(buildMorningNotificationStorageKey(workspace.id, getWorkspaceLocalParts(new Date(), workspace.timezone || "Asia/Tokyo").date));
+    void maybeSendMorningLocalNotification();
+    scheduleMorningLocalNotificationCheck();
     pushToast("success", "朝通知の時刻を更新しました。");
   }
 
