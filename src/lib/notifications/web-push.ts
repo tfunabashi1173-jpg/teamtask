@@ -322,3 +322,67 @@ export async function sendMorningTaskNotifications({
 
   return { sent: userIds.length };
 }
+
+export async function sendEveningTaskNotifications({
+  workspaceId,
+  workspaceName,
+  baseUrl,
+  targetDate,
+}: {
+  workspaceId: string;
+  workspaceName: string;
+  baseUrl: string;
+  targetDate: string;
+}) {
+  if (!isWebPushConfigured()) {
+    return { sent: 0 };
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const tasksResult = await supabase
+    .from("tasks")
+    .select("id,title,status,group_id")
+    .eq("workspace_id", workspaceId)
+    .eq("scheduled_date", targetDate)
+    .is("deleted_at", null)
+    .not("status", "in", '("done","skipped")');
+
+  const tasks =
+    (tasksResult.data as { id: string; title: string; status: string; group_id: string | null }[] | null) ?? [];
+  if (tasks.length === 0) {
+    return { sent: 0 };
+  }
+
+  const deliveryClaimResult = await supabase
+    .from("evening_notification_deliveries")
+    .insert({
+      workspace_id: workspaceId,
+      target_date: targetDate,
+    });
+
+  if (deliveryClaimResult.error) {
+    if (deliveryClaimResult.error.code === "23505") {
+      return { sent: 0, skipped: true };
+    }
+    throw new Error(deliveryClaimResult.error.message);
+  }
+
+  const workspaceMembersResult = await supabase
+    .from("workspace_members")
+    .select("user_id")
+    .eq("workspace_id", workspaceId)
+    .eq("is_active", true)
+    .is("left_at", null);
+
+  const userIds =
+    ((workspaceMembersResult.data as { user_id: string }[] | null) ?? []).map((row) => row.user_id);
+
+  await sendPushToUsers({
+    userIds,
+    title: `${workspaceName} 未完了タスク`,
+    body: `本日の未完了タスクが ${tasks.length} 件残っています。`,
+    url: baseUrl,
+  });
+
+  return { sent: userIds.length };
+}

@@ -15,6 +15,7 @@ export type Workspace = {
   name: string;
   timezone: string;
   notification_time: string;
+  notification_time_2: string | null;
 };
 
 export type Group = {
@@ -226,7 +227,7 @@ export async function getAppState({
   const workspaceMemberResult = await supabase
     .from("workspace_members")
     .select(
-      "workspace_id, workspaces(id,name,timezone,notification_time)",
+      "workspace_id, workspaces(id,name,timezone,notification_time,notification_time_2)",
     )
     .eq("user_id", appUser.id)
     .eq("is_active", true)
