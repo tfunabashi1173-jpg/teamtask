@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { sendMorningTaskNotifications } from "@/lib/notifications/web-push";
 
-// Workflow runs hourly; window covers the full hour to avoid missed fires
-const MORNING_NOTIFICATION_WINDOW_MINUTES = 65;
+// Workflow runs every 10min; window covers interval + 2min drift tolerance
+const MORNING_NOTIFICATION_WINDOW_MINUTES = 12;
 
 function isAuthorized(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
