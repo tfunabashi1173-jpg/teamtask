@@ -448,6 +448,7 @@ export function TaskBoard({
   const [taskSavePending, setTaskSavePending] = useState(false);
   const [taskActionPending, setTaskActionPending] = useState<ActionType | null>(null);
   const [taskDeletePendingId, setTaskDeletePendingId] = useState<string | null>(null);
+  const [approvalPendingId, setApprovalPendingId] = useState<string | null>(null);
   const [workspaceSettingsPending, setWorkspaceSettingsPending] = useState(false);
   const [inviteLinks, setInviteLinks] = useState<Record<string, string>>({});
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
@@ -597,7 +598,8 @@ export function TaskBoard({
     lineLoginPending ||
     lineLoginConsuming ||
     !!taskActionPending ||
-    !!taskDeletePendingId;
+    !!taskDeletePendingId ||
+    !!approvalPendingId;
   const lastVersionCheckAtRef = useRef(0);
   const lineLoginSyncingRef = useRef(false);
   const consumedLoginAttemptRef = useRef<string | null>(null);
@@ -1301,6 +1303,16 @@ export function TaskBoard({
   }, [isOnline, queue, refreshAppState]);
 
   useEffect(() => {
+    if (!state.pendingOwnRequest || !effectiveSessionUser) return;
+
+    const interval = window.setInterval(() => {
+      void refreshAppState();
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [state.pendingOwnRequest, effectiveSessionUser, refreshAppState]);
+
+  useEffect(() => {
     if (!state.workspace?.id || !effectiveSessionUser) return;
 
     const supabase = createSupabaseBrowserClient();
@@ -1369,7 +1381,7 @@ export function TaskBoard({
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "membership_requests",
           filter: `workspace_id=eq.${state.workspace.id}`,
@@ -1473,9 +1485,11 @@ export function TaskBoard({
   }
 
   async function handleApproveRequest(requestId: string) {
+    setApprovalPendingId(requestId);
     const result = await callJson(`/api/membership-requests/${requestId}/approve`, {
       method: "POST",
     });
+    setApprovalPendingId(null);
     if (!result.ok) {
       pushToast("error", "承認に失敗しました。");
       return;
@@ -1486,9 +1500,11 @@ export function TaskBoard({
   }
 
   async function handleRejectRequest(requestId: string) {
+    setApprovalPendingId(requestId);
     const result = await callJson(`/api/membership-requests/${requestId}/reject`, {
       method: "POST",
     });
+    setApprovalPendingId(null);
     if (!result.ok) {
       pushToast("error", "却下に失敗しました。");
       return;
@@ -3578,6 +3594,7 @@ export function TaskBoard({
                           key={item.id}
                           groups={state.groups}
                           item={item}
+                          isPending={approvalPendingId === item.id}
                           onApprove={() => handleApproveRequest(item.id)}
                           onReject={() => handleRejectRequest(item.id)}
                         />
@@ -3984,11 +4001,13 @@ function ActionButton({
 function PendingRequestCard({
   item,
   groups,
+  isPending,
   onApprove,
   onReject,
 }: {
   item: MembershipRequestRecord;
   groups: Group[];
+  isPending: boolean;
   onApprove: () => void;
   onReject: () => void;
 }) {
@@ -3999,10 +4018,10 @@ function PendingRequestCard({
       <p className="font-semibold">{item.requested_name}</p>
       <p className="mt-1 text-xs text-[var(--muted)]">申請先: {groupName}</p>
       <div className="mt-3 flex gap-2">
-        <button className={primaryButtonClass} onClick={onApprove} type="button">
-          承認
+        <button className={primaryButtonClass} onClick={onApprove} type="button" disabled={isPending}>
+          {isPending ? "処理中..." : "承認"}
         </button>
-        <button className={secondaryDangerClass} onClick={onReject} type="button">
+        <button className={secondaryDangerClass} onClick={onReject} type="button" disabled={isPending}>
           却下
         </button>
       </div>
