@@ -2849,7 +2849,7 @@ export function TaskBoard({
       ) : null}
 
       {screenMode === "bulk" ? (
-        <OverlayModal onClose={() => setScreenMode("tasks")} maxWidthClass="max-w-[min(96vw,1500px)]">
+        <OverlayModal onClose={() => setScreenMode("tasks")} maxWidthClass="max-w-[min(99vw,1800px)]">
           <div>
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -3843,13 +3843,13 @@ function OverlayModal({
 }) {
   return (
     <div
-      className="fixed inset-0 z-40 bg-black/40 p-4"
+      className="fixed inset-0 z-40 bg-black/40 p-2 sm:p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
       <div
-        className={`absolute left-1/2 top-1/2 max-h-[min(90vh,900px)] w-[calc(100%-2rem)] ${maxWidthClass} -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[32px] bg-white px-5 py-5 shadow-2xl`}
+        className={`absolute left-1/2 top-1/2 max-h-[min(90vh,900px)] w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] ${maxWidthClass} -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[32px] bg-white px-4 py-5 sm:px-5 lg:px-6 shadow-2xl`}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-black/10" />
