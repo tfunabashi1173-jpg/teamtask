@@ -586,6 +586,7 @@ export function TaskBoard({
   const currentGroup = state.groups.find((group) => group.id === activeGroupId) ?? null;
   const lastVersionCheckAtRef = useRef(0);
   const lineLoginSyncingRef = useRef(false);
+  const consumedLoginAttemptRef = useRef<string | null>(null);
   const morningNotificationTimerRef = useRef<number | null>(null);
   const effectiveSessionUser = useMemo(
     () =>
@@ -714,6 +715,11 @@ export function TaskBoard({
       return false;
     }
 
+    // Already processed in this session — skip silently
+    if (consumedLoginAttemptRef.current === attemptId) {
+      return false;
+    }
+
     lineLoginSyncingRef.current = true;
 
     try {
@@ -739,7 +745,16 @@ export function TaskBoard({
 
       if (status === "expired" || status === "failed" || status === "not_found") {
         window.localStorage.removeItem(LINE_LOGIN_ATTEMPT_STORAGE_KEY);
+        consumedLoginAttemptRef.current = attemptId;
         pushToast("error", "LINEログインを完了できませんでした。もう一度お試しください。");
+        return false;
+      }
+
+      // Already consumed by another context (e.g. browser after PWA initiated login)
+      if (status === "consumed") {
+        window.localStorage.removeItem(LINE_LOGIN_ATTEMPT_STORAGE_KEY);
+        consumedLoginAttemptRef.current = attemptId;
+        await refreshAppState();
         return false;
       }
 
@@ -753,6 +768,7 @@ export function TaskBoard({
       }
 
       window.localStorage.removeItem(LINE_LOGIN_ATTEMPT_STORAGE_KEY);
+      consumedLoginAttemptRef.current = attemptId;
       await refreshAppState();
       pushToast("success", "LINEログインが完了しました。");
       return true;
