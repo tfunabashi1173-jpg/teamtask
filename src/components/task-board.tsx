@@ -1260,6 +1260,35 @@ export function TaskBoard({
   }, [consumePendingLineLogin, ensureLatestBuild, refreshAppState, refreshPushSetupNotice]);
 
   useEffect(() => {
+    if (typeof window === "undefined" || !state.workspace?.id || !effectiveSessionUser) {
+      return;
+    }
+
+    let running = false;
+
+    const tick = async () => {
+      if (document.hidden || running) {
+        return;
+      }
+
+      running = true;
+      try {
+        await refreshAppState();
+      } finally {
+        running = false;
+      }
+    };
+
+    const interval = window.setInterval(() => {
+      void tick();
+    }, 5000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [effectiveSessionUser, refreshAppState, state.workspace?.id]);
+
+  useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
       pushToast("success", "オンラインに復帰しました。");
