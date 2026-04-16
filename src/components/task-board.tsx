@@ -609,6 +609,7 @@ export function TaskBoard({
     !!taskDeletePendingId ||
     !!approvalPendingId;
   const lastVersionCheckAtRef = useRef(0);
+  const refreshAppStateRef = useRef<(() => Promise<boolean>) | null>(null);
   const lineLoginSyncingRef = useRef(false);
   const consumedLoginAttemptRef = useRef<string | null>(null);
   const morningNotificationTimerRef = useRef<number | null>(null);
@@ -724,6 +725,8 @@ export function TaskBoard({
     );
     return true;
   }, [currentSessionUser?.displayName, currentSessionUser?.pictureUrl, inviteToken]);
+
+  refreshAppStateRef.current = refreshAppState;
 
   const syncLatestState = useCallback(async () => {
     const ok = await refreshAppState();
@@ -1314,11 +1317,13 @@ export function TaskBoard({
     if (!state.pendingOwnRequest || !effectiveSessionUser) return;
 
     const interval = window.setInterval(() => {
-      void refreshAppState();
-    }, 5000);
+      void refreshAppStateRef.current?.();
+    }, 3000);
 
     return () => window.clearInterval(interval);
-  }, [state.pendingOwnRequest, effectiveSessionUser, refreshAppState]);
+    // refreshAppStateRef is a stable ref — intentionally excluded from deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!state.pendingOwnRequest, effectiveSessionUser]);
 
   useEffect(() => {
     if (!state.workspace?.id || !effectiveSessionUser) return;
