@@ -2474,6 +2474,11 @@ export function TaskBoard({
     );
   }
 
+  const desktopScreenMode =
+    screenMode === "tasks" || screenMode === "notifications" || screenMode === "bulk"
+      ? screenMode
+      : "home";
+
   return (
     <Shell
       appVersion={appVersion}
@@ -2482,7 +2487,543 @@ export function TaskBoard({
       enablePushPrompt
       wide
     >
+      <div className="hidden lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-6">
+        <aside className="grid gap-5 self-start">
+          <Card>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--brand)]/70">
+              Workspace
+            </p>
+            <h2 className="mt-3 font-[family-name:var(--font-heading)] text-2xl leading-tight tracking-[-0.04em] text-[var(--ink)]">
+              {state.workspace?.name ?? "Workspace"}
+            </h2>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              {state.appUser.display_name} / {state.appUser.role}
+            </p>
+            <div className="mt-4">
+              <FormField label="グループ">
+                <select
+                  className={selectCardClass}
+                  value={activeGroupId}
+                  onChange={(event) => setCurrentGroupId(event.target.value)}
+                >
+                  {state.groups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+            </div>
+            <button className="mt-4 w-full rounded-2xl bg-[var(--brand)] px-5 py-3.5 text-sm font-semibold text-white" onClick={openCreateTask} type="button">
+              新規タスク
+            </button>
+          </Card>
+
+          <Card>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--muted)]">Navigation</p>
+            <div className="mt-4 grid gap-2">
+              <button
+                className={desktopScreenMode === "home" ? desktopNavActiveClass : desktopNavButtonClass}
+                onClick={() => setScreenMode("home")}
+                type="button"
+              >
+                ダッシュボード
+              </button>
+              <button
+                className={desktopScreenMode === "tasks" ? desktopNavActiveClass : desktopNavButtonClass}
+                onClick={() => setScreenMode("tasks")}
+                type="button"
+              >
+                タスク一覧
+              </button>
+              <button
+                className={desktopScreenMode === "bulk" ? desktopNavActiveClass : desktopNavButtonClass}
+                onClick={() => setScreenMode("bulk")}
+                type="button"
+              >
+                一括登録
+              </button>
+              <button
+                className={desktopScreenMode === "notifications" ? desktopNavActiveClass : desktopNavButtonClass}
+                onClick={() => setScreenMode("notifications")}
+                type="button"
+              >
+                通知
+              </button>
+            </div>
+            <div className="mt-4 grid gap-2">
+              {state.appUser.role === "admin" ? (
+                <button className={desktopSecondaryButtonClass} onClick={() => setShowManageModal(true)} type="button">
+                  管理
+                </button>
+              ) : null}
+              <button className={desktopSecondaryButtonClass} onClick={() => setShowGroupModal(true)} type="button" disabled={!currentGroup}>
+                グループ詳細
+              </button>
+              <button className={desktopDangerButtonClass} onClick={handleLogout} type="button" disabled={isSubmitting}>
+                {isSubmitting ? "処理中..." : "ログアウト"}
+              </button>
+            </div>
+          </Card>
+
+          <Card>
+            <div className="grid grid-cols-2 gap-3">
+              <SummaryCard label="未着手" value={counts.pending} tone="default" />
+              <SummaryCard label="作業中" value={counts.inProgress} tone="warning" />
+              <SummaryCard label="確認待ち" value={counts.awaitingConfirmation} tone="warning" />
+              <SummaryCard label="完了" value={counts.done} tone="success" />
+            </div>
+          </Card>
+        </aside>
+
+        <main className="grid gap-5">
+          {desktopScreenMode === "home" ? (
+            <>
+              <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
+                <Card>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--brand)]/70">
+                        Task Board
+                      </p>
+                      <div
+                        key={homeDateMotionKey}
+                        className={`${
+                          homeDateMotion === "prev"
+                            ? "home-date-slide-prev"
+                            : homeDateMotion === "next"
+                              ? "home-date-slide-next"
+                              : "home-date-slide-reset"
+                        }`}
+                      >
+                        <h1 className="mt-2 font-[family-name:var(--font-heading)] text-[2.8rem] leading-none tracking-[-0.05em]">
+                          {formatHomeHeadingDate(homeDate)}
+                        </h1>
+                        <p className="mt-2 text-sm font-medium text-[var(--muted)]">
+                          {homeDateOffset === 0
+                            ? "本日"
+                            : homeDateOffset > 0
+                              ? `${homeDateOffset}日後`
+                              : `${Math.abs(homeDateOffset)}日前`}
+                        </p>
+                      </div>
+                    </div>
+                    {!isOnline || syncState !== "idle" ? (
+                      <div className="min-w-[240px] rounded-2xl bg-[var(--chip)] px-4 py-3 text-sm text-[var(--ink-soft)]">
+                        {!isOnline
+                          ? "圏外のため操作は端末に保留されます"
+                          : syncState === "queued"
+                            ? `保留 ${queue.length}件を同期待ちです`
+                            : syncState === "syncing"
+                              ? "保留中の操作を同期しています"
+                              : "同期に失敗しました。通信状態を確認してください"}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-5 grid max-w-lg grid-cols-3 gap-2">
+                    <button
+                      className={homeDateOffset < 0 ? segmentedActiveButtonClass : segmentedButtonClass}
+                      onClick={() => moveHomeDate(-1)}
+                      type="button"
+                    >
+                      前日
+                    </button>
+                    <button
+                      className={homeDateOffset === 0 ? segmentedActiveButtonClass : segmentedButtonClass}
+                      onClick={resetHomeDateToToday}
+                      type="button"
+                    >
+                      本日
+                    </button>
+                    <button
+                      className={homeDateOffset > 0 ? segmentedActiveButtonClass : segmentedButtonClass}
+                      onClick={() => moveHomeDate(1)}
+                      type="button"
+                    >
+                      翌日
+                    </button>
+                  </div>
+                </Card>
+
+                <Card>
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">最新通知</h2>
+                    <button
+                      className="text-sm font-semibold text-[var(--brand)]"
+                      onClick={() => setScreenMode("notifications")}
+                      type="button"
+                    >
+                      全件を見る
+                    </button>
+                  </div>
+                  <div className="mt-4">
+                    {latestLog ? (
+                      <NotificationBubble
+                        isOpen={openNotificationId === latestLog.id}
+                        log={latestLog}
+                        onClose={() => setOpenNotificationId(null)}
+                        onDismiss={() => handleDismissLog(latestLog.id)}
+                        onOpen={() => setOpenNotificationId(latestLog.id)}
+                      />
+                    ) : (
+                      <p className="text-sm text-[var(--muted)]">通知はまだありません。</p>
+                    )}
+                  </div>
+                </Card>
+              </div>
+
+              <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
+                <Card>
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">本日のタスク</h2>
+                    <button className={desktopSecondaryButtonClass} onClick={() => setScreenMode("tasks")} type="button">
+                      一覧へ
+                    </button>
+                  </div>
+                  {sortedTasks.length === 0 ? (
+                    <p className="text-sm text-[var(--muted)]">今日のタスクはありません。</p>
+                  ) : (
+                    <div className="overflow-hidden rounded-[24px] border border-black/5">
+                      <div className="grid grid-cols-[minmax(0,1.5fr)_120px_120px_110px] bg-[var(--surface)] px-5 py-3 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
+                        <span>タスク</span>
+                        <span>時間帯</span>
+                        <span>状態</span>
+                        <span>操作</span>
+                      </div>
+                      {sortedTasks.map((task) => (
+                        <div
+                          key={task.id}
+                          className={`grid grid-cols-[minmax(0,1.5fr)_120px_120px_110px] items-center gap-4 border-t border-black/5 px-5 py-4 ${taskCardSurfaceClass(task)}`}
+                        >
+                          <button className="min-w-0 text-left" onClick={() => openTaskDetail(task)} type="button">
+                            <p className="truncate text-sm font-semibold text-[var(--ink)]">
+                              {formatTaskTitleIcon(task)} {task.title}
+                            </p>
+                          </button>
+                          <span className="text-sm text-[var(--muted)]">{slotLabel(scheduledTimeToSlot(task.scheduled_time))}</span>
+                          <span className={taskStatusChipClass(task.status)}>{formatStatus(task.status)}</span>
+                          <button className={miniUtilityButtonClass} onClick={() => openTaskDetail(task)} type="button">
+                            詳細
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+
+                <div className="grid gap-5">
+                  {state.appUser.role === "admin" && state.pendingRequests.length > 0 ? (
+                    <Card>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-[var(--danger)]">承認待ち申請があります</p>
+                          <p className="mt-1 text-sm text-[var(--muted)]">
+                            {state.pendingRequests.length}件の申請が管理画面で承認待ちです。
+                          </p>
+                        </div>
+                        <button className={secondaryButtonClass} onClick={() => setShowManageModal(true)} type="button">
+                          確認
+                        </button>
+                      </div>
+                    </Card>
+                  ) : null}
+
+                  {isPwaMode && pushSetupNotice ? (
+                    <Card>
+                      <p className={`text-sm font-semibold ${pushSetupNotice.tone === "error" ? "text-[var(--danger)]" : "text-[var(--brand)]"}`}>
+                        通知設定の案内
+                      </p>
+                      <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{pushSetupNotice.message}</p>
+                      {pushSetupNotice.actionLabel ? (
+                        <button className="mt-3 inline-flex rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]" onClick={handlePushSetupAction} type="button">
+                          {pushSetupNotice.actionLabel}
+                        </button>
+                      ) : null}
+                    </Card>
+                  ) : null}
+
+                  {devicePermissionNotice ? (
+                    <Card>
+                      <p className="text-sm font-semibold text-[var(--brand)]">権限の案内</p>
+                      <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{devicePermissionNotice.message}</p>
+                    </Card>
+                  ) : null}
+                </div>
+              </div>
+            </>
+          ) : null}
+
+          {desktopScreenMode === "tasks" ? (
+            <Card>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">タスク一覧</h2>
+                  <p className="mt-1 text-sm text-[var(--muted)]">期間を指定してタスクを確認・編集します。</p>
+                </div>
+                <div className="flex gap-2">
+                  <button className={desktopSecondaryButtonClass} onClick={() => setScreenMode("bulk")} type="button">
+                    一括登録
+                  </button>
+                  <button className={desktopSecondaryButtonClass} onClick={openCreateTask} type="button">
+                    追加
+                  </button>
+                </div>
+              </div>
+              <div className="mt-5 grid grid-cols-2 gap-4 xl:max-w-xl">
+                <FormField label="開始日">
+                  <NativePickerField type="date" value={rangeStart} onChange={(event) => setRangeStart(event.target.value)} />
+                </FormField>
+                <FormField label="終了日">
+                  <NativePickerField type="date" value={rangeEnd} onChange={(event) => setRangeEnd(event.target.value)} />
+                </FormField>
+              </div>
+              <div className="mt-5 overflow-hidden rounded-[24px] border border-black/5">
+                <div className="grid grid-cols-[minmax(0,1.5fr)_120px_110px_110px_220px] bg-[var(--surface)] px-5 py-3 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
+                  <span>タイトル</span>
+                  <span>日付</span>
+                  <span>時間帯</span>
+                  <span>状態</span>
+                  <span>操作</span>
+                </div>
+                {rangedTasks.length === 0 ? (
+                  <div className="px-5 py-8 text-sm text-[var(--muted)]">対象タスクはありません。</div>
+                ) : (
+                  rangedTasks.map((task) => (
+                    <div key={task.id} className={`grid grid-cols-[minmax(0,1.5fr)_120px_110px_110px_220px] items-center gap-4 border-t border-black/5 px-5 py-4 ${taskCardSurfaceClass(task)}`}>
+                      <button className="min-w-0 text-left" onClick={() => openTaskDetail(task)} type="button">
+                        <p className="truncate text-sm font-semibold text-[var(--ink)]">{formatTaskTitleIcon(task)} {task.title}</p>
+                      </button>
+                      <span className="text-sm text-[var(--muted)]">{task.scheduled_date}</span>
+                      <span className="text-sm text-[var(--muted)]">{slotLabel(scheduledTimeToSlot(task.scheduled_time))}</span>
+                      <span className={taskStatusChipClass(task.status)}>{formatStatus(task.status)}</span>
+                      <div className="flex gap-2">
+                        <button className={miniUtilityButtonClass} onClick={() => openEditTask(task)} type="button">編集</button>
+                        <button
+                          className={miniUtilityButtonClass}
+                          onClick={() => {
+                            openCreateTask();
+                            handleCopySourceChange(task.id);
+                          }}
+                          type="button"
+                        >
+                          コピー
+                        </button>
+                        <button className={miniDangerButtonClass} onClick={() => handleDeleteTask(task.id)} type="button" disabled={taskDeletePendingId === task.id}>
+                          {taskDeletePendingId === task.id ? "削除中" : "削除"}
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </Card>
+          ) : null}
+
+          {desktopScreenMode === "notifications" ? (
+            <Card>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">通知一覧</h2>
+                  <p className="mt-1 text-sm text-[var(--muted)]">直近7日分の通知を確認できます。</p>
+                </div>
+                <button className={desktopSecondaryButtonClass} onClick={() => setScreenMode("home")} type="button">
+                  ダッシュボード
+                </button>
+              </div>
+              <div className="mt-5 grid gap-3">
+                {state.logs.length > 0 ? (
+                  state.logs.map((log) => (
+                    <NotificationBubble
+                      key={log.id}
+                      isOpen={openNotificationId === log.id}
+                      log={log}
+                      onClose={() => setOpenNotificationId(null)}
+                      onDismiss={() => handleDismissLog(log.id)}
+                      onOpen={() => setOpenNotificationId(log.id)}
+                    />
+                  ))
+                ) : (
+                  <p className="text-sm text-[var(--muted)]">通知はまだありません。</p>
+                )}
+              </div>
+            </Card>
+          ) : null}
+
+          {desktopScreenMode === "bulk" ? (
+            <Card>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">一括登録</h2>
+                  <p className="mt-1 text-sm text-[var(--muted)]">PCでは表形式でまとめて入力できます。</p>
+                </div>
+                <button className={desktopSecondaryButtonClass} onClick={() => setScreenMode("tasks")} type="button">
+                  タスク一覧へ
+                </button>
+              </div>
+              <div className="mt-4 rounded-2xl bg-[var(--chip)] px-4 py-4 text-sm text-[var(--ink-soft)]">
+                登録先グループ: {currentGroup?.name ?? "グループ未設定"}
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button className={desktopSecondaryButtonClass} onClick={() => appendBatchRows(5)} type="button">行を5件追加</button>
+                <button className={desktopSecondaryButtonClass} onClick={removeEmptyBatchRows} type="button">空行を整理</button>
+                <button className={desktopSecondaryButtonClass} onClick={() => setBatchRows(Array.from({ length: 8 }, () => createBatchTaskRow(homeDate)))} type="button">行をリセット</button>
+              </div>
+              <div className="mt-5 overflow-x-auto">
+                <table className="min-w-[1320px] w-full table-fixed border-separate border-spacing-y-3">
+                  <colgroup>
+                    <col className="w-[5%]" />
+                    <col className="w-[16%]" />
+                    <col className="w-[19%]" />
+                    <col className="w-[13%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[7%]" />
+                    <col className="w-[3%]" />
+                  </colgroup>
+                  <thead>
+                    <tr className="text-left text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
+                      <th className="px-3 py-2">No</th>
+                      <th className="px-3 py-2">タイトル</th>
+                      <th className="px-3 py-2">説明</th>
+                      <th className="px-3 py-2">画像</th>
+                      <th className="px-3 py-2">実行日</th>
+                      <th className="px-3 py-2">時間帯</th>
+                      <th className="px-3 py-2">優先度</th>
+                      <th className="px-3 py-2">繰り返し</th>
+                      <th className="px-3 py-2">期間</th>
+                      <th className="px-3 py-2">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {batchRows.map((row, index) => (
+                      <tr key={row.id} className="align-top">
+                        <td className="rounded-l-[24px] border border-black/5 bg-white px-2 py-4 text-sm font-semibold text-[var(--ink)]">{index + 1}</td>
+                        <td className="border-y border-black/5 bg-white px-2 py-4">
+                          <input className={inputClass} value={row.title} placeholder="タスク名" onChange={(event) => updateBatchRow(row.id, { title: event.target.value })} />
+                        </td>
+                        <td className="border-y border-black/5 bg-white px-2 py-4">
+                          <textarea className={`${inputClass} min-h-28`} value={row.description} placeholder="説明" onChange={(event) => updateBatchRow(row.id, { description: event.target.value })} />
+                        </td>
+                        <td className="border-y border-black/5 bg-white px-2 py-4">
+                          <div className="grid gap-2">
+                            <label className={`${secondaryButtonClass} inline-flex w-full justify-center`}>
+                              追加
+                              <input
+                                className="hidden"
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={(event) => {
+                                  const files = Array.from(event.currentTarget.files ?? []).filter((file) => file.type.startsWith("image/"));
+                                  updateBatchRow(row.id, {
+                                    pendingReferenceFiles: [...row.pendingReferenceFiles, ...files].slice(0, 2),
+                                  });
+                                  event.currentTarget.value = "";
+                                }}
+                              />
+                            </label>
+                            <div className="grid gap-2">
+                              {row.pendingReferenceFiles.length > 0 ? row.pendingReferenceFiles.map((file, fileIndex) => (
+                                <div key={`${row.id}-${file.name}-${fileIndex}-desktop`} className="rounded-2xl bg-[var(--surface)] px-3 py-2">
+                                  <p className="truncate text-xs font-semibold text-[var(--ink-soft)]">{file.name}</p>
+                                  <button
+                                    className="mt-1 text-xs font-semibold text-[var(--danger)]"
+                                    onClick={() => updateBatchRow(row.id, {
+                                      pendingReferenceFiles: row.pendingReferenceFiles.filter((_, indexValue) => indexValue !== fileIndex),
+                                    })}
+                                    type="button"
+                                  >
+                                    削除
+                                  </button>
+                                </div>
+                              )) : <p className="text-xs text-[var(--muted)]">未追加</p>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="border-y border-black/5 bg-white px-2 py-4">
+                          {!row.recurrenceEnabled ? (
+                            <NativePickerField
+                              type="date"
+                              value={row.scheduledDate}
+                              onChange={(event) => updateBatchRow(row.id, {
+                                scheduledDate: event.target.value,
+                                recurrenceDaysOfWeek: [weekdayFromDate(event.target.value)],
+                                recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
+                              })}
+                            />
+                          ) : (
+                            <div className="rounded-2xl bg-[var(--chip)] px-3 py-3 text-sm text-[var(--muted)]">繰り返し時は期間で管理</div>
+                          )}
+                        </td>
+                        <td className="border-y border-black/5 bg-white px-2 py-4">
+                          <div className="grid gap-2">
+                            {(["morning", "afternoon", "anytime"] as const).map((slot) => (
+                              <button key={`${row.id}-${slot}-desktop`} className={selectedSlotButtonClass(scheduledTimeToSlot(row.scheduledTime) === slot)} onClick={() => updateBatchRow(row.id, { scheduledTime: slotToScheduledTime(slot) })} type="button">
+                                {slotLabel(slot)}
+                              </button>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="border-y border-black/5 bg-white px-2 py-4">
+                          <div className="flex flex-wrap gap-2">
+                            {(["urgent", "high", "medium", "low"] as const).map((priority) => (
+                              <button key={`${row.id}-${priority}-desktop`} className={priorityPillClass(row.priority === priority)} onClick={() => updateBatchRow(row.id, { priority })} type="button">
+                                {formatPriorityIcon(priority)}
+                              </button>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="border-y border-black/5 bg-white px-2 py-4">
+                          <button
+                            className={row.recurrenceEnabled ? segmentedActiveButtonClass : segmentedButtonClass}
+                            onClick={() => updateBatchRow(row.id, {
+                              recurrenceEnabled: !row.recurrenceEnabled,
+                              recurrenceEndDate: !row.recurrenceEnabled && !row.recurrenceEndDate ? row.scheduledDate : row.recurrenceEndDate,
+                            })}
+                            type="button"
+                          >
+                            {row.recurrenceEnabled ? "ON" : "OFF"}
+                          </button>
+                        </td>
+                        <td className="border-y border-black/5 bg-white px-2 py-4">
+                          {row.recurrenceEnabled ? (
+                            <div className="grid gap-2">
+                              <NativePickerField type="date" value={row.scheduledDate} onChange={(event) => updateBatchRow(row.id, {
+                                scheduledDate: event.target.value,
+                                recurrenceDaysOfWeek: [weekdayFromDate(event.target.value)],
+                                recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
+                              })} />
+                              <NativePickerField type="date" value={row.recurrenceEndDate} onChange={(event) => updateBatchRow(row.id, { recurrenceEndDate: event.target.value })} />
+                            </div>
+                          ) : (
+                            <div className="rounded-2xl bg-[var(--chip)] px-3 py-3 text-sm text-[var(--muted)]">単発タスク</div>
+                          )}
+                        </td>
+                        <td className="rounded-r-[24px] border border-black/5 bg-white px-2 py-4">
+                          <button className={miniDangerButtonClass} onClick={() => setBatchRows((current) => current.length <= 1 ? current : current.filter((item) => item.id !== row.id))} type="button" disabled={batchRows.length <= 1}>
+                            削除
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <button className={primaryButtonClass} onClick={handleBatchSaveTasks} type="button" disabled={isSubmitting}>
+                  {isSubmitting ? "登録中..." : "一括登録する"}
+                </button>
+              </div>
+            </Card>
+          ) : null}
+        </main>
+      </div>
+
       {screenMode === "home" ? (
+        <div className="lg:hidden">
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.95fr)] lg:items-start">
           <div className="grid gap-5">
             <Card>
@@ -2727,9 +3268,11 @@ export function TaskBoard({
             </section>
           </div>
         </div>
+        </div>
       ) : null}
 
       {screenMode === "tasks" ? (
+        <div className="lg:hidden">
         <OverlayModal onClose={() => setScreenMode("home")} maxWidthClass="max-w-4xl">
           <div>
             <div className="flex items-center justify-between gap-3">
@@ -2831,9 +3374,11 @@ export function TaskBoard({
             ))}
           </section>
         </OverlayModal>
+        </div>
       ) : null}
 
       {screenMode === "notifications" ? (
+        <div className="lg:hidden">
         <>
           <Card>
             <div className="flex items-center justify-between gap-3">
@@ -2874,9 +3419,11 @@ export function TaskBoard({
             )}
           </section>
         </>
+        </div>
       ) : null}
 
       {screenMode === "bulk" ? (
+        <div className="lg:hidden">
         <OverlayModal onClose={() => setScreenMode("tasks")} maxWidthClass="max-w-[min(99vw,1800px)]">
           <div>
             <div className="flex items-center justify-between gap-3">
@@ -3442,6 +3989,7 @@ export function TaskBoard({
             </button>
           </div>
         </OverlayModal>
+        </div>
       ) : null}
 
 
@@ -4890,6 +5438,14 @@ const modalSecondaryButtonClass =
   "w-full rounded-2xl border border-black/8 bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
 const closeWideButtonClass =
   "w-full rounded-2xl border border-black/8 bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
+const desktopSecondaryButtonClass =
+  "rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
+const desktopDangerButtonClass =
+  "rounded-2xl border border-[var(--danger)]/25 bg-[#FEF2F2] px-4 py-3 text-sm font-semibold text-[var(--danger)] transition-transform active:scale-[0.97]";
+const desktopNavButtonClass =
+  "w-full rounded-2xl border border-black/8 bg-white px-4 py-3 text-left text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
+const desktopNavActiveClass =
+  "w-full rounded-2xl bg-[var(--brand)] px-4 py-3 text-left text-sm font-semibold text-white shadow-[0_8px_18px_rgba(79,70,229,0.24)] transition-transform active:scale-[0.97]";
 
 function priorityPillClass(selected: boolean) {
   return `flex h-9 w-9 items-center justify-center rounded-full border text-base transition-transform active:scale-[0.96] ${
