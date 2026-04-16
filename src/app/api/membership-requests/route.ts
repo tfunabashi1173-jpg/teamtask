@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
+import { sendMembershipRequestNotification } from "@/lib/notifications/web-push";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
@@ -79,6 +80,12 @@ export async function POST(request: NextRequest) {
   if (insertResult.error) {
     return NextResponse.json({ error: insertResult.error.message }, { status: 500 });
   }
+
+  await sendMembershipRequestNotification({
+    workspaceId: inviteResult.data.workspace_id,
+    requestedName,
+    baseUrl: new URL("/", request.url).toString(),
+  });
 
   return NextResponse.json({ ok: true });
 }

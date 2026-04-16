@@ -259,6 +259,32 @@ export async function sendUrgentTaskCreatedNotification({
   });
 }
 
+export async function sendMembershipRequestNotification({
+  workspaceId,
+  requestedName,
+  baseUrl,
+}: {
+  workspaceId: string;
+  requestedName: string;
+  baseUrl: string;
+}) {
+  const supabase = createSupabaseAdminClient();
+  const adminsResult = await supabase
+    .from("app_users")
+    .select("id")
+    .eq("role", "admin")
+    .eq("is_active", true);
+
+  const adminIds = ((adminsResult.data as { id: string }[] | null) ?? []).map((row) => row.id);
+
+  await sendPushToUsers({
+    userIds: adminIds,
+    title: "承認申請",
+    body: `${requestedName}さんから参加申請が届きました`,
+    url: baseUrl,
+  });
+}
+
 export async function sendMorningTaskNotifications({
   workspaceId,
   workspaceName,

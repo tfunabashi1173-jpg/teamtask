@@ -80,6 +80,7 @@ const QUEUE_STORAGE_KEY = "team-task.queue.v2";
 const MEMBER_NAME_STORAGE_KEY = "team-task.member-name";
 const VERSION_CHECK_STORAGE_KEY = "team-task.version-check";
 const LINE_LOGIN_ATTEMPT_STORAGE_KEY = "team-task.line-login-attempt";
+const PENDING_INVITE_STORAGE_KEY = "team-task.pending-invite";
 const MORNING_NOTIFICATION_STORAGE_PREFIX = "team-task.local-morning-notification.v1";
 const WEEKDAY_OPTIONS = [
   { value: 0, label: "日" },
@@ -683,8 +684,11 @@ export function TaskBoard({
     }
 
     window.localStorage.setItem(LINE_LOGIN_ATTEMPT_STORAGE_KEY, attemptId);
+    if (inviteToken) {
+      window.localStorage.setItem(PENDING_INVITE_STORAGE_KEY, inviteToken);
+    }
     window.location.href = authorizeUrl;
-  }, []);
+  }, [inviteToken]);
 
   const refreshAppState = useCallback(async () => {
     const inviteQuery = inviteToken ? `?invite=${encodeURIComponent(inviteToken)}` : "";
@@ -779,6 +783,14 @@ export function TaskBoard({
 
       window.localStorage.removeItem(LINE_LOGIN_ATTEMPT_STORAGE_KEY);
       consumedLoginAttemptRef.current = attemptId;
+
+      const pendingInvite = window.localStorage.getItem(PENDING_INVITE_STORAGE_KEY);
+      if (pendingInvite) {
+        window.localStorage.removeItem(PENDING_INVITE_STORAGE_KEY);
+        window.location.href = `/?invite=${encodeURIComponent(pendingInvite)}`;
+        return true;
+      }
+
       await refreshAppState();
       setLineLoginCompleted(true);
       if (status === "completed") {
@@ -1351,6 +1363,16 @@ export function TaskBoard({
           event: "*",
           schema: "public",
           table: "task_reference_photos",
+        },
+        scheduleRefresh,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "membership_requests",
+          filter: `workspace_id=eq.${state.workspace.id}`,
         },
         scheduleRefresh,
       )
