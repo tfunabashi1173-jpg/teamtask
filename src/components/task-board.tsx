@@ -1329,6 +1329,18 @@ export function TaskBoard({
   }, [!!state.pendingOwnRequest, effectiveSessionUser]);
 
   useEffect(() => {
+    if (state.appUser?.role !== "admin" || !state.workspace?.id) return;
+
+    const interval = window.setInterval(() => {
+      void refreshAppStateRef.current?.();
+    }, 30000);
+
+    return () => window.clearInterval(interval);
+    // refreshAppStateRef is a stable ref — intentionally excluded from deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.appUser?.role, state.workspace?.id]);
+
+  useEffect(() => {
     if (!state.workspace?.id || !effectiveSessionUser) return;
 
     const supabase = createSupabaseBrowserClient();
