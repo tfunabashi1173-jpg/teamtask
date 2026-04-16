@@ -69,6 +69,9 @@ export type TaskLogRecord = {
   before_value?: {
     status?: string | null;
   } | null;
+  after_value?: {
+    memberName?: string | null;
+  } | null;
   actor: {
     display_name: string;
     line_picture_url?: string | null;
@@ -308,7 +311,7 @@ export async function getAppState({
       supabase
         .from("task_activity_logs")
         .select(
-          "id,action_type,created_at,before_value,actor:app_users!task_activity_logs_actor_user_id_fkey(display_name,line_picture_url),task:tasks!task_activity_logs_task_id_fkey(title)",
+          "id,action_type,created_at,before_value,after_value,actor:app_users!task_activity_logs_actor_user_id_fkey(display_name,line_picture_url),task:tasks!task_activity_logs_task_id_fkey(title)",
         )
         .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
         .order("created_at", { ascending: false })

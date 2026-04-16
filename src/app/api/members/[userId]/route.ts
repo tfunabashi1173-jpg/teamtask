@@ -24,6 +24,12 @@ export async function DELETE(
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 
+  const targetResult = await supabase
+    .from("app_users")
+    .select("display_name")
+    .eq("id", userId)
+    .single();
+
   const now = new Date().toISOString();
   await Promise.all([
     supabase
@@ -40,6 +46,11 @@ export async function DELETE(
       .update({ is_active: false, left_at: now })
       .eq("user_id", userId)
       .eq("is_active", true),
+    supabase.from("task_activity_logs").insert({
+      actor_user_id: adminResult.data.id,
+      action_type: "member_removed",
+      after_value: { memberName: targetResult.data?.display_name ?? null },
+    }),
   ]);
 
   return NextResponse.json({ ok: true });

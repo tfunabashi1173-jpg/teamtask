@@ -188,7 +188,7 @@ create table if not exists public.generated_task_sources (
 
 create table if not exists public.task_activity_logs (
   id uuid primary key default gen_random_uuid(),
-  task_id uuid not null references public.tasks(id) on delete cascade,
+  task_id uuid references public.tasks(id) on delete cascade,
   actor_user_id uuid not null references public.app_users(id) on delete restrict,
   action_type text not null check (
     action_type in (
@@ -203,7 +203,9 @@ create table if not exists public.task_activity_logs (
       'postponed_to_next_day',
       'photo_added',
       'photo_deleted',
-      'photo_updated'
+      'photo_updated',
+      'member_joined',
+      'member_removed'
     )
   ),
   before_value jsonb,

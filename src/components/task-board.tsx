@@ -369,6 +369,14 @@ function logMessage(log: TaskLogRecord) {
   if (log.action_type === "priority_changed") {
     return `「${title}」の優先度を変更しました`;
   }
+  if (log.action_type === "member_joined") {
+    const name = log.after_value?.memberName ?? "";
+    return `${name}さんが参加しました`;
+  }
+  if (log.action_type === "member_removed") {
+    const name = log.after_value?.memberName ?? "";
+    return `${name}さんが削除されました`;
+  }
   return `「${title}」を更新しました`;
 }
 

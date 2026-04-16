@@ -75,14 +75,21 @@ export async function POST(
     left_at: null,
   }, { onConflict: "group_id,user_id" });
 
-  await supabase
-    .from("membership_requests")
-    .update({
-      status: "approved",
-      approved_by: adminResult.data.id,
-      approved_at: new Date().toISOString(),
-    })
-    .eq("id", id);
+  await Promise.all([
+    supabase
+      .from("membership_requests")
+      .update({
+        status: "approved",
+        approved_by: adminResult.data.id,
+        approved_at: new Date().toISOString(),
+      })
+      .eq("id", id),
+    supabase.from("task_activity_logs").insert({
+      actor_user_id: adminResult.data.id,
+      action_type: "member_joined",
+      after_value: { memberName: requestResult.data.requested_name },
+    }),
+  ]);
 
   return NextResponse.json({ ok: true });
 }
