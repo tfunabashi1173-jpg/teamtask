@@ -1424,9 +1424,10 @@ export function TaskBoard({
       }
       void supabase.removeChannel(channel);
     };
-    // refreshAppStateRef is a stable ref — intentionally excluded from deps
+    // refreshAppStateRef is a stable ref; effectiveSessionUser and inviteToken
+    // intentionally excluded — workspace presence is the only meaningful signal
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveSessionUser, inviteToken, state.workspace?.id]);
+  }, [state.workspace?.id]);
 
   async function handleLogout() {
     setIsSubmitting(true);
