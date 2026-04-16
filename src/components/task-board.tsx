@@ -447,6 +447,7 @@ export function TaskBoard({
       : null) ??
     currentSessionUser?.displayName ??
     "";
+  const [activeInviteToken, setActiveInviteToken] = useState(inviteToken);
   const [screenMode, setScreenMode] = useState<ScreenMode>("home");
   const [currentGroupId, setCurrentGroupId] = useState(() => initialState.groups[0]?.id ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -698,14 +699,14 @@ export function TaskBoard({
     }
 
     window.localStorage.setItem(LINE_LOGIN_ATTEMPT_STORAGE_KEY, attemptId);
-    if (inviteToken) {
-      window.localStorage.setItem(PENDING_INVITE_STORAGE_KEY, inviteToken);
+    if (activeInviteToken) {
+      window.localStorage.setItem(PENDING_INVITE_STORAGE_KEY, activeInviteToken);
     }
     window.location.href = authorizeUrl;
-  }, [inviteToken]);
+  }, [activeInviteToken]);
 
   const refreshAppState = useCallback(async () => {
-    const inviteQuery = inviteToken ? `?invite=${encodeURIComponent(inviteToken)}` : "";
+    const inviteQuery = activeInviteToken ? `?invite=${encodeURIComponent(activeInviteToken)}` : "";
     const result = await callJson(`/api/app-state${inviteQuery}`);
     if (!result.ok || !result.json || typeof result.json !== "object" || !("state" in result.json)) {
       return false;
@@ -727,7 +728,7 @@ export function TaskBoard({
         : null,
     );
     return true;
-  }, [currentSessionUser?.displayName, currentSessionUser?.pictureUrl, inviteToken]);
+  }, [currentSessionUser?.displayName, currentSessionUser?.pictureUrl, activeInviteToken]);
 
   refreshAppStateRef.current = refreshAppState;
 
@@ -1468,7 +1469,7 @@ export function TaskBoard({
   }
 
   async function handleMembershipRequest() {
-    if (!inviteToken || !requestName.trim()) {
+    if (!activeInviteToken || !requestName.trim()) {
       pushToast("error", "名前を入力してください。");
       return;
     }
@@ -1477,7 +1478,7 @@ export function TaskBoard({
     const result = await callJson("/api/membership-requests", {
       method: "POST",
       body: JSON.stringify({
-        inviteToken,
+        inviteToken: activeInviteToken,
         requestedName: requestName.trim(),
       }),
     });
@@ -1489,6 +1490,12 @@ export function TaskBoard({
     }
 
     pushToast("success", "登録申請を送信しました。管理者の承認をお待ちください。");
+
+    setActiveInviteToken(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("invite");
+    window.history.replaceState({}, "", url.toString());
+
     await refreshAppState();
   }
 
@@ -2357,7 +2364,7 @@ export function TaskBoard({
     );
   }
 
-  if (isMobile && !isPwaMode && !inviteToken) {
+  if (isMobile && !isPwaMode && !activeInviteToken) {
     return (
       <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts} isProcessing={isProcessing}>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
