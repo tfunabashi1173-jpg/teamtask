@@ -2601,6 +2601,13 @@ export function TaskBoard({
                 )}
               </div>
             )}
+            <button
+              className="mt-5 w-full rounded-lg border border-[var(--border)] py-2.5 text-sm text-[var(--muted)]"
+              onClick={() => window.close()}
+              type="button"
+            >
+              このタブを閉じる
+            </button>
           </div>
         </div>
       ) : null}
