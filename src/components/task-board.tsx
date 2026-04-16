@@ -1412,7 +1412,6 @@ export function TaskBoard({
           event: "*",
           schema: "public",
           table: "membership_requests",
-          filter: `workspace_id=eq.${state.workspace.id}`,
         },
         scheduleRefresh,
       )
