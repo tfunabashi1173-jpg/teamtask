@@ -96,7 +96,7 @@ export async function POST(
     return NextResponse.json({ error: groupMemberUpsert.error.message }, { status: 500 });
   }
 
-  await Promise.all([
+  const [approveResult, logInsertResult] = await Promise.all([
     supabase
       .from("membership_requests")
       .update({
@@ -106,11 +106,20 @@ export async function POST(
       })
       .eq("id", id),
     supabase.from("task_activity_logs").insert({
+      task_id: null,
       actor_user_id: adminResult.data.id,
       action_type: "member_joined",
       after_value: { memberName: requestResult.data.requested_name },
     }),
   ]);
+
+  if (approveResult.error) {
+    return NextResponse.json({ error: approveResult.error.message }, { status: 500 });
+  }
+
+  if (logInsertResult.error) {
+    return NextResponse.json({ error: logInsertResult.error.message }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true });
 }

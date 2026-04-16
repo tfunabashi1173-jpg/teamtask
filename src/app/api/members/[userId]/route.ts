@@ -31,27 +31,39 @@ export async function DELETE(
     .single();
 
   const now = new Date().toISOString();
-  await Promise.all([
-    supabase
-      .from("app_users")
-      .update({ is_active: false, deactivated_at: now })
-      .eq("id", userId),
-    supabase
-      .from("workspace_members")
-      .update({ is_active: false, left_at: now })
-      .eq("user_id", userId)
-      .eq("is_active", true),
-    supabase
-      .from("group_members")
-      .update({ is_active: false, left_at: now })
-      .eq("user_id", userId)
-      .eq("is_active", true),
-    supabase.from("task_activity_logs").insert({
-      actor_user_id: adminResult.data.id,
-      action_type: "member_removed",
-      after_value: { memberName: targetResult.data?.display_name ?? null },
-    }),
-  ]);
+  const [deactivateUserResult, deactivateWorkspaceMembershipResult, deactivateGroupMembershipResult, logInsertResult] =
+    await Promise.all([
+      supabase
+        .from("app_users")
+        .update({ is_active: false, deactivated_at: now })
+        .eq("id", userId),
+      supabase
+        .from("workspace_members")
+        .update({ is_active: false, left_at: now })
+        .eq("user_id", userId)
+        .eq("is_active", true),
+      supabase
+        .from("group_members")
+        .update({ is_active: false, left_at: now })
+        .eq("user_id", userId)
+        .eq("is_active", true),
+      supabase.from("task_activity_logs").insert({
+        task_id: null,
+        actor_user_id: adminResult.data.id,
+        action_type: "member_removed",
+        after_value: { memberName: targetResult.data?.display_name ?? null },
+      }),
+    ]);
+
+  const firstError =
+    deactivateUserResult.error ||
+    deactivateWorkspaceMembershipResult.error ||
+    deactivateGroupMembershipResult.error ||
+    logInsertResult.error;
+
+  if (firstError) {
+    return NextResponse.json({ error: firstError.message }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true });
 }

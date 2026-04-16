@@ -1,9 +1,5 @@
-alter table public.tasks
-  drop constraint if exists tasks_status_check;
-
-alter table public.tasks
-  add constraint tasks_status_check
-  check (status in ('pending', 'in_progress', 'awaiting_confirmation', 'done', 'skipped'));
+alter table public.task_activity_logs
+  alter column task_id drop not null;
 
 alter table public.task_activity_logs
   drop constraint if exists task_activity_logs_action_type_check;
