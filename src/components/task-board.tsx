@@ -2487,22 +2487,24 @@ export function TaskBoard({
       enablePushPrompt
       wide
     >
-      <div className="hidden lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-6">
-        <aside className="grid gap-5 self-start">
-          <Card>
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--brand)]/70">
+      <div className="hidden lg:block">
+        <div className="rounded-[40px] border border-black/5 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(247,245,238,0.94))] p-4 shadow-[0_24px_70px_rgba(15,23,42,0.10)] xl:p-5">
+        <div className="grid lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-6">
+        <aside className="sticky top-5 grid gap-4 self-start">
+          <Card className="border border-black/5 bg-[linear-gradient(180deg,#244234_0%,#315843_100%)] text-white shadow-[0_22px_48px_rgba(36,66,52,0.28)]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/60">
               Workspace
             </p>
-            <h2 className="mt-3 font-[family-name:var(--font-heading)] text-2xl leading-tight tracking-[-0.04em] text-[var(--ink)]">
+            <h2 className="mt-3 font-[family-name:var(--font-heading)] text-[2rem] leading-tight tracking-[-0.05em] text-white">
               {state.workspace?.name ?? "Workspace"}
             </h2>
-            <p className="mt-2 text-sm text-[var(--muted)]">
+            <p className="mt-2 text-sm text-white/70">
               {state.appUser.display_name} / {state.appUser.role}
             </p>
-            <div className="mt-4">
+            <div className="mt-5 rounded-[24px] border border-white/10 bg-white/8 p-4 backdrop-blur-sm">
               <FormField label="グループ">
                 <select
-                  className={selectCardClass}
+                  className={`${selectCardClass} border-white/10 bg-white text-[var(--ink)]`}
                   value={activeGroupId}
                   onChange={(event) => setCurrentGroupId(event.target.value)}
                 >
@@ -2514,12 +2516,12 @@ export function TaskBoard({
                 </select>
               </FormField>
             </div>
-            <button className="mt-4 w-full rounded-2xl bg-[var(--brand)] px-5 py-3.5 text-sm font-semibold text-white" onClick={openCreateTask} type="button">
+            <button className="mt-4 w-full rounded-[22px] bg-white px-5 py-3.5 text-sm font-semibold text-[#244234] shadow-[0_10px_24px_rgba(255,255,255,0.15)]" onClick={openCreateTask} type="button">
               新規タスク
             </button>
           </Card>
 
-          <Card>
+          <Card className="border border-black/5 bg-[rgba(255,255,255,0.88)] shadow-[0_14px_36px_rgba(15,23,42,0.08)]">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--muted)]">Navigation</p>
             <div className="mt-4 grid gap-2">
               <button
@@ -2566,7 +2568,7 @@ export function TaskBoard({
             </div>
           </Card>
 
-          <Card>
+          <Card className="border border-black/5 bg-[rgba(255,255,255,0.82)] shadow-[0_14px_32px_rgba(15,23,42,0.06)]">
             <div className="grid grid-cols-2 gap-3">
               <SummaryCard label="未着手" value={counts.pending} tone="default" />
               <SummaryCard label="作業中" value={counts.inProgress} tone="warning" />
@@ -2580,7 +2582,7 @@ export function TaskBoard({
           {desktopScreenMode === "home" ? (
             <>
               <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
-                <Card>
+                <Card className="border border-black/5 bg-[linear-gradient(135deg,#ffffff_0%,#f4f1e8_100%)] px-7 py-7 shadow-[0_18px_42px_rgba(15,23,42,0.10)]">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--brand)]/70">
@@ -2646,7 +2648,7 @@ export function TaskBoard({
                   </div>
                 </Card>
 
-                <Card>
+                <Card className="border border-black/5 bg-[linear-gradient(180deg,rgba(235,240,255,0.92),rgba(255,255,255,0.92))] px-6 py-6 shadow-[0_16px_36px_rgba(79,70,229,0.10)]">
                   <div className="flex items-center justify-between gap-3">
                     <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">最新通知</h2>
                     <button
@@ -2674,7 +2676,7 @@ export function TaskBoard({
               </div>
 
               <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
-                <Card>
+                <Card className="border border-black/5 bg-[rgba(255,255,255,0.88)] px-6 py-6 shadow-[0_16px_38px_rgba(15,23,42,0.08)]">
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">本日のタスク</h2>
                     <button className={desktopSecondaryButtonClass} onClick={() => setScreenMode("tasks")} type="button">
@@ -2684,8 +2686,8 @@ export function TaskBoard({
                   {sortedTasks.length === 0 ? (
                     <p className="text-sm text-[var(--muted)]">今日のタスクはありません。</p>
                   ) : (
-                    <div className="overflow-hidden rounded-[24px] border border-black/5">
-                      <div className="grid grid-cols-[minmax(0,1.5fr)_120px_120px_110px] bg-[var(--surface)] px-5 py-3 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
+                    <div className="overflow-hidden rounded-[26px] border border-black/6 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
+                      <div className="grid grid-cols-[minmax(0,1.5fr)_120px_120px_110px] bg-[linear-gradient(180deg,#f7f5ee_0%,#f1ede2_100%)] px-5 py-3 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
                         <span>タスク</span>
                         <span>時間帯</span>
                         <span>状態</span>
@@ -2694,7 +2696,7 @@ export function TaskBoard({
                       {sortedTasks.map((task) => (
                         <div
                           key={task.id}
-                          className={`grid grid-cols-[minmax(0,1.5fr)_120px_120px_110px] items-center gap-4 border-t border-black/5 px-5 py-4 ${taskCardSurfaceClass(task)}`}
+                          className={`grid grid-cols-[minmax(0,1.5fr)_120px_120px_110px] items-center gap-4 border-t border-black/5 px-5 py-4 transition-colors hover:bg-black/[0.02] ${taskCardSurfaceClass(task)}`}
                         >
                           <button className="min-w-0 text-left" onClick={() => openTaskDetail(task)} type="button">
                             <p className="truncate text-sm font-semibold text-[var(--ink)]">
@@ -2714,7 +2716,7 @@ export function TaskBoard({
 
                 <div className="grid gap-5">
                   {state.appUser.role === "admin" && state.pendingRequests.length > 0 ? (
-                    <Card>
+                    <Card className="border border-[var(--danger)]/10 bg-[linear-gradient(180deg,#fff7f7_0%,#ffffff_100%)] shadow-[0_16px_34px_rgba(220,38,38,0.08)]">
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-[var(--danger)]">承認待ち申請があります</p>
@@ -2730,7 +2732,7 @@ export function TaskBoard({
                   ) : null}
 
                   {isPwaMode && pushSetupNotice ? (
-                    <Card>
+                    <Card className="border border-black/5 bg-[linear-gradient(180deg,#fbfaf6_0%,#ffffff_100%)] shadow-[0_14px_32px_rgba(15,23,42,0.06)]">
                       <p className={`text-sm font-semibold ${pushSetupNotice.tone === "error" ? "text-[var(--danger)]" : "text-[var(--brand)]"}`}>
                         通知設定の案内
                       </p>
@@ -2744,7 +2746,7 @@ export function TaskBoard({
                   ) : null}
 
                   {devicePermissionNotice ? (
-                    <Card>
+                    <Card className="border border-black/5 bg-[linear-gradient(180deg,#fbfaf6_0%,#ffffff_100%)] shadow-[0_14px_32px_rgba(15,23,42,0.06)]">
                       <p className="text-sm font-semibold text-[var(--brand)]">権限の案内</p>
                       <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{devicePermissionNotice.message}</p>
                     </Card>
@@ -2755,7 +2757,7 @@ export function TaskBoard({
           ) : null}
 
           {desktopScreenMode === "tasks" ? (
-            <Card>
+            <Card className="border border-black/5 bg-[rgba(255,255,255,0.9)] px-7 py-7 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">タスク一覧</h2>
@@ -2778,8 +2780,8 @@ export function TaskBoard({
                   <NativePickerField type="date" value={rangeEnd} onChange={(event) => setRangeEnd(event.target.value)} />
                 </FormField>
               </div>
-              <div className="mt-5 overflow-hidden rounded-[24px] border border-black/5">
-                <div className="grid grid-cols-[minmax(0,1.5fr)_120px_110px_110px_220px] bg-[var(--surface)] px-5 py-3 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
+              <div className="mt-5 overflow-hidden rounded-[26px] border border-black/6 bg-white">
+                <div className="grid grid-cols-[minmax(0,1.5fr)_120px_110px_110px_220px] bg-[linear-gradient(180deg,#f7f5ee_0%,#f1ede2_100%)] px-5 py-3 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
                   <span>タイトル</span>
                   <span>日付</span>
                   <span>時間帯</span>
@@ -2790,7 +2792,7 @@ export function TaskBoard({
                   <div className="px-5 py-8 text-sm text-[var(--muted)]">対象タスクはありません。</div>
                 ) : (
                   rangedTasks.map((task) => (
-                    <div key={task.id} className={`grid grid-cols-[minmax(0,1.5fr)_120px_110px_110px_220px] items-center gap-4 border-t border-black/5 px-5 py-4 ${taskCardSurfaceClass(task)}`}>
+                    <div key={task.id} className={`grid grid-cols-[minmax(0,1.5fr)_120px_110px_110px_220px] items-center gap-4 border-t border-black/5 px-5 py-4 transition-colors hover:bg-black/[0.02] ${taskCardSurfaceClass(task)}`}>
                       <button className="min-w-0 text-left" onClick={() => openTaskDetail(task)} type="button">
                         <p className="truncate text-sm font-semibold text-[var(--ink)]">{formatTaskTitleIcon(task)} {task.title}</p>
                       </button>
@@ -2821,7 +2823,7 @@ export function TaskBoard({
           ) : null}
 
           {desktopScreenMode === "notifications" ? (
-            <Card>
+            <Card className="border border-black/5 bg-[linear-gradient(180deg,#fbfaf6_0%,#ffffff_100%)] px-7 py-7 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h2 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">通知一覧</h2>
@@ -2851,7 +2853,7 @@ export function TaskBoard({
           ) : null}
 
           {desktopScreenMode === "bulk" ? (
-            <Card>
+            <Card className="border border-black/5 bg-[rgba(255,255,255,0.9)] px-7 py-7 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">一括登録</h2>
@@ -3020,6 +3022,8 @@ export function TaskBoard({
             </Card>
           ) : null}
         </main>
+      </div>
+      </div>
       </div>
 
       {screenMode === "home" ? (
@@ -4382,12 +4386,14 @@ function LoginScreen({
 function Card({
   children,
   title,
+  className,
 }: {
   children: React.ReactNode;
   title?: string;
+  className?: string;
 }) {
   return (
-    <section className="rounded-[28px] bg-white px-5 py-5 shadow-[0_8px_24px_rgba(15,23,42,0.07)]">
+    <section className={`rounded-[28px] bg-white px-5 py-5 shadow-[0_8px_24px_rgba(15,23,42,0.07)] ${className ?? ""}`}>
       {title ? (
         <h2 className="mb-4 font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
           {title}
@@ -5439,13 +5445,13 @@ const modalSecondaryButtonClass =
 const closeWideButtonClass =
   "w-full rounded-2xl border border-black/8 bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
 const desktopSecondaryButtonClass =
-  "rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
+  "rounded-[18px] border border-black/8 bg-[linear-gradient(180deg,#ffffff_0%,#f7f5ee_100%)] px-4 py-3 text-sm font-semibold text-[var(--ink-soft)] shadow-[0_8px_18px_rgba(15,23,42,0.06)] transition-transform hover:-translate-y-[1px] active:scale-[0.97]";
 const desktopDangerButtonClass =
-  "rounded-2xl border border-[var(--danger)]/25 bg-[#FEF2F2] px-4 py-3 text-sm font-semibold text-[var(--danger)] transition-transform active:scale-[0.97]";
+  "rounded-[18px] border border-[var(--danger)]/20 bg-[linear-gradient(180deg,#fff5f5_0%,#feecec_100%)] px-4 py-3 text-sm font-semibold text-[var(--danger)] shadow-[0_8px_18px_rgba(220,38,38,0.07)] transition-transform hover:-translate-y-[1px] active:scale-[0.97]";
 const desktopNavButtonClass =
-  "w-full rounded-2xl border border-black/8 bg-white px-4 py-3 text-left text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
+  "w-full rounded-[18px] border border-black/8 bg-[linear-gradient(180deg,#ffffff_0%,#f7f5ee_100%)] px-4 py-3 text-left text-sm font-semibold text-[var(--ink-soft)] shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition-transform hover:-translate-y-[1px] active:scale-[0.97]";
 const desktopNavActiveClass =
-  "w-full rounded-2xl bg-[var(--brand)] px-4 py-3 text-left text-sm font-semibold text-white shadow-[0_8px_18px_rgba(79,70,229,0.24)] transition-transform active:scale-[0.97]";
+  "w-full rounded-[18px] bg-[linear-gradient(135deg,#244234_0%,#3c6a53_100%)] px-4 py-3 text-left text-sm font-semibold text-white shadow-[0_16px_32px_rgba(36,66,52,0.26)] transition-transform hover:-translate-y-[1px] active:scale-[0.97]";
 
 function priorityPillClass(selected: boolean) {
   return `flex h-9 w-9 items-center justify-center rounded-full border text-base transition-transform active:scale-[0.96] ${
