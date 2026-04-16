@@ -442,6 +442,7 @@ export function TaskBoard({
   const [currentGroupId, setCurrentGroupId] = useState(() => initialState.groups[0]?.id ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lineLoginPending, setLineLoginPending] = useState(false);
+  const [lineLoginConsuming, setLineLoginConsuming] = useState(false);
   const [lineLoginCompleted, setLineLoginCompleted] = useState(false);
   const [taskSavePending, setTaskSavePending] = useState(false);
   const [taskActionPending, setTaskActionPending] = useState<ActionType | null>(null);
@@ -586,6 +587,12 @@ export function TaskBoard({
   const latestLog = state.logs[0] ?? null;
   const olderLogs = state.logs.slice(1);
   const currentGroup = state.groups.find((group) => group.id === activeGroupId) ?? null;
+  const isProcessing =
+    isSubmitting ||
+    lineLoginPending ||
+    lineLoginConsuming ||
+    !!taskActionPending ||
+    !!taskDeletePendingId;
   const lastVersionCheckAtRef = useRef(0);
   const lineLoginSyncingRef = useRef(false);
   const consumedLoginAttemptRef = useRef<string | null>(null);
@@ -725,6 +732,7 @@ export function TaskBoard({
     }
 
     lineLoginSyncingRef.current = true;
+    setLineLoginConsuming(true);
 
     try {
       if (loginAttempt) {
@@ -775,6 +783,7 @@ export function TaskBoard({
       return true;
     } finally {
       lineLoginSyncingRef.current = false;
+      setLineLoginConsuming(false);
     }
   }, [loginAttempt, refreshAppState]);
 
@@ -2243,7 +2252,7 @@ export function TaskBoard({
 
   if (!state.authConfigured) {
     return (
-      <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts}>
+      <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts} isProcessing={isProcessing}>
         <Card title="Supabase未設定">
           <p className="text-sm text-[var(--muted)]">
             `NEXT_PUBLIC_SUPABASE_URL` と `SUPABASE_SERVICE_ROLE_KEY` を `.env.local`
@@ -2256,7 +2265,7 @@ export function TaskBoard({
 
   if (isMobile && !isPwaMode) {
     return (
-      <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts}>
+      <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts} isProcessing={isProcessing}>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
             {lineLoginCompleted ? (
@@ -2350,7 +2359,7 @@ export function TaskBoard({
         commitSha={commitSha}
         authSuccess={authSuccess}
         onStartLineLogin={beginLineLogin}
-        isLoading={lineLoginPending}
+        isLoading={lineLoginPending || lineLoginConsuming}
         toasts={toasts}
       />
     );
@@ -2358,7 +2367,7 @@ export function TaskBoard({
 
   if (state.needsBootstrap) {
     return (
-      <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts}>
+      <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts} isProcessing={isProcessing}>
         <Card title="初期設定">
           <p className="mb-4 text-sm text-[var(--muted)]">
             最初の管理者としてワークスペースと最初のグループを作成します。
@@ -2415,7 +2424,7 @@ export function TaskBoard({
   if (!state.appUser) {
     if (state.pendingOwnRequest) {
       return (
-        <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts}>
+        <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts} isProcessing={isProcessing}>
           <Card title="承認待ち">
             <p className="text-sm leading-7 text-[var(--muted)]">
               登録申請を送信済みです。管理者の承認後に利用可能になります。
@@ -2429,7 +2438,7 @@ export function TaskBoard({
     }
 
     return (
-      <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts}>
+      <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts} isProcessing={isProcessing}>
         <Card title="登録申請">
           {state.activeInvite ? (
             <>
@@ -2465,7 +2474,7 @@ export function TaskBoard({
   if (!state.workspace) {
     if (state.pendingOwnRequest) {
       return (
-        <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts}>
+        <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts} isProcessing={isProcessing}>
           <Card title="承認待ち">
             <p className="text-sm leading-7 text-[var(--muted)]">
               登録申請を送信済みです。管理者の承認後に利用可能になります。
@@ -2479,7 +2488,7 @@ export function TaskBoard({
     }
 
     return (
-      <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts}>
+      <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts} isProcessing={isProcessing}>
         <Card title="所属グループがありません">
           {state.activeInvite ? (
             <>
@@ -3704,22 +3713,33 @@ export function TaskBoard({
   );
 }
 
+function Spinner() {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/60 backdrop-blur-sm">
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--brand)]/20 border-t-[var(--brand)]" />
+    </div>
+  );
+}
+
 function Shell({
   children,
   appVersion,
   commitSha,
   toasts,
   enablePushPrompt = false,
+  isProcessing = false,
 }: {
   children: React.ReactNode;
   appVersion: string;
   commitSha: string;
   toasts: Toast[];
   enablePushPrompt?: boolean;
+  isProcessing?: boolean;
 }) {
   return (
     <>
       <PwaRegister enablePushPrompt={enablePushPrompt} />
+      {isProcessing ? <Spinner /> : null}
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-transparent px-5 pb-10 pt-5 text-[var(--ink)]">
         <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-[var(--brand)]/20" />
         <div className="flex flex-col gap-5">{children}</div>
@@ -3761,7 +3781,7 @@ function LoginScreen({
   toasts: Toast[];
 }) {
   return (
-    <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts}>
+    <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts} isProcessing={isLoading}>
       <Card>
         <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--brand)]">TEAM TASK</p>
         <h1 className="mt-3 font-[family-name:var(--font-heading)] text-[2.3rem] leading-none tracking-[-0.05em]">
