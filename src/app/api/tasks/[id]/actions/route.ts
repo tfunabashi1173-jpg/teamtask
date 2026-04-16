@@ -57,14 +57,14 @@ export async function POST(
   }
 
   if (body.action === "complete") {
-    patch.status = "done";
-    patch.completed_at = new Date().toISOString();
+    patch.status = "awaiting_confirmation";
+    patch.completed_at = null;
     actionType = "completed";
   }
 
   if (body.action === "confirm") {
-    patch.status = "awaiting_confirmation";
-    patch.completed_at = null;
+    patch.status = "done";
+    patch.completed_at = new Date().toISOString();
     actionType = "confirm_requested";
   }
 
@@ -106,12 +106,12 @@ export async function POST(
         ? "再開"
         : "開始"
       : body.action === "confirm"
-        ? "確認待ち"
+        ? "確認"
       : body.action === "complete"
         ? "完了"
-        : body.action === "pause"
-          ? "中断"
-          : "翌日に回す";
+      : body.action === "pause"
+        ? "中断"
+          : "翌日";
 
   await sendTaskActionNotification({
     workspaceId: beforeResult.data.workspace_id,

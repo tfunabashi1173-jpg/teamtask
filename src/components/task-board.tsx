@@ -67,6 +67,13 @@ type BatchTaskRow = {
   title: string;
   description: string;
   priority: TaskRecord["priority"];
+  recurrenceEnabled: boolean;
+  recurrenceFrequency: "daily" | "weekly" | "monthly";
+  recurrenceInterval: number;
+  recurrenceEndDate: string;
+  recurrenceDaysOfWeek: number[];
+  recurrenceDayOfMonth: number;
+  pendingReferenceFiles: File[];
 };
 
 const QUEUE_STORAGE_KEY = "team-task.queue.v2";
@@ -171,6 +178,13 @@ function createBatchTaskRow(date = getDateStringWithOffset(0)): BatchTaskRow {
     title: "",
     description: "",
     priority: "medium",
+    recurrenceEnabled: false,
+    recurrenceFrequency: "daily",
+    recurrenceInterval: 1,
+    recurrenceEndDate: "",
+    recurrenceDaysOfWeek: [weekdayFromDate(date)],
+    recurrenceDayOfMonth: dayOfMonthFromDate(date),
+    pendingReferenceFiles: [],
   };
 }
 
@@ -192,7 +206,14 @@ function parseBatchTaskRows(raw: string, fallbackDate: string) {
       return {
         ...createBatchTaskRow(fallbackDate),
         scheduledDate: scheduledDate?.trim() || fallbackDate,
-        scheduledTime: scheduledTime?.trim() || "09:00",
+        scheduledTime:
+          scheduledTime?.includes(":")
+            ? scheduledTime.trim()
+            : scheduledTime?.includes("午後")
+              ? slotToScheduledTime("afternoon")
+              : scheduledTime?.includes("午前")
+                ? slotToScheduledTime("morning")
+                : slotToScheduledTime("anytime"),
         title: title?.trim() || "",
         description: description?.trim() || "",
         priority: normalizeBatchPriority(priority ?? ""),
@@ -270,8 +291,8 @@ function logMessage(log: TaskLogRecord) {
       ? `「${title}」を再開しました`
       : `「${title}」を開始しました`;
   }
-  if (log.action_type === "completed") return `「${title}」を完了しました`;
-  if (log.action_type === "confirm_requested") return `「${title}」を確認待ちにしました`;
+  if (log.action_type === "completed") return `「${title}」を完了にしました`;
+  if (log.action_type === "confirm_requested") return `「${title}」を確認して完了にしました`;
   if (log.action_type === "status_changed") return `「${title}」を中断しました`;
   if (log.action_type === "postponed_to_next_day") {
     return `「${title}」を翌日に回しました`;
@@ -352,6 +373,10 @@ export function TaskBoard({
   const [screenMode, setScreenMode] = useState<ScreenMode>("home");
   const [currentGroupId, setCurrentGroupId] = useState(() => initialState.groups[0]?.id ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [taskSavePending, setTaskSavePending] = useState(false);
+  const [taskActionPending, setTaskActionPending] = useState<ActionType | null>(null);
+  const [taskDeletePendingId, setTaskDeletePendingId] = useState<string | null>(null);
+  const [workspaceSettingsPending, setWorkspaceSettingsPending] = useState(false);
   const [inviteLinks, setInviteLinks] = useState<Record<string, string>>({});
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -518,6 +543,7 @@ export function TaskBoard({
     try {
       const response = await fetch(url, {
         ...init,
+        cache: init?.cache ?? "no-store",
         headers: {
           "Content-Type": "application/json",
           ...(init?.headers ?? {}),
@@ -587,6 +613,14 @@ export function TaskBoard({
     );
     return true;
   }, [currentSessionUser?.displayName, currentSessionUser?.pictureUrl, inviteToken]);
+
+  const syncLatestState = useCallback(async () => {
+    const ok = await refreshAppState();
+    if (!ok) {
+      pushToast("error", "最新状態の再取得に失敗しました。");
+    }
+    return ok;
+  }, [refreshAppState]);
 
   const consumePendingLineLogin = useCallback(async () => {
     if (lineLoginSyncingRef.current || typeof window === "undefined") {
@@ -1221,10 +1255,12 @@ export function TaskBoard({
   }
 
   async function handleSaveWorkspaceSettings() {
+    setWorkspaceSettingsPending(true);
     const result = await callJson("/api/workspace/settings", {
       method: "PATCH",
       body: JSON.stringify({ notificationTime }),
     });
+    setWorkspaceSettingsPending(false);
 
     if (!result.ok || !result.json || typeof result.json !== "object") {
       pushToast("error", "通知時刻の保存に失敗しました。");
@@ -1401,7 +1437,13 @@ export function TaskBoard({
   function removeEmptyBatchRows() {
     setBatchRows((current) => {
       const filtered = current.filter(
-        (row) => row.title.trim() || row.description.trim() || row.scheduledTime !== "09:00",
+        (row) =>
+          row.title.trim() ||
+          row.description.trim() ||
+          row.scheduledTime !== slotToScheduledTime("morning") ||
+          row.priority !== "medium" ||
+          row.recurrenceEnabled ||
+          row.pendingReferenceFiles.length > 0,
       );
       return filtered.length > 0 ? filtered : [createBatchTaskRow(homeDate)];
     });
@@ -1487,6 +1529,7 @@ export function TaskBoard({
       },
     };
 
+    setTaskSavePending(true);
     const result = editingTaskId
       ? await callJson(`/api/tasks/${editingTaskId}`, {
           method: "PATCH",
@@ -1496,6 +1539,7 @@ export function TaskBoard({
           method: "POST",
           body: JSON.stringify(body),
         });
+    setTaskSavePending(false);
 
     if (!result.ok) {
       pushToast("error", editingTaskId ? "タスク更新に失敗しました。" : "タスク作成に失敗しました。");
@@ -1523,7 +1567,7 @@ export function TaskBoard({
     pushToast("success", editingTaskId ? "タスクを更新しました。" : "タスクを作成しました。");
     setPendingReferenceFiles([]);
     setCreateTaskOpen(false);
-    window.location.reload();
+    await syncLatestState();
   }
 
   async function handleBatchSaveTasks() {
@@ -1535,6 +1579,18 @@ export function TaskBoard({
     const rows = batchRows.filter((row) => row.title.trim());
     if (rows.length === 0) {
       pushToast("error", "登録するタスク行がありません。");
+      return;
+    }
+
+    const invalidRowIndex = rows.findIndex(
+      (row) =>
+        row.recurrenceEnabled &&
+        (!row.recurrenceEndDate ||
+          row.recurrenceEndDate < row.scheduledDate ||
+          (row.recurrenceFrequency === "weekly" && row.recurrenceDaysOfWeek.length === 0)),
+    );
+    if (invalidRowIndex >= 0) {
+      pushToast("error", `行 ${invalidRowIndex + 1} の繰り返し設定を確認してください。`);
       return;
     }
 
@@ -1553,11 +1609,37 @@ export function TaskBoard({
           scheduledTime: row.scheduledTime || null,
           visibilityType: "group",
           groupId: activeGroupId,
+          recurrence: {
+            enabled: row.recurrenceEnabled,
+            frequency: row.recurrenceFrequency,
+            interval: row.recurrenceInterval,
+            endDate: row.recurrenceEndDate,
+            daysOfWeek: row.recurrenceDaysOfWeek,
+            dayOfMonth: row.recurrenceDayOfMonth,
+          },
         }),
       });
 
       if (!result.ok) {
         failures.push(index + 1);
+        continue;
+      }
+
+      const taskId =
+        result.json &&
+        typeof result.json === "object" &&
+        "task" in result.json &&
+        result.json.task &&
+        typeof result.json.task === "object" &&
+        "id" in result.json.task &&
+        typeof result.json.task.id === "string"
+          ? result.json.task.id
+          : null;
+
+      if (taskId && row.pendingReferenceFiles.length > 0) {
+        for (const file of row.pendingReferenceFiles.slice(0, 2)) {
+          await handleReferencePhotoUpload(taskId, file);
+        }
       }
     }
 
@@ -1572,18 +1654,24 @@ export function TaskBoard({
     setBatchRows(Array.from({ length: 8 }, () => createBatchTaskRow(homeDate)));
     setBatchPasteValue("");
     setScreenMode("tasks");
-    window.location.reload();
+    await syncLatestState();
   }
 
   async function handleDeleteTask(taskId: string) {
+    setTaskDeletePendingId(taskId);
     const result = await callJson(`/api/tasks/${taskId}`, { method: "DELETE" });
+    setTaskDeletePendingId(null);
     if (!result.ok) {
       pushToast("error", "タスク削除に失敗しました。");
       return;
     }
 
     pushToast("success", "タスクを削除しました。");
-    window.location.reload();
+    setState((current) => ({
+      ...current,
+      tasks: current.tasks.filter((task) => task.id !== taskId),
+    }));
+    await syncLatestState();
   }
 
   async function copyText(label: string, value: string) {
@@ -1807,8 +1895,8 @@ export function TaskBoard({
     const optimisticTasks = state.tasks.map((item) => {
       if (item.id !== task.id) return item;
       if (action === "start") return { ...item, status: "in_progress" as const };
-      if (action === "confirm") return { ...item, status: "awaiting_confirmation" as const };
-      if (action === "complete") return { ...item, status: "done" as const };
+      if (action === "confirm") return { ...item, status: "done" as const };
+      if (action === "complete") return { ...item, status: "awaiting_confirmation" as const };
       if (action === "pause") return { ...item, status: "pending" as const };
       return item;
     });
@@ -1850,14 +1938,16 @@ export function TaskBoard({
       return;
     }
 
+    setTaskActionPending(action);
     const result = await callJson(`/api/tasks/${task.id}/actions`, {
       method: "POST",
       body: JSON.stringify({ action }),
     });
+    setTaskActionPending(null);
 
     if (!result.ok) {
       pushToast("error", "操作に失敗しました。通信状態を確認してください。");
-      window.location.reload();
+      await syncLatestState();
       return;
     }
 
@@ -1868,13 +1958,14 @@ export function TaskBoard({
           ? `「${task.title}」を再開しました。`
           : `「${task.title}」を開始しました。`
         : action === "confirm"
-          ? `「${task.title}」を確認待ちにしました。`
+          ? `「${task.title}」を確認して完了にしました。`
         : action === "complete"
-          ? `「${task.title}」を完了しました。`
+          ? `「${task.title}」を完了にしました。`
           : action === "pause"
             ? `「${task.title}」を中断しました。`
             : `「${task.title}」を翌日に回しました。`,
     );
+    await syncLatestState();
   }
 
   if (!state.authConfigured) {
@@ -2248,7 +2339,8 @@ export function TaskBoard({
       ) : null}
 
       {screenMode === "home" ? (
-        <Card title="タスク">
+        <Card>
+          <h2 className="mb-4 font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">タスク</h2>
           {sortedTasks.length === 0 ? (
             <p className="text-sm text-[var(--muted)]">今日のタスクはありません。</p>
           ) : (
@@ -2262,7 +2354,7 @@ export function TaskBoard({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.02em]">
+                      <h2 className="font-[family-name:var(--font-heading)] text-base tracking-[-0.01em]">
                         {task.status !== "done" ? `${formatPriorityIcon(task.priority)} ` : ""}
                         {task.status === "done" ? "✅ " : ""}
                         {task.title}
@@ -2287,7 +2379,7 @@ export function TaskBoard({
       {screenMode === "home" ? (
         <Card>
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">通知</h2>
+            <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">通知</h2>
             {olderLogs.length > 0 ? (
               <button
                 className="text-sm font-semibold text-[var(--brand)]"
@@ -2315,11 +2407,11 @@ export function TaskBoard({
       ) : null}
 
       {screenMode === "tasks" ? (
-        <>
-          <Card>
+        <OverlayModal onClose={() => setScreenMode("home")} maxWidthClass="max-w-4xl">
+          <div>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
+                <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">
                   タスク一覧
                 </h2>
                 <p className="mt-1 text-sm text-[var(--muted)]">
@@ -2361,14 +2453,14 @@ export function TaskBoard({
                 />
               </FormField>
             </div>
-          </Card>
+          </div>
 
-          <section className="grid gap-4">
+          <section className="mt-5 grid gap-4">
             {rangedTasks.map((task) => (
               <Card key={task.id}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
+                    <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">
                       {task.status !== "done" ? `${formatPriorityIcon(task.priority)} ` : ""}
                       {task.status === "done" ? "✅ " : ""}
                       {task.title}
@@ -2377,11 +2469,9 @@ export function TaskBoard({
                       <span className="rounded-full bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-[var(--ink-soft)]">
                         {task.scheduled_date}
                       </span>
-                      {task.scheduled_time ? (
-                        <span className="rounded-full bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-[var(--ink-soft)]">
-                          {task.scheduled_time.slice(0, 5)}
-                        </span>
-                      ) : null}
+                      <span className="rounded-full bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-[var(--ink-soft)]">
+                        {slotLabel(scheduledTimeToSlot(task.scheduled_time))}
+                      </span>
                       <span className={taskStatusChipClass(task.status)}>{formatStatus(task.status)}</span>
                     </div>
                   </div>
@@ -2408,15 +2498,16 @@ export function TaskBoard({
                       className={miniDangerButtonClass}
                       onClick={() => handleDeleteTask(task.id)}
                       type="button"
+                      disabled={taskDeletePendingId === task.id}
                     >
-                      削除
+                      {taskDeletePendingId === task.id ? "削除中" : "削除"}
                     </button>
                   </div>
                 </div>
               </Card>
             ))}
           </section>
-        </>
+        </OverlayModal>
       ) : null}
 
       {screenMode === "notifications" ? (
@@ -2463,15 +2554,15 @@ export function TaskBoard({
       ) : null}
 
       {screenMode === "bulk" ? (
-        <>
-          <Card>
+        <OverlayModal onClose={() => setScreenMode("tasks")} maxWidthClass="max-w-5xl">
+          <div>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="font-[family-name:var(--font-heading)] text-xl tracking-[-0.03em]">
+                <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">
                   一括登録
                 </h2>
                 <p className="mt-1 text-sm text-[var(--muted)]">
-                  PC向けの表形式で複数タスクをまとめて登録します。
+                  複数タスクを個別入力してまとめて登録します。
                 </p>
               </div>
               <button
@@ -2485,113 +2576,288 @@ export function TaskBoard({
             <div className="mt-4 rounded-2xl bg-[var(--chip)] px-4 py-4 text-sm text-[var(--ink-soft)]">
               登録先グループ: {currentGroup?.name ?? "グループ未設定"}
             </div>
-            <div className="mt-4 grid gap-3">
-              <FormField label="表データを貼り付け">
-                <textarea
-                  className={`${inputClass} min-h-28`}
-                  placeholder={"列順: 実行日\t時間\tタイトル\t説明\t優先度"}
-                  value={batchPasteValue}
-                  onChange={(event) => setBatchPasteValue(event.target.value)}
-                />
-              </FormField>
-              <div className="flex flex-wrap gap-2">
-                <button className={secondaryButtonClass} onClick={applyBatchPaste} type="button">
-                  貼り付け反映
-                </button>
-                <button className={secondaryButtonClass} onClick={() => appendBatchRows(5)} type="button">
-                  行を5件追加
-                </button>
-                <button className={secondaryButtonClass} onClick={removeEmptyBatchRows} type="button">
-                  空行を整理
-                </button>
-              </div>
-            </div>
-          </Card>
-
-          <Card title="登録テーブル">
-            <div className="overflow-x-auto">
-              <div className="min-w-[900px]">
-                <div className="grid grid-cols-[120px_110px_220px_1fr_120px] gap-2 px-1 pb-2 text-xs font-semibold tracking-[0.06em] text-[var(--muted)]">
-                  <span>実行日</span>
-                  <span>時間</span>
-                  <span>タイトル</span>
-                  <span>説明</span>
-                  <span>優先度</span>
-                </div>
-                <div className="flex flex-col gap-2">
-                  {batchRows.map((row) => (
-                    <div
-                      key={row.id}
-                      className="grid grid-cols-[120px_110px_220px_1fr_120px] gap-2"
-                    >
-                      <input
-                        className={inputClass}
-                        type="date"
-                        value={row.scheduledDate}
-                        onChange={(event) =>
-                          updateBatchRow(row.id, { scheduledDate: event.target.value })
-                        }
-                      />
-                      <input
-                        className={inputClass}
-                        type="time"
-                        value={row.scheduledTime}
-                        onChange={(event) =>
-                          updateBatchRow(row.id, { scheduledTime: event.target.value })
-                        }
-                      />
-                      <input
-                        className={inputClass}
-                        value={row.title}
-                        placeholder="タスク名"
-                        onChange={(event) => updateBatchRow(row.id, { title: event.target.value })}
-                      />
-                      <input
-                        className={inputClass}
-                        value={row.description}
-                        placeholder="説明"
-                        onChange={(event) =>
-                          updateBatchRow(row.id, { description: event.target.value })
-                        }
-                      />
-                      <select
-                        className={inputClass}
-                        value={row.priority}
-                        onChange={(event) =>
-                          updateBatchRow(row.id, {
-                            priority: event.target.value as TaskRecord["priority"],
-                          })
-                        }
-                      >
-                        <option value="urgent">緊急</option>
-                        <option value="high">高</option>
-                        <option value="medium">中</option>
-                        <option value="low">低</option>
-                      </select>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
             <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                className={primaryButtonClass}
-                onClick={handleBatchSaveTasks}
-                type="button"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? "登録中..." : "一括登録する"}
+              <button className={secondaryButtonClass} onClick={() => appendBatchRows(5)} type="button">
+                行を5件追加
+              </button>
+              <button className={secondaryButtonClass} onClick={removeEmptyBatchRows} type="button">
+                空行を整理
               </button>
               <button
                 className={secondaryButtonClass}
                 onClick={() => setBatchRows(Array.from({ length: 8 }, () => createBatchTaskRow(homeDate)))}
                 type="button"
               >
-                表をリセット
+                行をリセット
               </button>
             </div>
-          </Card>
-        </>
+          </div>
+
+          <div className="mt-5 grid gap-4">
+            {batchRows.map((row, index) => (
+              <Card key={row.id}>
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="font-[family-name:var(--font-heading)] text-base tracking-[-0.03em]">
+                    行 {index + 1}
+                  </h3>
+                  <button
+                    className={miniDangerButtonClass}
+                    onClick={() =>
+                      setBatchRows((current) =>
+                        current.length <= 1 ? current : current.filter((item) => item.id !== row.id),
+                      )
+                    }
+                    type="button"
+                    disabled={batchRows.length <= 1}
+                  >
+                    削除
+                  </button>
+                </div>
+
+                <div className="mt-4 grid gap-3">
+                  <FormField label="タイトル">
+                    <input
+                      className={inputClass}
+                      value={row.title}
+                      placeholder="タスク名"
+                      onChange={(event) => updateBatchRow(row.id, { title: event.target.value })}
+                    />
+                  </FormField>
+                  <FormField label="説明">
+                    <textarea
+                      className={`${inputClass} min-h-24`}
+                      value={row.description}
+                      placeholder="説明"
+                      onChange={(event) => updateBatchRow(row.id, { description: event.target.value })}
+                    />
+                  </FormField>
+                  <div className="grid grid-cols-[1fr_auto] items-end gap-3">
+                    <div>
+                      <p className="text-xs font-semibold text-[var(--ink)]">説明画像</p>
+                      <p className="mt-1 text-xs text-[var(--muted)]">各行ごとに2枚まで添付できます。</p>
+                    </div>
+                    <label className={secondaryButtonClass}>
+                      追加
+                      <input
+                        className="hidden"
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(event) => {
+                          const files = Array.from(event.currentTarget.files ?? []).filter((file) =>
+                            file.type.startsWith("image/"),
+                          );
+                          updateBatchRow(row.id, {
+                            pendingReferenceFiles: [...row.pendingReferenceFiles, ...files].slice(0, 2),
+                          });
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                    </label>
+                  </div>
+
+                  {row.pendingReferenceFiles.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {row.pendingReferenceFiles.map((file, fileIndex) => (
+                        <div key={`${row.id}-${file.name}-${fileIndex}`} className="rounded-2xl bg-[var(--surface)] px-3 py-3">
+                          <p className="truncate text-xs font-semibold text-[var(--ink-soft)]">{file.name}</p>
+                          <button
+                            className="mt-2 text-xs font-semibold text-[var(--danger)]"
+                            onClick={() =>
+                              updateBatchRow(row.id, {
+                                pendingReferenceFiles: row.pendingReferenceFiles.filter((_, indexValue) => indexValue !== fileIndex),
+                              })
+                            }
+                            type="button"
+                          >
+                            削除
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {!row.recurrenceEnabled ? (
+                    <FormField label="実行日">
+                      <input
+                        className={inputClass}
+                        type="date"
+                        value={row.scheduledDate}
+                        onChange={(event) =>
+                          updateBatchRow(row.id, {
+                            scheduledDate: event.target.value,
+                            recurrenceDaysOfWeek: [weekdayFromDate(event.target.value)],
+                            recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
+                          })
+                        }
+                      />
+                    </FormField>
+                  ) : null}
+
+                  <div>
+                    <p className="mb-2 text-sm text-[var(--muted)]">時間帯</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(["morning", "afternoon", "anytime"] as const).map((slot) => (
+                        <button
+                          key={`${row.id}-${slot}`}
+                          className={selectedSlotButtonClass(scheduledTimeToSlot(row.scheduledTime) === slot)}
+                          onClick={() => updateBatchRow(row.id, { scheduledTime: slotToScheduledTime(slot) })}
+                          type="button"
+                        >
+                          {slotLabel(slot)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="mb-2 text-sm text-[var(--muted)]">優先度</p>
+                    <div className="flex gap-2">
+                      {(["urgent", "high", "medium", "low"] as const).map((priority) => (
+                        <button
+                          key={`${row.id}-${priority}`}
+                          className={priorityPillClass(row.priority === priority)}
+                          onClick={() => updateBatchRow(row.id, { priority })}
+                          type="button"
+                        >
+                          {formatPriorityIcon(priority)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-3xl bg-[var(--surface)] px-4 py-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-semibold text-[var(--ink)]">繰り返し</p>
+                      <button
+                        className={row.recurrenceEnabled ? segmentedActiveButtonClass : segmentedButtonClass}
+                        onClick={() =>
+                          updateBatchRow(row.id, {
+                            recurrenceEnabled: !row.recurrenceEnabled,
+                            recurrenceEndDate:
+                              !row.recurrenceEnabled && !row.recurrenceEndDate ? row.scheduledDate : row.recurrenceEndDate,
+                          })
+                        }
+                        type="button"
+                      >
+                        {row.recurrenceEnabled ? "ON" : "OFF"}
+                      </button>
+                    </div>
+
+                    {row.recurrenceEnabled ? (
+                      <div className="mt-4 grid gap-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <FormField label="開始日">
+                            <input
+                              className={inputClass}
+                              type="date"
+                              value={row.scheduledDate}
+                              onChange={(event) =>
+                                updateBatchRow(row.id, {
+                                  scheduledDate: event.target.value,
+                                  recurrenceDaysOfWeek: [weekdayFromDate(event.target.value)],
+                                  recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
+                                })
+                              }
+                            />
+                          </FormField>
+                          <FormField label="終了日">
+                            <input
+                              className={inputClass}
+                              type="date"
+                              value={row.recurrenceEndDate}
+                              onChange={(event) => updateBatchRow(row.id, { recurrenceEndDate: event.target.value })}
+                            />
+                          </FormField>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <FormField label="繰り返し">
+                            <select
+                              className={inputClass}
+                              value={row.recurrenceFrequency}
+                              onChange={(event) =>
+                                updateBatchRow(row.id, {
+                                  recurrenceFrequency: event.target.value as TaskFormState["recurrenceFrequency"],
+                                })
+                              }
+                            >
+                              <option value="daily">毎日</option>
+                              <option value="weekly">曜日指定（毎週）</option>
+                              <option value="monthly">毎月</option>
+                            </select>
+                          </FormField>
+                          <FormField label="間隔">
+                            <input
+                              className={inputClass}
+                              type="number"
+                              min={1}
+                              value={row.recurrenceInterval}
+                              onChange={(event) =>
+                                updateBatchRow(row.id, {
+                                  recurrenceInterval: Math.max(1, Number(event.target.value || 1)),
+                                })
+                              }
+                            />
+                          </FormField>
+                        </div>
+                        {row.recurrenceFrequency === "weekly" ? (
+                          <div className="flex flex-wrap gap-2">
+                            {WEEKDAY_OPTIONS.map((option) => {
+                              const checked = row.recurrenceDaysOfWeek.includes(option.value);
+                              return (
+                                <button
+                                  key={`${row.id}-${option.value}`}
+                                  className={checked ? segmentedActiveButtonClass : segmentedButtonClass}
+                                  onClick={() =>
+                                    updateBatchRow(row.id, {
+                                      recurrenceDaysOfWeek: checked
+                                        ? row.recurrenceDaysOfWeek.filter((day) => day !== option.value)
+                                        : [...row.recurrenceDaysOfWeek, option.value].sort((a, b) => a - b),
+                                    })
+                                  }
+                                  type="button"
+                                >
+                                  {option.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                        {row.recurrenceFrequency === "monthly" ? (
+                          <FormField label="毎月の日">
+                            <input
+                              className={inputClass}
+                              type="number"
+                              min={1}
+                              max={31}
+                              value={row.recurrenceDayOfMonth}
+                              onChange={(event) =>
+                                updateBatchRow(row.id, {
+                                  recurrenceDayOfMonth: Math.min(31, Math.max(1, Number(event.target.value || 1))),
+                                })
+                              }
+                            />
+                          </FormField>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button
+              className={primaryButtonClass}
+              onClick={handleBatchSaveTasks}
+              type="button"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "登録中..." : "一括登録する"}
+            </button>
+          </div>
+        </OverlayModal>
       ) : null}
 
 
@@ -2754,8 +3020,13 @@ export function TaskBoard({
                       <p className="text-xs text-[var(--muted)]">
                         タイムゾーン: {state.workspace?.timezone ?? "Asia/Tokyo"}
                       </p>
-                      <button className={primaryButtonClass} onClick={handleSaveWorkspaceSettings} type="button">
-                        通知時刻を保存
+                      <button
+                        className={primaryButtonClass}
+                        onClick={handleSaveWorkspaceSettings}
+                        type="button"
+                        disabled={workspaceSettingsPending}
+                      >
+                        {workspaceSettingsPending ? "保存中..." : "通知時刻を保存"}
                       </button>
                       <button
                         className={secondaryButtonClass}
@@ -2805,6 +3076,7 @@ export function TaskBoard({
           copySourceTaskId={copySourceTaskId}
           form={taskForm}
           isEditing={Boolean(editingTaskId)}
+          isSaving={taskSavePending}
           pendingReferenceFiles={pendingReferenceFiles}
           onCopySourceChange={handleCopySourceChange}
           onClose={() => setCreateTaskOpen(false)}
@@ -2816,6 +3088,7 @@ export function TaskBoard({
 
       {selectedTask ? (
         <TaskDetailModal
+          actionPending={taskActionPending}
           task={selectedTask}
           onClose={() => setSelectedTaskId(null)}
           onCopyText={copyText}
@@ -2943,6 +3216,33 @@ function Card({
   );
 }
 
+function OverlayModal({
+  children,
+  onClose,
+  maxWidthClass = "max-w-3xl",
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+  maxWidthClass?: string;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-40 bg-black/40 p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        className={`absolute left-1/2 top-1/2 max-h-[min(90vh,900px)] w-[calc(100%-2rem)] ${maxWidthClass} -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[32px] bg-white px-5 py-5 shadow-2xl`}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-black/10" />
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function SummaryCard({
   label,
   value,
@@ -2988,11 +3288,13 @@ function ActionButton({
   onClick,
   tone,
   disabled = false,
+  loading = false,
 }: {
   label: string;
   onClick: () => void;
   tone: "warning" | "success" | "neutral";
   disabled?: boolean;
+  loading?: boolean;
 }) {
   const toneClass =
     tone === "warning"
@@ -3004,13 +3306,13 @@ function ActionButton({
   return (
     <button
       className={`w-full whitespace-nowrap rounded-2xl border px-2 py-2.5 text-[11px] font-semibold leading-none ${toneClass} ${
-        disabled ? "cursor-not-allowed opacity-35" : ""
+        disabled || loading ? "cursor-not-allowed opacity-35" : "transition-transform active:scale-[0.96]"
       }`}
       onClick={onClick}
       type="button"
-      disabled={disabled}
+      disabled={disabled || loading}
     >
-      {label}
+      {loading ? "..." : label}
     </button>
   );
 }
@@ -3131,6 +3433,7 @@ function TaskModal({
   onClose,
   onSave,
   isEditing,
+  isSaving,
   onCopySourceChange,
 }: {
   currentGroupName: string;
@@ -3143,6 +3446,7 @@ function TaskModal({
   onClose: () => void;
   onSave: () => void;
   isEditing: boolean;
+  isSaving: boolean;
   onCopySourceChange: (taskId: string) => void;
 }) {
   const selectedSlot = scheduledTimeToSlot(form.scheduledTime);
@@ -3455,8 +3759,8 @@ function TaskModal({
           <button className={modalSecondaryButtonClass} onClick={onClose} type="button">
             閉じる
           </button>
-          <button className={modalPrimaryButtonClass} onClick={onSave} type="button">
-            {isEditing ? "更新" : "登録"}
+          <button className={modalPrimaryButtonClass} onClick={onSave} type="button" disabled={isSaving}>
+            {isSaving ? "処理中..." : isEditing ? "更新" : "登録"}
           </button>
         </div>
         <input
@@ -3476,6 +3780,7 @@ function TaskModal({
 }
 
 function TaskDetailModal({
+  actionPending,
   task,
   onClose,
   onCopyText,
@@ -3488,6 +3793,7 @@ function TaskDetailModal({
   onPhotoReplace,
   onPreview,
 }: {
+  actionPending: ActionType | null;
   task: TaskRecord;
   onClose: () => void;
   onCopyText: (label: string, value: string) => Promise<void>;
@@ -3731,24 +4037,28 @@ function TaskDetailModal({
             onClick={() => onAction("start")}
             tone="warning"
             disabled={!(task.status === "pending" || task.status === "awaiting_confirmation" || task.status === "done")}
-          />
-          <ActionButton
-            label="確認待ち"
-            onClick={() => onAction("confirm")}
-            tone="warning"
-            disabled={!(task.status === "pending" || task.status === "in_progress" || task.status === "done")}
+            loading={actionPending === "start"}
           />
           <ActionButton
             label="中断"
             onClick={() => onAction("pause")}
             tone="neutral"
             disabled={!(task.status === "in_progress" || task.status === "awaiting_confirmation")}
+            loading={actionPending === "pause"}
           />
           <ActionButton
             label="完了"
             onClick={() => onAction("complete")}
             tone="success"
-            disabled={task.status === "done"}
+            disabled={task.status === "done" || task.status === "awaiting_confirmation"}
+            loading={actionPending === "complete"}
+          />
+          <ActionButton
+            label="確認"
+            onClick={() => onAction("confirm")}
+            tone="warning"
+            disabled={task.status !== "awaiting_confirmation"}
+            loading={actionPending === "confirm"}
           />
           <ActionButton
             label="翌日"
@@ -3756,9 +4066,11 @@ function TaskDetailModal({
             tone="neutral"
             disabled={
               task.status === "done" ||
+              task.status === "awaiting_confirmation" ||
               task.priority === "urgent" ||
               task.priority === "high"
             }
+            loading={actionPending === "postpone"}
           />
         </div>
         {(task.priority === "urgent" || task.priority === "high") && task.status !== "done" ? (
@@ -3881,38 +4193,38 @@ const primaryIconButtonClass =
 const secondaryButtonClass =
   "rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
 const segmentedButtonClass =
-  "rounded-xl border border-black/8 bg-white px-4 py-2.5 text-sm font-semibold text-[var(--ink-soft)]";
+  "rounded-xl border border-black/8 bg-white px-4 py-2.5 text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
 const segmentedActiveButtonClass =
-  "rounded-xl bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_6px_14px_rgba(79,70,229,0.28)]";
+  "rounded-xl bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_6px_14px_rgba(79,70,229,0.28)] transition-transform active:scale-[0.97]";
 const selectCardClass =
   "min-w-0 rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink)] outline-none";
 const squareUtilityButtonClass =
-  "flex min-h-[46px] flex-col items-center justify-center gap-0.5 rounded-xl border border-black/8 bg-white px-3 py-1.5 text-[11px] font-semibold text-[var(--ink-soft)]";
+  "flex min-h-[46px] flex-col items-center justify-center gap-0.5 rounded-xl border border-black/8 bg-white px-3 py-1.5 text-[11px] font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
 const wideUtilityButtonClass =
-  "flex w-full items-center justify-center rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]";
+  "flex w-full items-center justify-center rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
 const miniUtilityButtonClass =
-  "rounded-xl border border-black/8 bg-white px-3 py-2 text-xs font-semibold text-[var(--ink-soft)]";
+  "rounded-xl border border-black/8 bg-white px-3 py-2 text-xs font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
 const miniDangerButtonClass =
-  "rounded-xl border border-[var(--danger)]/25 bg-[#FEF2F2] px-3 py-2 text-xs font-semibold text-[var(--danger)]";
+  "rounded-xl border border-[var(--danger)]/25 bg-[#FEF2F2] px-3 py-2 text-xs font-semibold text-[var(--danger)] transition-transform active:scale-[0.97]";
 const secondaryDangerClass =
-  "rounded-2xl border border-[var(--danger)] bg-white px-4 py-3 text-sm font-semibold text-[var(--danger)]";
+  "rounded-2xl border border-[var(--danger)] bg-white px-4 py-3 text-sm font-semibold text-[var(--danger)] transition-transform active:scale-[0.97]";
 const toolbarButtonClass =
   "inline-flex items-center gap-2 rounded-2xl bg-[var(--chip)] px-5 py-3 text-sm font-semibold text-[var(--brand)] shadow-[0_4px_12px_rgba(79,70,229,0.08)]";
 const toolbarDangerButtonClass =
   "inline-flex items-center gap-2 rounded-2xl border border-[var(--danger)]/20 bg-[#FEF2F2] px-5 py-3 text-sm font-semibold text-[var(--danger)] shadow-[0_4px_12px_rgba(220,38,38,0.08)]";
 const bottomActionButtonClass =
-  "w-full rounded-[22px] border border-[var(--brand)]/15 bg-white px-4 py-4 text-sm font-semibold text-[var(--brand)] shadow-[0_4px_12px_rgba(79,70,229,0.06)]";
+  "w-full rounded-[22px] border border-[var(--brand)]/15 bg-white px-4 py-4 text-sm font-semibold text-[var(--brand)] shadow-[0_4px_12px_rgba(79,70,229,0.06)] transition-transform active:scale-[0.97]";
 const iconButtonClass =
   "flex h-8 w-8 items-center justify-center rounded-xl border border-black/10 bg-white text-sm text-[var(--ink-soft)]";
 const modalPrimaryButtonClass =
-  "w-full rounded-2xl bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white";
+  "w-full rounded-2xl bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white transition-transform active:scale-[0.97]";
 const modalSecondaryButtonClass =
-  "w-full rounded-2xl border border-black/8 bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--ink-soft)]";
+  "w-full rounded-2xl border border-black/8 bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
 const closeWideButtonClass =
-  "w-full rounded-2xl border border-black/8 bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--ink-soft)]";
+  "w-full rounded-2xl border border-black/8 bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
 
 function priorityPillClass(selected: boolean) {
-  return `flex h-9 w-9 items-center justify-center rounded-full border text-base ${
+  return `flex h-9 w-9 items-center justify-center rounded-full border text-base transition-transform active:scale-[0.96] ${
     selected
       ? "border-[var(--brand)] bg-[var(--brand)] text-white"
       : "border-black/8 bg-white text-[var(--ink-soft)]"
@@ -3921,6 +4233,6 @@ function priorityPillClass(selected: boolean) {
 
 function selectedSlotButtonClass(selected: boolean) {
   return selected
-    ? "rounded-xl bg-[var(--brand)] px-3 py-1.5 text-xs font-semibold text-white shadow-[0_4px_10px_rgba(79,70,229,0.22)]"
-    : "rounded-xl border border-black/8 bg-white px-3 py-1.5 text-xs font-semibold text-[var(--ink-soft)]";
+    ? "rounded-xl bg-[var(--brand)] px-3 py-1.5 text-xs font-semibold text-white shadow-[0_4px_10px_rgba(79,70,229,0.22)] transition-transform active:scale-[0.97]"
+    : "rounded-xl border border-black/8 bg-white px-3 py-1.5 text-xs font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
 }

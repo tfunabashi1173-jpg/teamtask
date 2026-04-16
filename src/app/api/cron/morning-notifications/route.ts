@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { sendMorningTaskNotifications } from "@/lib/notifications/web-push";
 
-const MORNING_NOTIFICATION_WINDOW_MINUTES = 90;
+const MORNING_NOTIFICATION_WINDOW_MINUTES = 180;
 
 function isAuthorized(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
