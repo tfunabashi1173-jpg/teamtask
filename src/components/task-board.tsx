@@ -2275,15 +2275,11 @@ export function TaskBoard({
                   このタブを閉じて、ホーム画面のアプリから起動してください。
                 </p>
                 <button
-                  className="mt-5 w-full rounded-lg border border-[var(--border)] py-2.5 text-sm text-[var(--muted)] disabled:opacity-50"
-                  onClick={async () => {
-                    await handleLogout();
-                    window.close();
-                  }}
+                  className="mt-5 w-full rounded-lg border border-[var(--border)] py-2.5 text-sm text-[var(--muted)]"
+                  onClick={() => window.close()}
                   type="button"
-                  disabled={isSubmitting}
                 >
-                  {isSubmitting ? "処理中..." : "閉じる"}
+                  閉じる
                 </button>
               </>
             ) : (
