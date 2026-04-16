@@ -2489,7 +2489,7 @@ export function TaskBoard({
     >
       <div className="hidden lg:block">
         <div className="rounded-[40px] border border-black/5 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(247,245,238,0.94))] p-4 shadow-[0_24px_70px_rgba(15,23,42,0.10)] xl:p-5">
-        <div className="grid lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-6">
+        <div className="grid lg:grid-cols-[236px_minmax(0,1fr)] lg:gap-5 xl:grid-cols-[244px_minmax(0,1fr)]">
         <aside className="sticky top-5 grid gap-4 self-start">
           <Card className="border border-black/5 bg-[linear-gradient(180deg,#244234_0%,#315843_100%)] text-white shadow-[0_22px_48px_rgba(36,66,52,0.28)]">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/60">
@@ -2569,19 +2569,17 @@ export function TaskBoard({
           </Card>
 
           <Card className="border border-black/5 bg-[rgba(255,255,255,0.82)] shadow-[0_14px_32px_rgba(15,23,42,0.06)]">
-            <div className="grid grid-cols-2 gap-3">
-              <SummaryCard label="未着手" value={counts.pending} tone="default" />
-              <SummaryCard label="作業中" value={counts.inProgress} tone="warning" />
-              <SummaryCard label="確認待ち" value={counts.awaitingConfirmation} tone="warning" />
-              <SummaryCard label="完了" value={counts.done} tone="success" />
-            </div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--muted)]">Today</p>
+            <p className="mt-3 text-sm leading-6 text-[var(--ink-soft)]">
+              当日の進行状況は右側のメインパネル上部に集約しています。
+            </p>
           </Card>
         </aside>
 
-        <main className="grid gap-5">
+        <main className="min-w-0 grid gap-5">
           {desktopScreenMode === "home" ? (
             <>
-              <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
+              <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.56fr)_minmax(300px,0.62fr)]">
                 <Card className="border border-black/5 bg-[linear-gradient(135deg,#ffffff_0%,#f4f1e8_100%)] px-7 py-7 shadow-[0_18px_42px_rgba(15,23,42,0.10)]">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
@@ -2646,9 +2644,15 @@ export function TaskBoard({
                       翌日
                     </button>
                   </div>
+                  <div className="mt-5 grid grid-cols-4 gap-3">
+                    <SummaryCard label="未着手" value={counts.pending} tone="default" />
+                    <SummaryCard label="作業中" value={counts.inProgress} tone="warning" />
+                    <SummaryCard label="確認待ち" value={counts.awaitingConfirmation} tone="warning" />
+                    <SummaryCard label="完了" value={counts.done} tone="success" />
+                  </div>
                 </Card>
 
-                <Card className="border border-black/5 bg-[linear-gradient(180deg,rgba(235,240,255,0.92),rgba(255,255,255,0.92))] px-6 py-6 shadow-[0_16px_36px_rgba(79,70,229,0.10)]">
+                <Card className="self-start border border-black/5 bg-[linear-gradient(180deg,rgba(235,240,255,0.92),rgba(255,255,255,0.92))] px-6 py-6 shadow-[0_16px_36px_rgba(79,70,229,0.10)]">
                   <div className="flex items-center justify-between gap-3">
                     <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">最新通知</h2>
                     <button
@@ -2675,7 +2679,7 @@ export function TaskBoard({
                 </Card>
               </div>
 
-              <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
+              <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.56fr)_minmax(300px,0.62fr)]">
                 <Card className="border border-black/5 bg-[rgba(255,255,255,0.88)] px-6 py-6 shadow-[0_16px_38px_rgba(15,23,42,0.08)]">
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">本日のタスク</h2>
@@ -4306,7 +4310,7 @@ function Shell({
       <div
         className={`mx-auto flex min-h-screen w-full flex-col bg-transparent pb-10 pt-5 text-[var(--ink)] ${
           wide
-            ? "max-w-[1400px] px-4 sm:px-5 lg:px-8"
+            ? "max-w-[1680px] px-4 sm:px-5 lg:px-7 xl:px-8"
             : "max-w-md px-5"
         }`}
       >
@@ -4316,7 +4320,7 @@ function Shell({
       </div>
       <div
         className={`pointer-events-none fixed inset-x-0 top-4 z-50 mx-auto flex w-full flex-col gap-2 px-4 ${
-          wide ? "max-w-[1400px] sm:px-5 lg:px-8" : "max-w-md"
+          wide ? "max-w-[1680px] sm:px-5 lg:px-7 xl:px-8" : "max-w-md"
         }`}
       >
         {toasts.map((toast) => (
