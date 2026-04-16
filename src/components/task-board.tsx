@@ -2480,6 +2480,7 @@ export function TaskBoard({
       commitSha={commitSha}
       toasts={toasts}
       enablePushPrompt
+      wide
     >
       {screenMode === "home" ? (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.95fr)] lg:items-start">
@@ -3736,6 +3737,7 @@ function Shell({
   toasts,
   enablePushPrompt = false,
   isProcessing = false,
+  wide = false,
 }: {
   children: React.ReactNode;
   appVersion: string;
@@ -3743,17 +3745,28 @@ function Shell({
   toasts: Toast[];
   enablePushPrompt?: boolean;
   isProcessing?: boolean;
+  wide?: boolean;
 }) {
   return (
     <>
       <PwaRegister enablePushPrompt={enablePushPrompt} />
       {isProcessing ? <Spinner /> : null}
-      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-transparent px-5 pb-10 pt-5 text-[var(--ink)]">
+      <div
+        className={`mx-auto flex min-h-screen w-full flex-col bg-transparent pb-10 pt-5 text-[var(--ink)] ${
+          wide
+            ? "max-w-[1400px] px-4 sm:px-5 lg:px-8"
+            : "max-w-md px-5"
+        }`}
+      >
         <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-[var(--brand)]/20" />
         <div className="flex flex-col gap-5">{children}</div>
         <Footer appVersion={appVersion} commitSha={commitSha} />
       </div>
-      <div className="pointer-events-none fixed inset-x-0 top-4 z-50 mx-auto flex w-full max-w-md flex-col gap-2 px-4">
+      <div
+        className={`pointer-events-none fixed inset-x-0 top-4 z-50 mx-auto flex w-full flex-col gap-2 px-4 ${
+          wide ? "max-w-[1400px] sm:px-5 lg:px-8" : "max-w-md"
+        }`}
+      >
         {toasts.map((toast) => (
           <div
             key={toast.id}
