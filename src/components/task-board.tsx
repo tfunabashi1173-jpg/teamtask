@@ -2253,6 +2253,77 @@ export function TaskBoard({
     );
   }
 
+  if (isMobile && !isPwaMode) {
+    return (
+      <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            <p className="text-base font-bold text-[var(--brand)]">
+              ホーム画面から起動してください
+            </p>
+            {isIosLike ? (
+              <ol className="mt-4 space-y-2 text-sm leading-6 text-[var(--muted)]">
+                <li>1. Safariで開く</li>
+                <li>
+                  2. 画面下部の共有ボタン（
+                  <span className="font-semibold">□↑</span>
+                  ）をタップ
+                </li>
+                <li>
+                  3.「<span className="font-semibold">ホーム画面に追加</span>」を選択
+                </li>
+                <li>
+                  4.「<span className="font-semibold">追加</span>」をタップ
+                </li>
+              </ol>
+            ) : (
+              <div className="mt-4">
+                {installPrompt ? (
+                  <button
+                    className="w-full rounded-lg bg-[var(--brand)] py-2.5 text-sm font-semibold text-white"
+                    onClick={() => void handleInstallPwa()}
+                    type="button"
+                  >
+                    ホーム画面に追加
+                  </button>
+                ) : (
+                  <ol className="space-y-2 text-sm leading-6 text-[var(--muted)]">
+                    <li>1. Chromeのメニュー（⋮）を開く</li>
+                    <li>
+                      2.「<span className="font-semibold">ホーム画面に追加</span>」を選択
+                    </li>
+                    <li>
+                      3.「<span className="font-semibold">追加</span>」をタップ
+                    </li>
+                  </ol>
+                )}
+              </div>
+            )}
+            <div className="mt-5 flex gap-2">
+              <button
+                className="flex-1 rounded-lg border border-[var(--border)] py-2.5 text-sm text-[var(--muted)]"
+                onClick={() => window.close()}
+                type="button"
+              >
+                タブを閉じる
+              </button>
+              {effectiveSessionUser ? (
+                <button
+                  className="flex-1 rounded-lg border border-[var(--border)] py-2.5 text-sm text-[var(--muted)]"
+                  onClick={() => void handleLogout()}
+                  type="button"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "処理中..." : "ログアウト"}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </Shell>
+    );
+  }
+
   if (!effectiveSessionUser) {
     return (
       <LoginScreen
@@ -2557,70 +2628,6 @@ export function TaskBoard({
         </Card>
       ) : null}
 
-      {!isPwaMode && isMobile ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-            <p className="text-base font-bold text-[var(--brand)]">
-              ホーム画面から起動してください
-            </p>
-            {isIosLike ? (
-              <ol className="mt-4 space-y-2 text-sm leading-6 text-[var(--muted)]">
-                <li>1. Safariで開く</li>
-                <li>
-                  2. 画面下部の共有ボタン（
-                  <span className="font-semibold">□↑</span>
-                  ）をタップ
-                </li>
-                <li>
-                  3.「<span className="font-semibold">ホーム画面に追加</span>」を選択
-                </li>
-                <li>
-                  4.「<span className="font-semibold">追加</span>」をタップ
-                </li>
-              </ol>
-            ) : (
-              <div className="mt-4">
-                {installPrompt ? (
-                  <button
-                    className="w-full rounded-lg bg-[var(--brand)] py-2.5 text-sm font-semibold text-white"
-                    onClick={() => void handleInstallPwa()}
-                    type="button"
-                  >
-                    ホーム画面に追加
-                  </button>
-                ) : (
-                  <ol className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-                    <li>1. Chromeのメニュー（⋮）を開く</li>
-                    <li>
-                      2.「<span className="font-semibold">ホーム画面に追加</span>」を選択
-                    </li>
-                    <li>
-                      3.「<span className="font-semibold">追加</span>」をタップ
-                    </li>
-                  </ol>
-                )}
-              </div>
-            )}
-            <div className="mt-5 flex gap-2">
-              <button
-                className="flex-1 rounded-lg border border-[var(--border)] py-2.5 text-sm text-[var(--muted)]"
-                onClick={() => window.close()}
-                type="button"
-              >
-                タブを閉じる
-              </button>
-              <button
-                className="flex-1 rounded-lg border border-[var(--border)] py-2.5 text-sm text-[var(--muted)]"
-                onClick={() => void handleLogout()}
-                type="button"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? "処理中..." : "ログアウト"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {isPwaMode && pushSetupNotice ? (
         <Card>
