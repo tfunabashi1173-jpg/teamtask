@@ -2876,18 +2876,18 @@ export function TaskBoard({
                 <button className={desktopSecondaryButtonClass} onClick={() => setBatchRows(Array.from({ length: 8 }, () => createBatchTaskRow(homeDate)))} type="button">行をリセット</button>
               </div>
               <div className="mt-5 overflow-x-auto">
-                <table className="min-w-[1320px] w-full table-fixed border-separate border-spacing-y-3">
+                <table className="min-w-[1060px] w-full table-fixed border-separate border-spacing-y-3 text-[13px]">
                   <colgroup>
-                    <col className="w-[5%]" />
+                    <col className="w-[4%]" />
                     <col className="w-[16%]" />
-                    <col className="w-[19%]" />
-                    <col className="w-[13%]" />
+                    <col className="w-[17%]" />
+                    <col className="w-[12%]" />
                     <col className="w-[10%]" />
                     <col className="w-[10%]" />
                     <col className="w-[9%]" />
+                    <col className="w-[7%]" />
                     <col className="w-[8%]" />
                     <col className="w-[7%]" />
-                    <col className="w-[3%]" />
                   </colgroup>
                   <thead>
                     <tr className="text-left text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
@@ -4009,7 +4009,7 @@ export function TaskBoard({
           }}
         >
           <div
-            className="absolute left-1/2 top-1/2 max-h-[min(88vh,680px)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[32px] bg-white px-5 py-5 shadow-2xl"
+            className="absolute left-1/2 top-1/2 max-h-[min(88vh,720px)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[32px] bg-white px-5 py-5 shadow-2xl lg:w-[min(92vw,760px)] lg:max-w-[760px] lg:px-7"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-black/10" />
@@ -4089,7 +4089,7 @@ export function TaskBoard({
           }}
         >
           <div
-            className="absolute left-1/2 top-1/2 max-h-[min(92vh,760px)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[32px] bg-white px-5 py-5 shadow-2xl"
+            className="absolute left-1/2 top-1/2 max-h-[min(92vh,820px)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[32px] bg-white px-5 py-5 shadow-2xl lg:w-[min(94vw,980px)] lg:max-w-[980px] lg:px-7"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-black/10" />
@@ -4663,7 +4663,7 @@ function TaskModal({
       }}
     >
       <div
-        className="max-h-[min(88vh,760px)] w-full max-w-md overflow-x-hidden overflow-y-auto rounded-[32px] bg-white px-5 py-5 shadow-2xl"
+        className="max-h-[min(88vh,820px)] w-full max-w-md overflow-x-hidden overflow-y-auto rounded-[32px] bg-white px-5 py-5 shadow-2xl lg:max-w-[980px] lg:px-7"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-black/12" />
@@ -5021,7 +5021,7 @@ function TaskDetailModal({
       }}
     >
       <div
-        className="absolute left-1/2 top-1/2 max-h-[min(88vh,760px)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[32px] bg-white px-5 py-5 shadow-2xl"
+        className="absolute left-1/2 top-1/2 max-h-[min(88vh,820px)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[32px] bg-white px-5 py-5 shadow-2xl lg:w-[min(94vw,980px)] lg:max-w-[980px] lg:px-7"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-black/12" />
