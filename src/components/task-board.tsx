@@ -2283,7 +2283,7 @@ export function TaskBoard({
                   type="button"
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? "処理中..." : "ログアウトして閉じる"}
+                  {isSubmitting ? "処理中..." : "閉じる"}
                 </button>
               </>
             ) : (
