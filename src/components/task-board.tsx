@@ -2458,9 +2458,9 @@ export function TaskBoard({
           <section className="mt-5 grid gap-4">
             {rangedTasks.map((task) => (
               <Card key={task.id}>
-                <div className="flex items-start justify-between gap-3">
+                <div className="grid gap-3">
                   <div className="min-w-0">
-                    <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">
+                    <h2 className="font-[family-name:var(--font-heading)] text-lg leading-tight tracking-[-0.03em]">
                       {task.status !== "done" ? `${formatPriorityIcon(task.priority)} ` : ""}
                       {task.status === "done" ? "✅ " : ""}
                       {task.title}
@@ -2475,7 +2475,7 @@ export function TaskBoard({
                       <span className={taskStatusChipClass(task.status)}>{formatStatus(task.status)}</span>
                     </div>
                   </div>
-                  <div className="grid shrink-0 grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       className={miniUtilityButtonClass}
                       onClick={() => openEditTask(task)}
@@ -3554,7 +3554,7 @@ function TaskModal({
           <div className="grid grid-cols-[1.1fr_1fr] gap-3">
             <FormField label="実行日">
               <input
-                className={inputClass}
+                className={`${inputClass} ${form.recurrenceEnabled ? "bg-[var(--chip)] text-[var(--muted)]" : ""}`}
                 type="date"
                 value={form.scheduledDate}
                 onChange={(event) =>
@@ -3568,6 +3568,7 @@ function TaskModal({
                     recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
                   }))
                 }
+                disabled={form.recurrenceEnabled}
               />
             </FormField>
             <div>
