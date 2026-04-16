@@ -36,7 +36,7 @@ export async function POST(
 
   const existingUserResult = await supabase
     .from("app_users")
-    .select("id")
+    .select("id,is_active")
     .eq("line_user_id", requestResult.data.line_user_id)
     .maybeSingle();
 
@@ -59,6 +59,19 @@ export async function POST(
     }
 
     userId = createUserResult.data.id;
+  } else {
+    const reactivateUserResult = await supabase
+      .from("app_users")
+      .update({
+        display_name: requestResult.data.requested_name,
+        is_active: true,
+        deactivated_at: null,
+      })
+      .eq("id", userId);
+
+    if (reactivateUserResult.error) {
+      return NextResponse.json({ error: reactivateUserResult.error.message }, { status: 500 });
+    }
   }
 
   const workspaceMemberUpsert = await supabase.from("workspace_members").upsert({
