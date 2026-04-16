@@ -2478,6 +2478,16 @@ export function TaskBoard({
     screenMode === "tasks" || screenMode === "notifications" || screenMode === "bulk"
       ? screenMode
       : "home";
+  const desktopPanelMode =
+    createTaskOpen
+      ? "create"
+      : selectedTask
+        ? "detail"
+        : showManageModal
+          ? "manage"
+          : showGroupModal
+            ? "group"
+            : desktopScreenMode;
 
   return (
     <Shell
@@ -2568,18 +2578,12 @@ export function TaskBoard({
             </div>
           </Card>
 
-          <Card className="border border-black/5 bg-[rgba(255,255,255,0.82)] shadow-[0_14px_32px_rgba(15,23,42,0.06)]">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--muted)]">Today</p>
-            <p className="mt-3 text-sm leading-6 text-[var(--ink-soft)]">
-              当日の進行状況は右側のメインパネル上部に集約しています。
-            </p>
-          </Card>
         </aside>
 
         <main className="min-w-0 grid gap-5">
-          {desktopScreenMode === "home" ? (
-            <>
-              <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.56fr)_minmax(300px,0.62fr)]">
+          {desktopPanelMode === "home" ? (
+            <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.58fr)_minmax(300px,0.62fr)]">
+              <div className="grid gap-5">
                 <Card className="border border-black/5 bg-[linear-gradient(135deg,#ffffff_0%,#f4f1e8_100%)] px-7 py-7 shadow-[0_18px_42px_rgba(15,23,42,0.10)]">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
@@ -2652,34 +2656,6 @@ export function TaskBoard({
                   </div>
                 </Card>
 
-                <Card className="self-start border border-black/5 bg-[linear-gradient(180deg,rgba(235,240,255,0.92),rgba(255,255,255,0.92))] px-6 py-6 shadow-[0_16px_36px_rgba(79,70,229,0.10)]">
-                  <div className="flex items-center justify-between gap-3">
-                    <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">最新通知</h2>
-                    <button
-                      className="text-sm font-semibold text-[var(--brand)]"
-                      onClick={() => setScreenMode("notifications")}
-                      type="button"
-                    >
-                      全件を見る
-                    </button>
-                  </div>
-                  <div className="mt-4">
-                    {latestLog ? (
-                      <NotificationBubble
-                        isOpen={openNotificationId === latestLog.id}
-                        log={latestLog}
-                        onClose={() => setOpenNotificationId(null)}
-                        onDismiss={() => handleDismissLog(latestLog.id)}
-                        onOpen={() => setOpenNotificationId(latestLog.id)}
-                      />
-                    ) : (
-                      <p className="text-sm text-[var(--muted)]">通知はまだありません。</p>
-                    )}
-                  </div>
-                </Card>
-              </div>
-
-              <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.56fr)_minmax(300px,0.62fr)]">
                 <Card className="border border-black/5 bg-[rgba(255,255,255,0.88)] px-6 py-6 shadow-[0_16px_38px_rgba(15,23,42,0.08)]">
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">本日のタスク</h2>
@@ -2717,50 +2693,299 @@ export function TaskBoard({
                     </div>
                   )}
                 </Card>
-
-                <div className="grid gap-5">
-                  {state.appUser.role === "admin" && state.pendingRequests.length > 0 ? (
-                    <Card className="border border-[var(--danger)]/10 bg-[linear-gradient(180deg,#fff7f7_0%,#ffffff_100%)] shadow-[0_16px_34px_rgba(220,38,38,0.08)]">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold text-[var(--danger)]">承認待ち申請があります</p>
-                          <p className="mt-1 text-sm text-[var(--muted)]">
-                            {state.pendingRequests.length}件の申請が管理画面で承認待ちです。
-                          </p>
-                        </div>
-                        <button className={secondaryButtonClass} onClick={() => setShowManageModal(true)} type="button">
-                          確認
-                        </button>
-                      </div>
-                    </Card>
-                  ) : null}
-
-                  {isPwaMode && pushSetupNotice ? (
-                    <Card className="border border-black/5 bg-[linear-gradient(180deg,#fbfaf6_0%,#ffffff_100%)] shadow-[0_14px_32px_rgba(15,23,42,0.06)]">
-                      <p className={`text-sm font-semibold ${pushSetupNotice.tone === "error" ? "text-[var(--danger)]" : "text-[var(--brand)]"}`}>
-                        通知設定の案内
-                      </p>
-                      <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{pushSetupNotice.message}</p>
-                      {pushSetupNotice.actionLabel ? (
-                        <button className="mt-3 inline-flex rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]" onClick={handlePushSetupAction} type="button">
-                          {pushSetupNotice.actionLabel}
-                        </button>
-                      ) : null}
-                    </Card>
-                  ) : null}
-
-                  {devicePermissionNotice ? (
-                    <Card className="border border-black/5 bg-[linear-gradient(180deg,#fbfaf6_0%,#ffffff_100%)] shadow-[0_14px_32px_rgba(15,23,42,0.06)]">
-                      <p className="text-sm font-semibold text-[var(--brand)]">権限の案内</p>
-                      <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{devicePermissionNotice.message}</p>
-                    </Card>
-                  ) : null}
-                </div>
               </div>
-            </>
+
+              <div className="grid gap-5">
+                <Card className="self-start border border-black/5 bg-[linear-gradient(180deg,rgba(235,240,255,0.92),rgba(255,255,255,0.92))] px-6 py-6 shadow-[0_16px_36px_rgba(79,70,229,0.10)]">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">最新通知</h2>
+                    <button
+                      className="text-sm font-semibold text-[var(--brand)]"
+                      onClick={() => setScreenMode("notifications")}
+                      type="button"
+                    >
+                      全件を見る
+                    </button>
+                  </div>
+                  <div className="mt-4">
+                    {latestLog ? (
+                      <NotificationBubble
+                        isOpen={openNotificationId === latestLog.id}
+                        log={latestLog}
+                        onClose={() => setOpenNotificationId(null)}
+                        onDismiss={() => handleDismissLog(latestLog.id)}
+                        onOpen={() => setOpenNotificationId(latestLog.id)}
+                      />
+                    ) : (
+                      <p className="text-sm text-[var(--muted)]">通知はまだありません。</p>
+                    )}
+                  </div>
+                </Card>
+
+                {state.appUser.role === "admin" && state.pendingRequests.length > 0 ? (
+                  <Card className="border border-[var(--danger)]/10 bg-[linear-gradient(180deg,#fff7f7_0%,#ffffff_100%)] shadow-[0_16px_34px_rgba(220,38,38,0.08)]">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-[var(--danger)]">承認待ち申請があります</p>
+                        <p className="mt-1 text-sm text-[var(--muted)]">
+                          {state.pendingRequests.length}件の申請が管理画面で承認待ちです。
+                        </p>
+                      </div>
+                      <button className={secondaryButtonClass} onClick={() => setShowManageModal(true)} type="button">
+                        確認
+                      </button>
+                    </div>
+                  </Card>
+                ) : null}
+
+                {isPwaMode && pushSetupNotice ? (
+                  <Card className="border border-black/5 bg-[linear-gradient(180deg,#fbfaf6_0%,#ffffff_100%)] shadow-[0_14px_32px_rgba(15,23,42,0.06)]">
+                    <p className={`text-sm font-semibold ${pushSetupNotice.tone === "error" ? "text-[var(--danger)]" : "text-[var(--brand)]"}`}>
+                      通知設定の案内
+                    </p>
+                    <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{pushSetupNotice.message}</p>
+                    {pushSetupNotice.actionLabel ? (
+                      <button className="mt-3 inline-flex rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]" onClick={handlePushSetupAction} type="button">
+                        {pushSetupNotice.actionLabel}
+                      </button>
+                    ) : null}
+                  </Card>
+                ) : null}
+
+                {devicePermissionNotice ? (
+                  <Card className="border border-black/5 bg-[linear-gradient(180deg,#fbfaf6_0%,#ffffff_100%)] shadow-[0_14px_32px_rgba(15,23,42,0.06)]">
+                    <p className="text-sm font-semibold text-[var(--brand)]">権限の案内</p>
+                    <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{devicePermissionNotice.message}</p>
+                  </Card>
+                ) : null}
+              </div>
+            </div>
           ) : null}
 
-          {desktopScreenMode === "tasks" ? (
+          {desktopPanelMode === "create" ? (
+            <Card className="border border-black/5 bg-[rgba(255,255,255,0.92)] px-7 py-7 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
+              <TaskModal
+                currentGroupName={
+                  state.groups.find((group) => group.id === activeGroupId)?.name ?? "グループ未設定"
+                }
+                availableCopyTasks={state.tasks.filter(
+                  (task) => !task.deleted_at && task.group_id === activeGroupId,
+                )}
+                copySourceTaskId={copySourceTaskId}
+                form={taskForm}
+                isEditing={Boolean(editingTaskId)}
+                isSaving={taskSavePending}
+                pendingReferenceFiles={pendingReferenceFiles}
+                onCopySourceChange={handleCopySourceChange}
+                onClose={() => setCreateTaskOpen(false)}
+                onSave={handleSaveTask}
+                setPendingReferenceFiles={setPendingReferenceFiles}
+                setForm={setTaskForm}
+                inline
+              />
+            </Card>
+          ) : null}
+
+          {desktopPanelMode === "detail" && selectedTask ? (
+            <Card className="border border-black/5 bg-[rgba(255,255,255,0.92)] px-7 py-7 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
+              <TaskDetailModal
+                actionPending={taskActionPending}
+                task={selectedTask}
+                onClose={() => setSelectedTaskId(null)}
+                onCopyText={copyText}
+                onAction={(action) => void performTaskAction(selectedTask, action)}
+                onReferencePhotoUpload={(file) => void handleReferencePhotoUpload(selectedTask.id, file)}
+                onReferencePhotoDelete={(photoId) =>
+                  void handleReferencePhotoDelete(selectedTask.id, photoId)
+                }
+                onReferencePhotoReplace={(photoId, file) =>
+                  void handleReferencePhotoReplace(selectedTask.id, photoId, file)
+                }
+                onPhotoUpload={(file) => void handlePhotoUpload(selectedTask.id, file)}
+                onPhotoDelete={(photoId) => void handlePhotoDelete(selectedTask.id, photoId)}
+                onPhotoReplace={(photoId, file) => void handlePhotoReplace(selectedTask.id, photoId, file)}
+                onPreview={(url) => setPreviewPhotoUrl(url)}
+                inline
+              />
+            </Card>
+          ) : null}
+
+          {desktopPanelMode === "manage" ? (
+            <Card className="border border-black/5 bg-[rgba(255,255,255,0.92)] px-7 py-7 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">管理画面</h3>
+                  <p className="mt-1 text-sm text-[var(--muted)]">メンバー承認・招待・設定</p>
+                </div>
+                <button className={desktopSecondaryButtonClass} onClick={() => setShowManageModal(false)} type="button">閉じる</button>
+              </div>
+              <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+                <div className="grid gap-5">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">承認待ち申請</p>
+                    <div className="mt-3">
+                      {state.pendingRequests.length === 0 ? (
+                        <p className="text-sm text-[var(--muted)]">承認待ちはありません。</p>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          {state.pendingRequests.map((item) => (
+                            <PendingRequestCard
+                              key={item.id}
+                              groups={state.groups}
+                              item={item}
+                              isPending={approvalPendingId === item.id}
+                              onApprove={() => handleApproveRequest(item.id)}
+                              onReject={() => handleRejectRequest(item.id)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">メンバー</p>
+                    <div className="mt-3 flex flex-col gap-2">
+                      {state.members.map((member) => (
+                        <div
+                          key={member.id}
+                          className="flex items-center justify-between rounded-[18px] bg-[var(--chip)] px-3 py-2.5"
+                        >
+                          <div>
+                            <p className="text-sm font-semibold">{member.display_name}</p>
+                            <p className="text-xs text-[var(--muted)]">{member.role}</p>
+                          </div>
+                          {state.appUser?.role === "admin" ? (
+                            <button
+                              className="rounded-xl border border-[var(--danger)]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[var(--danger)]"
+                              onClick={() => setMemberToDelete({ id: member.id, name: member.display_name })}
+                              type="button"
+                            >
+                              削除
+                            </button>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {state.appUser?.role === "admin" ? (
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">グループ招待</p>
+                      <div className="mt-3 flex flex-col gap-3">
+                        {state.groups.map((group) => (
+                          <div key={group.id} className="rounded-[18px] bg-[var(--chip)] px-3 py-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold">{group.name}</p>
+                                <p className="text-xs text-[var(--muted)]">24時間有効</p>
+                              </div>
+                              <button
+                                className={desktopSecondaryButtonClass}
+                                onClick={() => handleCreateInvite(group.id)}
+                                type="button"
+                              >
+                                招待リンク発行
+                              </button>
+                            </div>
+                            {inviteLinks[group.id] ? (
+                              <div className="mt-2 flex items-center gap-2">
+                                <p className="min-w-0 flex-1 break-all rounded-xl bg-white px-3 py-2 text-xs text-[var(--ink-soft)]">
+                                  {inviteLinks[group.id]}
+                                </p>
+                                <button
+                                  className={desktopSecondaryButtonClass}
+                                  onClick={() => void copyText("招待リンク", inviteLinks[group.id])}
+                                  type="button"
+                                >
+                                  コピー
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">通知設定</p>
+                  <div className="mt-3 grid gap-3 rounded-[22px] bg-[var(--surface)] px-4 py-4">
+                    <FormField label="朝通知時刻（タスクあり）">
+                      <NativePickerField
+                        type="time"
+                        value={notificationTime}
+                        onChange={(event) => setNotificationTime(event.target.value)}
+                      />
+                    </FormField>
+                    <FormField label="夕方通知時刻（未完了リマインド）">
+                      <NativePickerField
+                        type="time"
+                        value={notificationTime2}
+                        onChange={(event) => setNotificationTime2(event.target.value)}
+                      />
+                    </FormField>
+                    <p className="text-xs text-[var(--muted)]">
+                      タイムゾーン: {state.workspace?.timezone ?? "Asia/Tokyo"}
+                      {"　"}夕方通知は未完了タスクがある場合のみ送信
+                    </p>
+                    <button
+                      className={primaryButtonClass}
+                      onClick={handleSaveWorkspaceSettings}
+                      type="button"
+                      disabled={workspaceSettingsPending}
+                    >
+                      {workspaceSettingsPending ? "保存中..." : "通知時刻を保存"}
+                    </button>
+                    <button
+                      className={desktopSecondaryButtonClass}
+                      disabled={isSendingTestNotification}
+                      onClick={handleSendDelayedTestNotification}
+                      type="button"
+                    >
+                      {isSendingTestNotification ? "送信中..." : "10秒後にテスト通知"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ) : null}
+
+          {desktopPanelMode === "group" ? (
+            <Card className="border border-black/5 bg-[rgba(255,255,255,0.92)] px-7 py-7 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">グループ詳細</h3>
+                <button className={desktopSecondaryButtonClass} onClick={() => setShowGroupModal(false)} type="button">閉じる</button>
+              </div>
+              <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
+                <div className="rounded-[22px] bg-[var(--chip)] px-5 py-5">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--muted)]">GROUP</p>
+                  <p className="mt-2 font-[family-name:var(--font-heading)] text-2xl tracking-[-0.03em] text-[var(--ink)]">
+                    {currentGroup?.name ?? "グループ未設定"}
+                  </p>
+                  {currentGroup?.description ? (
+                    <p className="mt-3 text-sm leading-6 text-[var(--ink-soft)]">{currentGroup.description}</p>
+                  ) : (
+                    <p className="mt-3 text-sm text-[var(--muted)]">グループ説明は設定されていません。</p>
+                  )}
+                </div>
+                <div className="rounded-[22px] border border-[var(--danger)]/20 bg-red-50/60 px-5 py-5">
+                  <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--danger)]/70">危険操作</p>
+                  <p className="mt-2 text-sm leading-6 text-[var(--ink-soft)]">
+                    この操作を行うと、現在のグループから退出します。過去の履歴は残ります。
+                  </p>
+                  <button
+                    className="mt-4 rounded-xl border border-[var(--danger)]/30 bg-white px-4 py-2.5 text-sm font-semibold text-[var(--danger)]"
+                    onClick={handleLeaveCurrentGroup}
+                    type="button"
+                    disabled={isSubmitting || !currentGroup}
+                  >
+                    {isSubmitting ? "処理中..." : "このグループから退出"}
+                  </button>
+                </div>
+              </div>
+            </Card>
+          ) : null}
+
+          {desktopPanelMode === "tasks" ? (
             <Card className="border border-black/5 bg-[rgba(255,255,255,0.9)] px-7 py-7 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -2826,7 +3051,7 @@ export function TaskBoard({
             </Card>
           ) : null}
 
-          {desktopScreenMode === "notifications" ? (
+          {desktopPanelMode === "notifications" ? (
             <Card className="border border-black/5 bg-[linear-gradient(180deg,#fbfaf6_0%,#ffffff_100%)] px-7 py-7 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -2856,12 +3081,12 @@ export function TaskBoard({
             </Card>
           ) : null}
 
-          {desktopScreenMode === "bulk" ? (
+          {desktopPanelMode === "bulk" ? (
             <Card className="border border-black/5 bg-[rgba(255,255,255,0.9)] px-7 py-7 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">一括登録</h2>
-                  <p className="mt-1 text-sm text-[var(--muted)]">PCでは表形式でまとめて入力できます。</p>
+                  <p className="mt-1 text-sm text-[var(--muted)]">PCでは複数カードを並べてまとめて入力できます。</p>
                 </div>
                 <button className={desktopSecondaryButtonClass} onClick={() => setScreenMode("tasks")} type="button">
                   タスク一覧へ
@@ -2875,47 +3100,52 @@ export function TaskBoard({
                 <button className={desktopSecondaryButtonClass} onClick={removeEmptyBatchRows} type="button">空行を整理</button>
                 <button className={desktopSecondaryButtonClass} onClick={() => setBatchRows(Array.from({ length: 8 }, () => createBatchTaskRow(homeDate)))} type="button">行をリセット</button>
               </div>
-              <div className="mt-5 overflow-x-auto">
-                <table className="min-w-[1060px] w-full table-fixed border-separate border-spacing-y-3 text-[13px]">
-                  <colgroup>
-                    <col className="w-[4%]" />
-                    <col className="w-[16%]" />
-                    <col className="w-[17%]" />
-                    <col className="w-[12%]" />
-                    <col className="w-[10%]" />
-                    <col className="w-[10%]" />
-                    <col className="w-[9%]" />
-                    <col className="w-[7%]" />
-                    <col className="w-[8%]" />
-                    <col className="w-[7%]" />
-                  </colgroup>
-                  <thead>
-                    <tr className="text-left text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
-                      <th className="px-3 py-2">No</th>
-                      <th className="px-3 py-2">タイトル</th>
-                      <th className="px-3 py-2">説明</th>
-                      <th className="px-3 py-2">画像</th>
-                      <th className="px-3 py-2">実行日</th>
-                      <th className="px-3 py-2">時間帯</th>
-                      <th className="px-3 py-2">優先度</th>
-                      <th className="px-3 py-2">繰り返し</th>
-                      <th className="px-3 py-2">期間</th>
-                      <th className="px-3 py-2">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {batchRows.map((row, index) => (
-                      <tr key={row.id} className="align-top">
-                        <td className="rounded-l-[24px] border border-black/5 bg-white px-2 py-4 text-sm font-semibold text-[var(--ink)]">{index + 1}</td>
-                        <td className="border-y border-black/5 bg-white px-2 py-4">
-                          <input className={inputClass} value={row.title} placeholder="タスク名" onChange={(event) => updateBatchRow(row.id, { title: event.target.value })} />
-                        </td>
-                        <td className="border-y border-black/5 bg-white px-2 py-4">
-                          <textarea className={`${inputClass} min-h-28`} value={row.description} placeholder="説明" onChange={(event) => updateBatchRow(row.id, { description: event.target.value })} />
-                        </td>
-                        <td className="border-y border-black/5 bg-white px-2 py-4">
-                          <div className="grid gap-2">
-                            <label className={`${secondaryButtonClass} inline-flex w-full justify-center`}>
+              <div className="mt-5 grid gap-4">
+                {batchRows.map((row, index) => (
+                  <div key={row.id} className="rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.05)]">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--surface)] text-sm font-bold text-[var(--ink-soft)]">
+                          {index + 1}
+                        </span>
+                        <p className="text-sm font-semibold text-[var(--ink-soft)]">タスク入力</p>
+                      </div>
+                      <button
+                        className={miniDangerButtonClass}
+                        onClick={() =>
+                          setBatchRows((current) =>
+                            current.length <= 1 ? current : current.filter((item) => item.id !== row.id),
+                          )
+                        }
+                        type="button"
+                        disabled={batchRows.length <= 1}
+                      >
+                        削除
+                      </button>
+                    </div>
+
+                    <div className="mt-4 grid gap-4 text-[13px] xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+                      <div className="grid gap-4">
+                        <FormField label="タイトル">
+                          <input
+                            className={inputClass}
+                            value={row.title}
+                            placeholder="タスク名"
+                            onChange={(event) => updateBatchRow(row.id, { title: event.target.value })}
+                          />
+                        </FormField>
+                        <FormField label="説明">
+                          <textarea
+                            className={`${inputClass} min-h-28`}
+                            value={row.description}
+                            placeholder="説明"
+                            onChange={(event) => updateBatchRow(row.id, { description: event.target.value })}
+                          />
+                        </FormField>
+                        <div>
+                          <p className="mb-2 text-sm text-[var(--muted)]">画像</p>
+                          <div className="grid gap-3 lg:grid-cols-[140px_minmax(0,1fr)]">
+                            <label className={`${secondaryButtonClass} inline-flex justify-center`}>
                               追加
                               <input
                                 className="hidden"
@@ -2931,92 +3161,210 @@ export function TaskBoard({
                                 }}
                               />
                             </label>
-                            <div className="grid gap-2">
+                            <div className="grid min-h-[72px] gap-2 sm:grid-cols-2">
                               {row.pendingReferenceFiles.length > 0 ? row.pendingReferenceFiles.map((file, fileIndex) => (
-                                <div key={`${row.id}-${file.name}-${fileIndex}-desktop`} className="rounded-2xl bg-[var(--surface)] px-3 py-2">
-                                  <p className="truncate text-xs font-semibold text-[var(--ink-soft)]">{file.name}</p>
-                                  <button
-                                    className="mt-1 text-xs font-semibold text-[var(--danger)]"
-                                    onClick={() => updateBatchRow(row.id, {
-                                      pendingReferenceFiles: row.pendingReferenceFiles.filter((_, indexValue) => indexValue !== fileIndex),
-                                    })}
-                                    type="button"
-                                  >
-                                    削除
-                                  </button>
-                                </div>
+                                <button
+                                  key={`${row.id}-${file.name}-${fileIndex}-desktop`}
+                                  className="overflow-hidden rounded-2xl bg-[var(--surface)] p-2 text-left"
+                                  onClick={() => setPreviewPhotoUrl(URL.createObjectURL(file))}
+                                  type="button"
+                                >
+                                  <div className="aspect-[4/3] overflow-hidden rounded-xl bg-white">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      alt={file.name}
+                                      className="h-full w-full object-cover"
+                                      src={URL.createObjectURL(file)}
+                                    />
+                                  </div>
+                                  <div className="mt-2 flex items-center justify-between gap-2">
+                                    <p className="min-w-0 truncate text-xs font-semibold text-[var(--ink-soft)]">{file.name}</p>
+                                    <span
+                                      className="shrink-0 text-xs font-semibold text-[var(--danger)]"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        updateBatchRow(row.id, {
+                                          pendingReferenceFiles: row.pendingReferenceFiles.filter((_, indexValue) => indexValue !== fileIndex),
+                                        });
+                                      }}
+                                    >
+                                      削除
+                                    </span>
+                                  </div>
+                                </button>
                               )) : <p className="text-xs text-[var(--muted)]">未追加</p>}
                             </div>
                           </div>
-                        </td>
-                        <td className="border-y border-black/5 bg-white px-2 py-4">
-                          {!row.recurrenceEnabled ? (
-                            <NativePickerField
-                              type="date"
-                              value={row.scheduledDate}
-                              onChange={(event) => updateBatchRow(row.id, {
-                                scheduledDate: event.target.value,
-                                recurrenceDaysOfWeek: [weekdayFromDate(event.target.value)],
-                                recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
-                              })}
-                            />
-                          ) : (
-                            <div className="rounded-2xl bg-[var(--chip)] px-3 py-3 text-sm text-[var(--muted)]">繰り返し時は期間で管理</div>
-                          )}
-                        </td>
-                        <td className="border-y border-black/5 bg-white px-2 py-4">
-                          <div className="grid gap-2">
-                            {(["morning", "afternoon", "anytime"] as const).map((slot) => (
-                              <button key={`${row.id}-${slot}-desktop`} className={selectedSlotButtonClass(scheduledTimeToSlot(row.scheduledTime) === slot)} onClick={() => updateBatchRow(row.id, { scheduledTime: slotToScheduledTime(slot) })} type="button">
-                                {slotLabel(slot)}
-                              </button>
-                            ))}
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <FormField label="実行日">
+                            {!row.recurrenceEnabled ? (
+                              <NativePickerField
+                                type="date"
+                                value={row.scheduledDate}
+                                onChange={(event) => updateBatchRow(row.id, {
+                                  scheduledDate: event.target.value,
+                                  recurrenceDaysOfWeek: [weekdayFromDate(event.target.value)],
+                                  recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
+                                })}
+                              />
+                            ) : (
+                              <div className={`${inputClass} bg-[var(--surface)] text-[var(--muted)]`}>繰り返し時は未使用</div>
+                            )}
+                          </FormField>
+                          <div>
+                            <p className="mb-2 text-sm text-[var(--muted)]">時間帯</p>
+                            <div className="grid grid-cols-3 gap-2">
+                              {(["morning", "afternoon", "anytime"] as const).map((slot) => (
+                                <button
+                                  key={`${row.id}-${slot}-desktop`}
+                                  className={selectedSlotButtonClass(scheduledTimeToSlot(row.scheduledTime) === slot)}
+                                  onClick={() => updateBatchRow(row.id, { scheduledTime: slotToScheduledTime(slot) })}
+                                  type="button"
+                                >
+                                  {slotLabel(slot)}
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                        </td>
-                        <td className="border-y border-black/5 bg-white px-2 py-4">
+                        </div>
+
+                        <div>
+                          <p className="mb-2 text-sm text-[var(--muted)]">優先度</p>
                           <div className="flex flex-wrap gap-2">
                             {(["urgent", "high", "medium", "low"] as const).map((priority) => (
-                              <button key={`${row.id}-${priority}-desktop`} className={priorityPillClass(row.priority === priority)} onClick={() => updateBatchRow(row.id, { priority })} type="button">
+                              <button
+                                key={`${row.id}-${priority}-desktop`}
+                                className={priorityPillClass(row.priority === priority)}
+                                onClick={() => updateBatchRow(row.id, { priority })}
+                                type="button"
+                              >
                                 {formatPriorityIcon(priority)}
                               </button>
                             ))}
                           </div>
-                        </td>
-                        <td className="border-y border-black/5 bg-white px-2 py-4">
-                          <button
-                            className={row.recurrenceEnabled ? segmentedActiveButtonClass : segmentedButtonClass}
-                            onClick={() => updateBatchRow(row.id, {
-                              recurrenceEnabled: !row.recurrenceEnabled,
-                              recurrenceEndDate: !row.recurrenceEnabled && !row.recurrenceEndDate ? row.scheduledDate : row.recurrenceEndDate,
-                            })}
-                            type="button"
-                          >
-                            {row.recurrenceEnabled ? "ON" : "OFF"}
-                          </button>
-                        </td>
-                        <td className="border-y border-black/5 bg-white px-2 py-4">
+                        </div>
+
+                        <div className="rounded-[22px] bg-[var(--surface)] px-4 py-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-semibold text-[var(--ink-soft)]">繰り返し</p>
+                            <button
+                              className={row.recurrenceEnabled ? segmentedActiveButtonClass : segmentedButtonClass}
+                              onClick={() => updateBatchRow(row.id, {
+                                recurrenceEnabled: !row.recurrenceEnabled,
+                                recurrenceEndDate: !row.recurrenceEnabled && !row.recurrenceEndDate ? row.scheduledDate : row.recurrenceEndDate,
+                              })}
+                              type="button"
+                            >
+                              {row.recurrenceEnabled ? "ON" : "OFF"}
+                            </button>
+                          </div>
+
                           {row.recurrenceEnabled ? (
-                            <div className="grid gap-2">
-                              <NativePickerField type="date" value={row.scheduledDate} onChange={(event) => updateBatchRow(row.id, {
-                                scheduledDate: event.target.value,
-                                recurrenceDaysOfWeek: [weekdayFromDate(event.target.value)],
-                                recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
-                              })} />
-                              <NativePickerField type="date" value={row.recurrenceEndDate} onChange={(event) => updateBatchRow(row.id, { recurrenceEndDate: event.target.value })} />
+                            <div className="mt-4 grid gap-4">
+                              <div className="grid gap-4 md:grid-cols-3">
+                                <FormField label="繰り返し">
+                                  <select
+                                    className={inputClass}
+                                    value={row.recurrenceFrequency}
+                                    onChange={(event) => updateBatchRow(row.id, {
+                                      recurrenceFrequency: event.target.value as BatchTaskRow["recurrenceFrequency"],
+                                    })}
+                                  >
+                                    <option value="daily">毎日</option>
+                                    <option value="weekly">曜日指定（毎週）</option>
+                                    <option value="monthly">毎月</option>
+                                  </select>
+                                </FormField>
+                                <FormField label="間隔">
+                                  <input
+                                    className={inputClass}
+                                    type="number"
+                                    min={1}
+                                    value={row.recurrenceInterval}
+                                    onChange={(event) => updateBatchRow(row.id, {
+                                      recurrenceInterval: Math.max(1, Number(event.target.value || 1)),
+                                    })}
+                                  />
+                                </FormField>
+                                {row.recurrenceFrequency === "monthly" ? (
+                                  <FormField label="毎月の日">
+                                    <input
+                                      className={inputClass}
+                                      type="number"
+                                      min={1}
+                                      max={31}
+                                      value={row.recurrenceDayOfMonth}
+                                      onChange={(event) => updateBatchRow(row.id, {
+                                        recurrenceDayOfMonth: Math.min(31, Math.max(1, Number(event.target.value || 1))),
+                                      })}
+                                    />
+                                  </FormField>
+                                ) : (
+                                  <div />
+                                )}
+                              </div>
+
+                              {row.recurrenceFrequency === "weekly" ? (
+                                <FormField label="曜日">
+                                  <div className="flex flex-wrap gap-2">
+                                    {WEEKDAY_OPTIONS.map((option) => {
+                                      const checked = row.recurrenceDaysOfWeek.includes(option.value);
+                                      return (
+                                        <button
+                                          key={`${row.id}-${option.value}-desktop`}
+                                          className={`rounded-2xl border px-3 py-2 text-sm font-semibold ${
+                                            checked
+                                              ? "border-[var(--brand)] bg-[var(--brand)] text-white"
+                                              : "border-black/10 bg-white text-[var(--ink-soft)]"
+                                          }`}
+                                          onClick={() => updateBatchRow(row.id, {
+                                            recurrenceDaysOfWeek: checked
+                                              ? row.recurrenceDaysOfWeek.filter((day) => day !== option.value)
+                                              : [...row.recurrenceDaysOfWeek, option.value].sort((a, b) => a - b),
+                                          })}
+                                          type="button"
+                                        >
+                                          {option.label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </FormField>
+                              ) : null}
+
+                              <div className="grid gap-4 md:grid-cols-2">
+                                <FormField label="期間開始">
+                                  <NativePickerField
+                                    type="date"
+                                    value={row.scheduledDate}
+                                    onChange={(event) => updateBatchRow(row.id, {
+                                      scheduledDate: event.target.value,
+                                      recurrenceDaysOfWeek: [weekdayFromDate(event.target.value)],
+                                      recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
+                                    })}
+                                  />
+                                </FormField>
+                                <FormField label="期間終了">
+                                  <NativePickerField
+                                    type="date"
+                                    value={row.recurrenceEndDate}
+                                    onChange={(event) => updateBatchRow(row.id, { recurrenceEndDate: event.target.value })}
+                                  />
+                                </FormField>
+                              </div>
                             </div>
                           ) : (
-                            <div className="rounded-2xl bg-[var(--chip)] px-3 py-3 text-sm text-[var(--muted)]">単発タスク</div>
+                            <p className="mt-3 text-sm text-[var(--muted)]">単発タスクとして登録します。</p>
                           )}
-                        </td>
-                        <td className="rounded-r-[24px] border border-black/5 bg-white px-2 py-4">
-                          <button className={miniDangerButtonClass} onClick={() => setBatchRows((current) => current.length <= 1 ? current : current.filter((item) => item.id !== row.id))} type="button" disabled={batchRows.length <= 1}>
-                            削除
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
               <div className="mt-5 flex flex-wrap gap-2">
                 <button className={primaryButtonClass} onClick={handleBatchSaveTasks} type="button" disabled={isSubmitting}>
@@ -4003,7 +4351,7 @@ export function TaskBoard({
 
       {showGroupModal ? (
         <div
-          className="fixed inset-0 z-40 bg-black/40 p-4"
+          className="fixed inset-0 z-40 bg-black/40 p-4 lg:hidden"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setShowGroupModal(false);
           }}
@@ -4083,7 +4431,7 @@ export function TaskBoard({
 
       {showManageModal ? (
         <div
-          className="fixed inset-0 z-40 bg-black/40 p-4"
+          className="fixed inset-0 z-40 bg-black/40 p-4 lg:hidden"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setShowManageModal(false);
           }}
@@ -4230,45 +4578,49 @@ export function TaskBoard({
       ) : null}
 
       {createTaskOpen ? (
-        <TaskModal
-          currentGroupName={
-            state.groups.find((group) => group.id === activeGroupId)?.name ?? "グループ未設定"
-          }
-          availableCopyTasks={state.tasks.filter(
-            (task) => !task.deleted_at && task.group_id === activeGroupId,
-          )}
-          copySourceTaskId={copySourceTaskId}
-          form={taskForm}
-          isEditing={Boolean(editingTaskId)}
-          isSaving={taskSavePending}
-          pendingReferenceFiles={pendingReferenceFiles}
-          onCopySourceChange={handleCopySourceChange}
-          onClose={() => setCreateTaskOpen(false)}
-          onSave={handleSaveTask}
-          setPendingReferenceFiles={setPendingReferenceFiles}
-          setForm={setTaskForm}
-        />
+        <div className="lg:hidden">
+          <TaskModal
+            currentGroupName={
+              state.groups.find((group) => group.id === activeGroupId)?.name ?? "グループ未設定"
+            }
+            availableCopyTasks={state.tasks.filter(
+              (task) => !task.deleted_at && task.group_id === activeGroupId,
+            )}
+            copySourceTaskId={copySourceTaskId}
+            form={taskForm}
+            isEditing={Boolean(editingTaskId)}
+            isSaving={taskSavePending}
+            pendingReferenceFiles={pendingReferenceFiles}
+            onCopySourceChange={handleCopySourceChange}
+            onClose={() => setCreateTaskOpen(false)}
+            onSave={handleSaveTask}
+            setPendingReferenceFiles={setPendingReferenceFiles}
+            setForm={setTaskForm}
+          />
+        </div>
       ) : null}
 
       {selectedTask ? (
-        <TaskDetailModal
-          actionPending={taskActionPending}
-          task={selectedTask}
-          onClose={() => setSelectedTaskId(null)}
-          onCopyText={copyText}
-          onAction={(action) => void performTaskAction(selectedTask, action)}
-          onReferencePhotoUpload={(file) => void handleReferencePhotoUpload(selectedTask.id, file)}
-          onReferencePhotoDelete={(photoId) =>
-            void handleReferencePhotoDelete(selectedTask.id, photoId)
-          }
-          onReferencePhotoReplace={(photoId, file) =>
-            void handleReferencePhotoReplace(selectedTask.id, photoId, file)
-          }
-          onPhotoUpload={(file) => void handlePhotoUpload(selectedTask.id, file)}
-          onPhotoDelete={(photoId) => void handlePhotoDelete(selectedTask.id, photoId)}
-          onPhotoReplace={(photoId, file) => void handlePhotoReplace(selectedTask.id, photoId, file)}
-          onPreview={(url) => setPreviewPhotoUrl(url)}
-        />
+        <div className="lg:hidden">
+          <TaskDetailModal
+            actionPending={taskActionPending}
+            task={selectedTask}
+            onClose={() => setSelectedTaskId(null)}
+            onCopyText={copyText}
+            onAction={(action) => void performTaskAction(selectedTask, action)}
+            onReferencePhotoUpload={(file) => void handleReferencePhotoUpload(selectedTask.id, file)}
+            onReferencePhotoDelete={(photoId) =>
+              void handleReferencePhotoDelete(selectedTask.id, photoId)
+            }
+            onReferencePhotoReplace={(photoId, file) =>
+              void handleReferencePhotoReplace(selectedTask.id, photoId, file)
+            }
+            onPhotoUpload={(file) => void handlePhotoUpload(selectedTask.id, file)}
+            onPhotoDelete={(photoId) => void handlePhotoDelete(selectedTask.id, photoId)}
+            onPhotoReplace={(photoId, file) => void handlePhotoReplace(selectedTask.id, photoId, file)}
+            onPreview={(url) => setPreviewPhotoUrl(url)}
+          />
+        </div>
       ) : null}
 
       {previewPhotoUrl ? (
@@ -4629,6 +4981,7 @@ function TaskModal({
   isEditing,
   isSaving,
   onCopySourceChange,
+  inline = false,
 }: {
   currentGroupName: string;
   availableCopyTasks: TaskRecord[];
@@ -4642,6 +4995,7 @@ function TaskModal({
   isEditing: boolean;
   isSaving: boolean;
   onCopySourceChange: (taskId: string) => void;
+  inline?: boolean;
 }) {
   const selectedSlot = scheduledTimeToSlot(form.scheduledTime);
   const referenceInputRef = useRef<HTMLInputElement | null>(null);
@@ -4653,20 +5007,16 @@ function TaskModal({
     setPendingReferenceFiles((current) => [...current, ...files].slice(0, 2));
   }
 
-  return (
-    <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/35 p-4"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
-    >
+  const content = (
       <div
-        className="max-h-[min(88vh,820px)] w-full max-w-md overflow-x-hidden overflow-y-auto rounded-[32px] bg-white px-5 py-5 shadow-2xl lg:max-w-[980px] lg:px-7"
+        className={`overflow-x-hidden overflow-y-auto rounded-[32px] bg-white ${
+          inline
+            ? "max-h-none px-1 py-1 shadow-none"
+            : "max-h-[min(88vh,820px)] w-full max-w-md px-5 py-5 shadow-2xl lg:max-w-[980px] lg:px-7"
+        }`}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-black/12" />
+        {inline ? null : <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-black/12" />}
         <h3 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">
           {isEditing ? "タスクを編集" : "タスクを追加"}
         </h3>
@@ -4968,6 +5318,22 @@ function TaskModal({
           }}
         />
       </div>
+  );
+
+  if (inline) {
+    return content;
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/35 p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      {content}
     </div>
   );
 }
@@ -4985,6 +5351,7 @@ function TaskDetailModal({
   onPhotoDelete,
   onPhotoReplace,
   onPreview,
+  inline = false,
 }: {
   actionPending: ActionType | null;
   task: TaskRecord;
@@ -4998,6 +5365,7 @@ function TaskDetailModal({
   onPhotoDelete: (photoId: string) => void;
   onPhotoReplace: (photoId: string, file: File) => void;
   onPreview: (url: string) => void;
+  inline?: boolean;
 }) {
   const [isPhotoSubmitting, setIsPhotoSubmitting] = useState(false);
   const [isReferencePhotoSubmitting, setIsReferencePhotoSubmitting] = useState(false);
@@ -5011,20 +5379,16 @@ function TaskDetailModal({
     shouldOpenPhotoPickerOnDoneRef.current = false;
   }, [task.status]);
 
-  return (
-    <div
-      className="fixed inset-0 z-40 bg-black/35 p-4"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
-    >
+  const content = (
       <div
-        className="absolute left-1/2 top-1/2 max-h-[min(88vh,820px)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[32px] bg-white px-5 py-5 shadow-2xl lg:w-[min(94vw,980px)] lg:max-w-[980px] lg:px-7"
+        className={`overflow-y-auto rounded-[32px] bg-white ${
+          inline
+            ? "max-h-none px-1 py-1 shadow-none"
+            : "absolute left-1/2 top-1/2 max-h-[min(88vh,820px)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 px-5 py-5 shadow-2xl lg:w-[min(94vw,980px)] lg:max-w-[980px] lg:px-7"
+        }`}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-black/12" />
+        {inline ? null : <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-black/12" />}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="font-[family-name:var(--font-heading)] text-sm leading-6 tracking-[-0.01em] text-[var(--ink)]">
@@ -5308,6 +5672,22 @@ function TaskDetailModal({
           }}
         />
       </div>
+  );
+
+  if (inline) {
+    return content;
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-40 bg-black/35 p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      {content}
     </div>
   );
 }
