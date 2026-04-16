@@ -2415,12 +2415,11 @@ export function TaskBoard({
                   </button>
                 ) : (
                   <ol className="space-y-2 text-sm leading-6 text-[var(--muted)]">
-                    <li>1. Chromeのメニュー（⋮）を開く</li>
+                    <li>1. アドレスバー右端の<span className="font-semibold">インストールアイコン</span>をタップ</li>
+                    <li className="text-xs text-[var(--muted)]/70">（アイコンが表示されない場合）</li>
+                    <li>2. Chromeのメニュー（⋮）を開く</li>
                     <li>
-                      2.「<span className="font-semibold">ホーム画面に追加</span>」を選択
-                    </li>
-                    <li>
-                      3.「<span className="font-semibold">追加</span>」をタップ
+                      3.「<span className="font-semibold">アプリをインストール</span>」または「<span className="font-semibold">ホーム画面に追加</span>」を選択
                     </li>
                   </ol>
                 )}
