@@ -2362,11 +2362,6 @@ export function TaskBoard({
                       <p className="mt-2 text-sm text-[var(--muted)]">
                         {slotLabel(scheduledTimeToSlot(task.scheduled_time))} / {formatStatus(task.status)}
                       </p>
-                      {task.description ? (
-                        <p className="mt-2 line-clamp-2 text-sm leading-6 text-[var(--ink-soft)]">
-                          {task.description}
-                        </p>
-                      ) : null}
                     </div>
                   </div>
                 </button>
@@ -3469,7 +3464,7 @@ function TaskModal({
       }}
     >
       <div
-        className="max-h-[min(88vh,760px)] w-full max-w-md overflow-y-auto rounded-[32px] bg-white px-5 py-5 shadow-2xl"
+        className="max-h-[min(88vh,760px)] w-full max-w-md overflow-x-hidden overflow-y-auto rounded-[32px] bg-white px-5 py-5 shadow-2xl"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-black/12" />
@@ -3551,7 +3546,7 @@ function TaskModal({
               ))}
             </div>
           ) : null}
-          <div className="grid grid-cols-[1.1fr_1fr] gap-3">
+          <div className="grid gap-3 sm:grid-cols-[1.1fr_1fr]">
             <FormField label="実行日">
               <input
                 className={`${inputClass} ${form.recurrenceEnabled ? "bg-[var(--chip)] text-[var(--muted)]" : ""}`}
@@ -3571,9 +3566,9 @@ function TaskModal({
                 disabled={form.recurrenceEnabled}
               />
             </FormField>
-            <div>
+            <div className="min-w-0">
               <p className="mb-2 text-sm text-[var(--muted)]">時間帯</p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {(["morning", "afternoon", "anytime"] as const).map((slot) => (
                   <button
                     key={slot}
