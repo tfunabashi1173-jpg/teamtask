@@ -441,6 +441,8 @@ export function TaskBoard({
   const [screenMode, setScreenMode] = useState<ScreenMode>("home");
   const [currentGroupId, setCurrentGroupId] = useState(() => initialState.groups[0]?.id ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lineLoginPending, setLineLoginPending] = useState(false);
+  const [lineLoginCompleted, setLineLoginCompleted] = useState(false);
   const [taskSavePending, setTaskSavePending] = useState(false);
   const [taskActionPending, setTaskActionPending] = useState<ActionType | null>(null);
   const [taskDeletePendingId, setTaskDeletePendingId] = useState<string | null>(null);
@@ -644,11 +646,13 @@ export function TaskBoard({
   }
 
   const beginLineLogin = useCallback(async () => {
+    setLineLoginPending(true);
     const result = await callJson("/api/auth/line/start", {
       method: "POST",
     });
 
     if (!result.ok || !result.json || typeof result.json !== "object") {
+      setLineLoginPending(false);
       pushToast("error", "LINEログインを開始できませんでした。");
       return;
     }
@@ -764,6 +768,7 @@ export function TaskBoard({
       window.localStorage.removeItem(LINE_LOGIN_ATTEMPT_STORAGE_KEY);
       consumedLoginAttemptRef.current = attemptId;
       await refreshAppState();
+      setLineLoginCompleted(true);
       if (status === "completed") {
         pushToast("success", "LINEログインが完了しました。");
       }
@@ -2254,6 +2259,22 @@ export function TaskBoard({
       <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts}>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            {lineLoginCompleted ? (
+              <>
+                <p className="text-base font-bold text-[var(--brand)]">ログインが完了しました</p>
+                <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+                  このタブを閉じて、ホーム画面のアプリから起動してください。
+                </p>
+                <button
+                  className="mt-5 w-full rounded-lg border border-[var(--border)] py-2.5 text-sm text-[var(--muted)]"
+                  onClick={() => window.close()}
+                  type="button"
+                >
+                  タブを閉じる
+                </button>
+              </>
+            ) : (
+              <>
             <p className="text-base font-bold text-[var(--brand)]">
               ホーム画面から起動してください
             </p>
@@ -2314,6 +2335,8 @@ export function TaskBoard({
                 </button>
               ) : null}
             </div>
+              </>
+            )}
           </div>
         </div>
       </Shell>
@@ -2327,6 +2350,7 @@ export function TaskBoard({
         commitSha={commitSha}
         authSuccess={authSuccess}
         onStartLineLogin={beginLineLogin}
+        isLoading={lineLoginPending}
         toasts={toasts}
       />
     );
@@ -3726,12 +3750,14 @@ function LoginScreen({
   commitSha,
   authSuccess,
   onStartLineLogin,
+  isLoading,
   toasts,
 }: {
   appVersion: string;
   commitSha: string;
   authSuccess: boolean;
   onStartLineLogin: () => void;
+  isLoading: boolean;
   toasts: Toast[];
 }) {
   return (
@@ -3747,11 +3773,12 @@ function LoginScreen({
           LINEでログインして、オフライン対応のPWAとして利用します。
         </p>
         <button
-          className="mt-8 flex h-14 items-center justify-center rounded-2xl bg-[var(--brand)] text-base font-semibold text-white shadow-[0_6px_18px_rgba(79,70,229,0.32)] transition-transform active:scale-[0.98]"
+          className="mt-8 flex h-14 items-center justify-center rounded-2xl bg-[var(--brand)] text-base font-semibold text-white shadow-[0_6px_18px_rgba(79,70,229,0.32)] transition-transform active:scale-[0.98] disabled:opacity-60"
           onClick={onStartLineLogin}
           type="button"
+          disabled={isLoading}
         >
-          LINEでログイン
+          {isLoading ? "LINEへ移動中..." : "LINEでログイン"}
         </button>
         {authSuccess ? (
           <p className="mt-3 text-sm text-[var(--brand)]">
