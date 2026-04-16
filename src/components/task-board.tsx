@@ -2454,6 +2454,10 @@ export function TaskBoard({
     );
   }
 
+  if (lineLoginConsuming) {
+    return <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts} isProcessing={true} />;
+  }
+
   if (state.needsBootstrap) {
     return (
       <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts} isProcessing={isProcessing}>

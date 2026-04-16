@@ -61,19 +61,27 @@ export async function POST(
     userId = createUserResult.data.id;
   }
 
-  await supabase.from("workspace_members").upsert({
+  const workspaceMemberUpsert = await supabase.from("workspace_members").upsert({
     workspace_id: requestResult.data.workspace_id,
     user_id: userId,
     is_active: true,
     left_at: null,
   }, { onConflict: "workspace_id,user_id" });
 
-  await supabase.from("group_members").upsert({
+  if (workspaceMemberUpsert.error) {
+    return NextResponse.json({ error: workspaceMemberUpsert.error.message }, { status: 500 });
+  }
+
+  const groupMemberUpsert = await supabase.from("group_members").upsert({
     group_id: requestResult.data.group_id,
     user_id: userId,
     is_active: true,
     left_at: null,
   }, { onConflict: "group_id,user_id" });
+
+  if (groupMemberUpsert.error) {
+    return NextResponse.json({ error: groupMemberUpsert.error.message }, { status: 500 });
+  }
 
   await Promise.all([
     supabase
