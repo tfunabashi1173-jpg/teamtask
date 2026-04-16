@@ -457,6 +457,8 @@ export function TaskBoard({
   const [taskActionPending, setTaskActionPending] = useState<ActionType | null>(null);
   const [taskDeletePendingId, setTaskDeletePendingId] = useState<string | null>(null);
   const [approvalPendingId, setApprovalPendingId] = useState<string | null>(null);
+  const [memberToDelete, setMemberToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [removeMemberPending, setRemoveMemberPending] = useState(false);
   const [workspaceSettingsPending, setWorkspaceSettingsPending] = useState(false);
   const [inviteLinks, setInviteLinks] = useState<Record<string, string>>({});
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
@@ -607,7 +609,8 @@ export function TaskBoard({
     lineLoginConsuming ||
     !!taskActionPending ||
     !!taskDeletePendingId ||
-    !!approvalPendingId;
+    !!approvalPendingId ||
+    removeMemberPending;
   const lastVersionCheckAtRef = useRef(0);
   const refreshAppStateRef = useRef<(() => Promise<boolean>) | null>(null);
   const lineLoginSyncingRef = useRef(false);
@@ -1527,8 +1530,12 @@ export function TaskBoard({
     await refreshAppState();
   }
 
-  async function handleRemoveMember(userId: string) {
-    const result = await callJson(`/api/members/${userId}`, { method: "DELETE" });
+  async function confirmRemoveMember() {
+    if (!memberToDelete) return;
+    setRemoveMemberPending(true);
+    const result = await callJson(`/api/members/${memberToDelete.id}`, { method: "DELETE" });
+    setRemoveMemberPending(false);
+    setMemberToDelete(null);
     if (!result.ok) {
       pushToast("error", "メンバー削除に失敗しました。");
       return;
@@ -3575,6 +3582,35 @@ export function TaskBoard({
         </div>
       ) : null}
 
+      {memberToDelete ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
+          <div className="w-full max-w-sm rounded-3xl bg-[var(--surface)] p-6 shadow-xl">
+            <h3 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">メンバーを削除</h3>
+            <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+              <span className="font-semibold text-[var(--ink)]">{memberToDelete.name}</span> さんを削除しますか？この操作は取り消せません。
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                className={secondaryButtonClass}
+                onClick={() => setMemberToDelete(null)}
+                type="button"
+                disabled={removeMemberPending}
+              >
+                キャンセル
+              </button>
+              <button
+                className="flex-1 rounded-2xl bg-[var(--danger)] px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                onClick={() => { void confirmRemoveMember(); }}
+                type="button"
+                disabled={removeMemberPending}
+              >
+                {removeMemberPending ? "削除中..." : "削除する"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {showManageModal ? (
         <div
           className="fixed inset-0 z-40 bg-black/40 p-4"
@@ -3631,7 +3667,7 @@ export function TaskBoard({
                       {state.appUser?.role === "admin" ? (
                         <button
                           className="rounded-xl border border-[var(--danger)]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[var(--danger)]"
-                          onClick={() => handleRemoveMember(member.id)}
+                          onClick={() => setMemberToDelete({ id: member.id, name: member.display_name })}
                           type="button"
                         >
                           削除
