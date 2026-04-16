@@ -3515,13 +3515,13 @@ function TaskModal({
               }
             />
           </FormField>
-          <div className="grid grid-cols-[1fr_auto] items-end gap-3">
-            <div>
+          <div className="flex items-end justify-between gap-3">
+            <div className="min-w-0">
               <p className="text-xs font-semibold text-[var(--ink)]">説明画像</p>
               <p className="mt-1 text-xs text-[var(--muted)]">登録時に説明画像を2枚まで添付できます。</p>
             </div>
             <button
-              className="rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]"
+              className="shrink-0 rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]"
               onClick={() => referenceInputRef.current?.click()}
               type="button"
             >
@@ -3529,7 +3529,7 @@ function TaskModal({
             </button>
           </div>
           {pendingReferenceFiles.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {pendingReferenceFiles.map((file, index) => (
                 <div key={`${file.name}-${index}`} className="rounded-2xl bg-[var(--surface)] px-3 py-3">
                   <p className="truncate text-xs font-semibold text-[var(--ink-soft)]">{file.name}</p>
@@ -3589,7 +3589,7 @@ function TaskModal({
           </div>
           <div>
             <p className="mb-2 text-sm text-[var(--muted)]">優先度</p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {(["urgent", "high", "medium", "low"] as const).map((priority) => (
                 <button
                   key={priority}
@@ -3632,7 +3632,7 @@ function TaskModal({
 
             {form.recurrenceEnabled ? (
               <div className="mt-4 grid gap-3">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <FormField label="繰り返し">
                     <select
                       className={inputClass}
@@ -3669,7 +3669,7 @@ function TaskModal({
                   </FormField>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <FormField label="期間開始">
                     <div className={`${inputClass} bg-[var(--chip)] text-[var(--ink-soft)]`}>
                       {form.scheduledDate}
@@ -3704,7 +3704,7 @@ function TaskModal({
                         return (
                           <button
                             key={option.value}
-                            className={`rounded-2xl border px-4 py-2 text-sm font-semibold ${
+                            className={`rounded-2xl border px-3 py-2 text-sm font-semibold ${
                               checked
                                 ? "border-[var(--brand)] bg-[var(--brand)] text-white"
                                 : "border-black/10 bg-white text-[var(--ink-soft)]"
@@ -4154,7 +4154,7 @@ function FormField({
   children: React.ReactNode;
 }) {
   return (
-    <label className="flex flex-col gap-1">
+    <label className="flex min-w-0 flex-col gap-1">
       <span className="text-xs text-[var(--muted)]">{label}</span>
       {children}
     </label>
@@ -4181,7 +4181,7 @@ function Footer({
 }
 
 const inputClass =
-  "rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-shadow focus:border-[var(--brand)]/50 focus:ring-2 focus:ring-[var(--brand)]/10";
+  "w-full min-w-0 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-shadow focus:border-[var(--brand)]/50 focus:ring-2 focus:ring-[var(--brand)]/10";
 const primaryButtonClass =
   "rounded-2xl bg-[var(--brand)] px-5 py-3.5 text-sm font-semibold text-white transition-transform active:scale-[0.97]";
 const primaryIconButtonClass =
