@@ -1494,8 +1494,6 @@ export function TaskBoard({
     }
 
     setState((current) => ({ ...current, workspace }));
-    window.localStorage.removeItem(buildMorningNotificationStorageKey(workspace.id, getWorkspaceLocalParts(new Date(), workspace.timezone || "Asia/Tokyo").date));
-    void maybeSendMorningLocalNotification();
     scheduleMorningLocalNotificationCheck();
     pushToast("success", "通知時刻を更新しました。");
   }
