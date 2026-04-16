@@ -2601,13 +2601,23 @@ export function TaskBoard({
                 )}
               </div>
             )}
-            <button
-              className="mt-5 w-full rounded-lg border border-[var(--border)] py-2.5 text-sm text-[var(--muted)]"
-              onClick={() => window.close()}
-              type="button"
-            >
-              このタブを閉じる
-            </button>
+            <div className="mt-5 flex gap-2">
+              <button
+                className="flex-1 rounded-lg border border-[var(--border)] py-2.5 text-sm text-[var(--muted)]"
+                onClick={() => window.close()}
+                type="button"
+              >
+                タブを閉じる
+              </button>
+              <button
+                className="flex-1 rounded-lg border border-[var(--border)] py-2.5 text-sm text-[var(--muted)]"
+                onClick={() => void handleLogout()}
+                type="button"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "処理中..." : "ログアウト"}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
