@@ -2532,8 +2532,7 @@ export function TaskBoard({
       enablePushPrompt
       wide
     >
-      <div className="desktop-layout hidden lg:flex h-screen overflow-hidden">
-        <div className="flex w-full h-full">
+      <div className="desktop-layout hidden lg:flex lg:h-screen">
         <aside className="flex h-screen w-[220px] shrink-0 flex-col border-r border-[#e2e8f0] bg-white sticky top-0">
 
           {/* App logo / name */}
@@ -3421,7 +3420,6 @@ export function TaskBoard({
             </Card>
           ) : null}
         </main>
-      </div>
       </div>
 
       {screenMode === "home" ? (
@@ -4714,17 +4712,25 @@ function Shell({
     <>
       <PwaRegister enablePushPrompt={enablePushPrompt} />
       {isProcessing ? <Spinner /> : null}
-      <div
-        className={`mx-auto flex w-full flex-col bg-transparent text-[var(--ink)] ${
-          wide
-            ? "min-h-screen pb-10 pt-5 max-w-[1680px] px-4 sm:px-5 lg:block lg:min-h-0 lg:p-0 lg:max-w-none"
-            : "min-h-screen pb-10 pt-5 max-w-md px-5"
-        }`}
-      >
-        <div className={`mx-auto mb-5 h-1 w-10 rounded-full bg-[var(--brand)]/20 ${wide ? "lg:hidden" : ""}`} />
-        <div className={`flex flex-col gap-5 ${wide ? "lg:block" : ""}`}>{children}</div>
-        {!wide && <Footer appVersion={appVersion} commitSha={commitSha} />}
-      </div>
+      {wide ? (
+        <>
+          {/* Mobile shell (< lg) */}
+          <div className="mx-auto flex w-full max-w-[1680px] flex-col bg-transparent pb-10 pt-5 text-[var(--ink)] px-4 sm:px-5 lg:hidden">
+            <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-[var(--brand)]/20" />
+            <div className="flex flex-col gap-5">{children}</div>
+          </div>
+          {/* Desktop shell (lg+) — full-viewport, no padding/footer */}
+          <div className="hidden w-full text-[var(--ink)] lg:block">
+            {children}
+          </div>
+        </>
+      ) : (
+        <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-transparent pb-10 pt-5 px-5 text-[var(--ink)]">
+          <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-[var(--brand)]/20" />
+          <div className="flex flex-col gap-5">{children}</div>
+          <Footer appVersion={appVersion} commitSha={commitSha} />
+        </div>
+      )}
       <div
         className={`pointer-events-none fixed inset-x-0 top-4 z-50 mx-auto flex w-full flex-col gap-2 px-4 ${
           wide ? "max-w-[1680px] sm:px-5 lg:px-7 xl:px-8" : "max-w-md"
