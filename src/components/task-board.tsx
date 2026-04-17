@@ -2784,9 +2784,9 @@ export function TaskBoard({
                 </Card>
               </div>
 
-              <div className="sticky top-6" style={{ height: "calc(100vh - 3rem)" }}>
-                <Card className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#e2e8f0] bg-white px-6 py-6 shadow-none">
-                  <div className="flex shrink-0 items-center justify-between gap-3">
+              <div className="sticky top-6 grid gap-5" style={{ height: "calc(100vh - 3rem)" }}>
+                <div className="overflow-hidden rounded-lg border border-[#e2e8f0] bg-white px-6 py-6 shadow-none" style={{ height: state.appUser.role === "admin" && state.pendingRequests.length > 0 ? "calc(100% - 88px)" : "100%" }}>
+                  <div className="flex items-center justify-between gap-3">
                     <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">最新通知</h2>
                     <button
                       className="text-sm font-semibold text-[var(--brand)]"
@@ -2796,7 +2796,7 @@ export function TaskBoard({
                       全件を見る
                     </button>
                   </div>
-                  <div className="mt-4 min-h-0 flex-1 overflow-y-auto flex flex-col gap-2">
+                  <div className="mt-4 flex flex-col gap-2 overflow-y-auto pr-1" style={{ height: "calc(100% - 2.5rem)" }}>
                     {state.logs.length > 0 ? (
                       state.logs.map((log) => (
                         <NotificationBubble
@@ -2816,10 +2816,10 @@ export function TaskBoard({
                       <p className="text-sm text-[var(--muted)]">通知はまだありません。</p>
                     )}
                   </div>
-                </Card>
+                </div>
 
                 {state.appUser.role === "admin" && state.pendingRequests.length > 0 ? (
-                  <Card className="rounded-lg border border-[var(--danger)]/20 bg-[#fef2f2] shadow-none">
+                  <Card className="self-end rounded-lg border border-[var(--danger)]/20 bg-[#fef2f2] shadow-none">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-[var(--danger)]">承認待ち申請があります</p>
@@ -5055,7 +5055,7 @@ function NotificationBubble({
   const hasTask = Boolean(log.task?.id && onTaskClick);
 
   return (
-    <div className="relative w-full overflow-hidden rounded-[24px]">
+    <div className="relative w-full shrink-0 overflow-hidden rounded-[24px]">
       <div
         className={`pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 transition-opacity duration-200 ${
           isOpen ? "opacity-100" : "opacity-0"

@@ -70,14 +70,7 @@ export async function PATCH(
     return NextResponse.json({ error: updateResult.error.message }, { status: 500 });
   }
 
-  // Only remove old file from storage if no other task references it
-  const remainingOldResult = await supabase
-    .from("task_reference_photos")
-    .select("id")
-    .eq("storage_path", photoResult.data.storage_path);
-  if ((remainingOldResult.data?.length ?? 0) === 0) {
-    await supabase.storage.from(getTaskPhotoBucketName()).remove([photoResult.data.storage_path]);
-  }
+  await supabase.storage.from(getTaskPhotoBucketName()).remove([photoResult.data.storage_path]);
 
   await supabase.from("task_activity_logs").insert({
     task_id: id,
@@ -128,18 +121,11 @@ export async function DELETE(
     return NextResponse.json({ error: "PHOTO_NOT_FOUND" }, { status: 404 });
   }
 
+  await supabase.storage.from(getTaskPhotoBucketName()).remove([photoResult.data.storage_path]);
+
   const deleteResult = await supabase.from("task_reference_photos").delete().eq("id", photoId);
   if (deleteResult.error) {
     return NextResponse.json({ error: deleteResult.error.message }, { status: 500 });
-  }
-
-  // Only remove from storage if no other task references the same file
-  const remainingResult = await supabase
-    .from("task_reference_photos")
-    .select("id")
-    .eq("storage_path", photoResult.data.storage_path);
-  if ((remainingResult.data?.length ?? 0) === 0) {
-    await supabase.storage.from(getTaskPhotoBucketName()).remove([photoResult.data.storage_path]);
   }
 
   await supabase.from("task_activity_logs").insert({
