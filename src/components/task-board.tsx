@@ -2196,7 +2196,7 @@ export function TaskBoard({
         line_picture_url:
           effectiveSessionUser?.pictureUrl ?? state.appUser?.line_picture_url ?? null,
       },
-      task: { title: task.title },
+      task: { id: task.id, title: task.title },
     };
 
     setState((current) => ({
@@ -2784,9 +2784,9 @@ export function TaskBoard({
                 </Card>
               </div>
 
-              <div className="flex flex-col gap-5">
-                <Card className="flex flex-col rounded-lg border border-[#e2e8f0] bg-white px-6 py-6 shadow-none">
-                  <div className="flex items-center justify-between gap-3">
+              <div className="sticky top-6 flex flex-col gap-5" style={{ maxHeight: "calc(100vh - 3rem)" }}>
+                <Card className="flex min-h-0 flex-col rounded-lg border border-[#e2e8f0] bg-white px-6 py-6 shadow-none">
+                  <div className="flex shrink-0 items-center justify-between gap-3">
                     <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">最新通知</h2>
                     <button
                       className="text-sm font-semibold text-[var(--brand)]"
@@ -2796,7 +2796,7 @@ export function TaskBoard({
                       全件を見る
                     </button>
                   </div>
-                  <div className="mt-4 flex flex-col gap-2">
+                  <div className="mt-4 flex-1 overflow-y-auto flex flex-col gap-2">
                     {state.logs.length > 0 ? (
                       state.logs.map((log) => (
                         <NotificationBubble
@@ -2806,6 +2806,10 @@ export function TaskBoard({
                           onClose={() => setOpenNotificationId(null)}
                           onDismiss={() => handleDismissLog(log.id)}
                           onOpen={() => setOpenNotificationId(log.id)}
+                          onTaskClick={log.task?.id ? () => {
+                            const task = state.tasks.find((t) => t.id === log.task?.id);
+                            if (task) openTaskDetail(task);
+                          } : undefined}
                         />
                       ))
                     ) : (
@@ -5036,16 +5040,19 @@ function NotificationBubble({
   onDismiss,
   onOpen,
   onClose,
+  onTaskClick,
 }: {
   log: TaskLogRecord;
   isOpen: boolean;
   onDismiss: () => void;
   onOpen: () => void;
   onClose: () => void;
+  onTaskClick?: () => void;
 }) {
   const actorName = log.actor?.display_name ?? "誰か";
   const actorImage = log.actor?.line_picture_url ?? null;
   const touchStartXRef = useRef<number | null>(null);
+  const hasTask = Boolean(log.task?.id && onTaskClick);
 
   return (
     <div className="relative w-full overflow-hidden rounded-[24px]">
@@ -5093,7 +5100,10 @@ function NotificationBubble({
           {actorInitial(actorName)}
         </div>
       )}
-      <div className="relative min-w-0 flex-1 rounded-[24px] bg-[var(--chip)] px-4 py-3 text-[var(--ink)] shadow-[0_10px_20px_rgba(31,41,51,0.05)]">
+      <div
+        className={`relative min-w-0 flex-1 rounded-[24px] bg-[var(--chip)] px-4 py-3 text-[var(--ink)] shadow-[0_10px_20px_rgba(31,41,51,0.05)] ${hasTask ? "cursor-pointer hover:bg-[var(--chip)]/80 active:scale-[0.99] transition-all" : ""}`}
+        onClick={hasTask ? onTaskClick : undefined}
+      >
         <div className="absolute left-[-7px] top-4 h-3.5 w-3.5 rotate-45 bg-[var(--chip)]" />
         <p className="text-sm font-semibold text-[var(--ink-soft)]">{actorName}</p>
         <p className="mt-1 text-sm leading-6">{logMessage(log)}</p>
