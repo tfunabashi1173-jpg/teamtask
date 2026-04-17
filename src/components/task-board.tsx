@@ -2744,7 +2744,7 @@ export function TaskBoard({
               </div>
 
               <div className="grid gap-5">
-                <Card className="self-start rounded-lg border border-[#e2e8f0] bg-white px-6 py-6 shadow-none">
+                <Card className="rounded-lg border border-[#e2e8f0] bg-white px-6 py-6 shadow-none">
                   <div className="flex items-center justify-between gap-3">
                     <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">最新通知</h2>
                     <button
@@ -2755,15 +2755,18 @@ export function TaskBoard({
                       全件を見る
                     </button>
                   </div>
-                  <div className="mt-4">
-                    {latestLog ? (
-                      <NotificationBubble
-                        isOpen={openNotificationId === latestLog.id}
-                        log={latestLog}
-                        onClose={() => setOpenNotificationId(null)}
-                        onDismiss={() => handleDismissLog(latestLog.id)}
-                        onOpen={() => setOpenNotificationId(latestLog.id)}
-                      />
+                  <div className="mt-4 flex flex-col gap-2">
+                    {state.logs.slice(0, 5).length > 0 ? (
+                      state.logs.slice(0, 5).map((log) => (
+                        <NotificationBubble
+                          key={log.id}
+                          isOpen={openNotificationId === log.id}
+                          log={log}
+                          onClose={() => setOpenNotificationId(null)}
+                          onDismiss={() => handleDismissLog(log.id)}
+                          onOpen={() => setOpenNotificationId(log.id)}
+                        />
+                      ))
                     ) : (
                       <p className="text-sm text-[var(--muted)]">通知はまだありません。</p>
                     )}
