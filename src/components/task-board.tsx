@@ -2544,7 +2544,7 @@ export function TaskBoard({
           </div>
 
           {/* Workspace + group selector */}
-          <div className="border-b border-[#e2e8f0] px-3 py-3 shrink-0">
+          <div className="border-b border-[#e2e8f0] px-3 py-4 shrink-0">
             <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">Workspace</p>
             <p className="truncate px-1 text-sm font-semibold text-[var(--ink)]">{state.workspace?.name ?? "Workspace"}</p>
             <p className="mt-0.5 truncate px-1 text-xs text-[var(--muted)]">
@@ -2564,8 +2564,8 @@ export function TaskBoard({
           </div>
 
           {/* Primary nav */}
-          <nav className="flex flex-col gap-0.5 px-2 pt-3">
-            <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">Menu</p>
+          <nav className="flex flex-col gap-1 px-2 pt-4 pb-2">
+            <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">Menu</p>
             <button
               className={desktopPanelMode === "home" ? desktopNavActiveClass : desktopNavButtonClass}
               onClick={() => { setScreenMode("home"); setCreateTaskOpen(false); setSelectedTaskId(null); setShowManageModal(false); setShowGroupModal(false); }}
@@ -2597,8 +2597,8 @@ export function TaskBoard({
           </nav>
 
           {/* New task CTA + sub-nav */}
-          <div className="flex flex-col gap-0.5 border-t border-[#e2e8f0] px-2 pt-3 pb-1 mt-2">
-            <div className="px-1 pb-2">
+          <div className="flex flex-col gap-1 border-t border-[#e2e8f0] px-2 pt-4 pb-2">
+            <div className="px-1 pb-3">
               <button
                 className="w-full rounded-md bg-[#244234] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#1a3128] active:bg-[#15271f]"
                 onClick={openCreateTask}
@@ -2618,11 +2618,11 @@ export function TaskBoard({
           </div>
 
           {/* Logout + version — pushed to bottom */}
-          <div className="mt-auto flex flex-col gap-0.5 border-t border-[#e2e8f0] px-2 py-2">
+          <div className="mt-auto flex flex-col gap-1 border-t border-[#e2e8f0] px-2 py-3">
             <button className={`${desktopDangerButtonClass} w-full justify-start`} onClick={handleLogout} type="button" disabled={isSubmitting}>
               {isSubmitting ? "処理中..." : "ログアウト"}
             </button>
-            <p className="mt-1 px-2 text-[10px] text-[var(--muted)]">{appVersion} ({commitSha})</p>
+            <p className="mt-2 px-2 text-[10px] text-[var(--muted)]">{appVersion} ({commitSha})</p>
           </div>
 
         </aside>
