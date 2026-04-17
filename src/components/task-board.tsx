@@ -1767,8 +1767,27 @@ export function TaskBoard({
         : null);
 
     if (taskId && pendingReferenceFiles.length > 0) {
+      // When bulk-editing all recurring siblings, upload once and link to each sibling
+      const editingTask = editingTaskId ? state.tasks.find((t) => t.id === editingTaskId) : null;
+      const siblingIds =
+        editingTaskId && editUpdateScope === "all" && editingTask?.recurrence_rule_id
+          ? state.tasks
+              .filter(
+                (t) =>
+                  t.recurrence_rule_id === editingTask.recurrence_rule_id &&
+                  t.id !== editingTaskId &&
+                  !t.deleted_at,
+              )
+              .map((t) => t.id)
+          : [];
+
       for (const file of pendingReferenceFiles.slice(0, 2)) {
-        await handleReferencePhotoUpload(taskId, file);
+        const photo = await handleReferencePhotoUpload(taskId, file);
+        if (photo && siblingIds.length > 0) {
+          for (const siblingId of siblingIds) {
+            await handleReferencePhotoLink(siblingId, photo.id);
+          }
+        }
       }
     }
 
@@ -1833,20 +1852,19 @@ export function TaskBoard({
         continue;
       }
 
-      const taskId =
-        result.json &&
-        typeof result.json === "object" &&
-        "task" in result.json &&
-        result.json.task &&
-        typeof result.json.task === "object" &&
-        "id" in result.json.task &&
-        typeof result.json.task.id === "string"
-          ? result.json.task.id
-          : null;
+      const json = result.json as { task?: { id?: string }; siblingTaskIds?: string[] } | null;
+      const taskId = typeof json?.task?.id === "string" ? json.task.id : null;
+      const siblingTaskIds: string[] = Array.isArray(json?.siblingTaskIds) ? (json.siblingTaskIds as string[]) : [];
 
       if (taskId && row.pendingReferenceFiles.length > 0) {
         for (const file of row.pendingReferenceFiles.slice(0, 2)) {
-          await handleReferencePhotoUpload(taskId, file);
+          const photo = await handleReferencePhotoUpload(taskId, file);
+          // Share the same uploaded file to all sibling recurring tasks
+          if (photo && siblingTaskIds.length > 0) {
+            for (const siblingId of siblingTaskIds) {
+              await handleReferencePhotoLink(siblingId, photo.id);
+            }
+          }
         }
       }
     }
@@ -1949,7 +1967,7 @@ export function TaskBoard({
     pushToast("success", "写真を削除しました。");
   }
 
-  async function handleReferencePhotoUpload(taskId: string, file: File) {
+  async function handleReferencePhotoUpload(taskId: string, file: File): Promise<TaskPhotoRecord | null> {
     const formData = new FormData();
     formData.append("file", file);
 
@@ -1965,7 +1983,7 @@ export function TaskBoard({
 
       if (!response.ok || !json || !("photo" in json) || !json.photo) {
         pushToast("error", "説明画像の保存に失敗しました。");
-        return;
+        return null;
       }
 
       const createdPhoto = json.photo as TaskPhotoRecord;
@@ -1981,8 +1999,22 @@ export function TaskBoard({
         ),
       }));
       pushToast("success", "説明画像を保存しました。");
+      return createdPhoto;
     } catch {
       pushToast("error", "説明画像の保存に失敗しました。");
+      return null;
+    }
+  }
+
+  async function handleReferencePhotoLink(taskId: string, sourcePhotoId: string): Promise<void> {
+    try {
+      await fetch(`/api/tasks/${taskId}/reference-photos/link`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourcePhotoId }),
+      });
+    } catch {
+      // silent — sibling linking is best-effort
     }
   }
 

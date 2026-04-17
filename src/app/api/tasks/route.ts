@@ -74,6 +74,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: insertResult.error.message }, { status: 500 });
   }
 
+  let siblingTaskIds: string[] = [];
+
   if (body.recurrence?.enabled) {
     if (!body.recurrence.frequency || !body.recurrence.endDate) {
       await supabase.from("tasks").delete().eq("id", insertResult.data.id);
@@ -177,6 +179,8 @@ export async function POST(request: NextRequest) {
         await supabase.from("tasks").delete().eq("id", insertResult.data.id);
         return NextResponse.json({ error: sourceInsertResult.error.message }, { status: 500 });
       }
+
+      siblingTaskIds = (futureInsertResult.data ?? []).map((t) => t.id);
     }
   }
 
@@ -199,5 +203,5 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  return NextResponse.json({ ok: true, task: insertResult.data });
+  return NextResponse.json({ ok: true, task: insertResult.data, siblingTaskIds });
 }
