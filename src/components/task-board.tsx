@@ -335,6 +335,7 @@ function logMessage(log: TaskLogRecord) {
     const name = log.after_value?.memberName ?? "";
     return `${name}さんが削除されました`;
   }
+  if (log.action_type === "created") return `「${title}」を作成しました`;
   return `「${title}」を更新しました`;
 }
 
