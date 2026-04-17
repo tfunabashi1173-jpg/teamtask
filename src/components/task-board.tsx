@@ -4868,7 +4868,13 @@ function Shell({
       >
         <div className={`mx-auto mb-5 h-1 w-10 rounded-full bg-[var(--brand)]/20${wide ? " lg:hidden" : ""}`} />
         <div className={`flex flex-col gap-5${wide ? " lg:block" : ""}`}>{children}</div>
-        {!wide && <Footer appVersion={appVersion} commitSha={commitSha} />}
+        {!wide ? (
+          <Footer appVersion={appVersion} commitSha={commitSha} />
+        ) : (
+          <div className="lg:hidden">
+            <Footer appVersion={appVersion} commitSha={commitSha} />
+          </div>
+        )}
       </div>
       <div
         className={`pointer-events-none fixed inset-x-0 top-4 z-50 mx-auto flex w-full flex-col gap-2 px-4 ${
