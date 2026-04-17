@@ -2784,8 +2784,8 @@ export function TaskBoard({
                 </Card>
               </div>
 
-              <div className="sticky top-6 flex flex-col gap-5" style={{ maxHeight: "calc(100vh - 3rem)" }}>
-                <Card className="flex min-h-0 flex-col rounded-lg border border-[#e2e8f0] bg-white px-6 py-6 shadow-none">
+              <div className="sticky top-6 flex flex-col overflow-hidden rounded-lg" style={{ maxHeight: "calc(100vh - 3rem)" }}>
+                <Card className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-[#e2e8f0] bg-white px-6 py-6 shadow-none">
                   <div className="flex shrink-0 items-center justify-between gap-3">
                     <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">最新通知</h2>
                     <button
@@ -2796,7 +2796,7 @@ export function TaskBoard({
                       全件を見る
                     </button>
                   </div>
-                  <div className="mt-4 flex-1 overflow-y-auto flex flex-col gap-2">
+                  <div className="mt-4 min-h-0 flex-1 overflow-y-auto flex flex-col gap-2">
                     {state.logs.length > 0 ? (
                       state.logs.map((log) => (
                         <NotificationBubble
