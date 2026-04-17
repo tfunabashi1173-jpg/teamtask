@@ -2564,7 +2564,7 @@ export function TaskBoard({
           </div>
 
           {/* Primary nav */}
-          <nav className="flex flex-1 flex-col gap-0.5 px-2 pt-3">
+          <nav className="flex flex-col gap-0.5 px-2 pt-3">
             <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">Menu</p>
             <button
               className={desktopPanelMode === "home" ? desktopNavActiveClass : desktopNavButtonClass}
@@ -2596,19 +2596,17 @@ export function TaskBoard({
             </button>
           </nav>
 
-          {/* New task CTA */}
-          <div className="shrink-0 border-t border-[#e2e8f0] px-3 py-3">
-            <button
-              className="w-full rounded-md bg-[#244234] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#1a3128] active:bg-[#15271f]"
-              onClick={openCreateTask}
-              type="button"
-            >
-              + 新規タスク
-            </button>
-          </div>
-
-          {/* Utility links (bottom) */}
-          <div className="flex shrink-0 flex-col gap-0.5 border-t border-[#e2e8f0] px-2 py-2">
+          {/* New task CTA + sub-nav */}
+          <div className="flex flex-col gap-0.5 border-t border-[#e2e8f0] px-2 pt-3 pb-1 mt-2">
+            <div className="px-1 pb-2">
+              <button
+                className="w-full rounded-md bg-[#244234] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#1a3128] active:bg-[#15271f]"
+                onClick={openCreateTask}
+                type="button"
+              >
+                + 新規タスク
+              </button>
+            </div>
             {state.appUser.role === "admin" ? (
               <button className={desktopPanelMode === "manage" ? desktopNavActiveClass : desktopNavButtonClass} onClick={() => { setShowManageModal(true); setShowGroupModal(false); setCreateTaskOpen(false); setSelectedTaskId(null); }} type="button">
                 管理
@@ -2617,14 +2615,14 @@ export function TaskBoard({
             <button className={desktopPanelMode === "group" ? desktopNavActiveClass : desktopNavButtonClass} onClick={() => { setShowGroupModal(true); setShowManageModal(false); setCreateTaskOpen(false); setSelectedTaskId(null); }} type="button" disabled={!currentGroup}>
               グループ詳細
             </button>
+          </div>
+
+          {/* Logout + version — pushed to bottom */}
+          <div className="mt-auto flex flex-col gap-0.5 border-t border-[#e2e8f0] px-2 py-2">
             <button className={`${desktopDangerButtonClass} w-full justify-start`} onClick={handleLogout} type="button" disabled={isSubmitting}>
               {isSubmitting ? "処理中..." : "ログアウト"}
             </button>
-          </div>
-
-          {/* Version */}
-          <div className="shrink-0 border-t border-[#e2e8f0] px-3 py-2">
-            <p className="text-[10px] text-[var(--muted)]">{appVersion} ({commitSha})</p>
+            <p className="mt-1 px-2 text-[10px] text-[var(--muted)]">{appVersion} ({commitSha})</p>
           </div>
 
         </aside>
