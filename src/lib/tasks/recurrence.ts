@@ -54,6 +54,13 @@ export function normalizeRecurrence(input: RecurrenceInput): RecurrenceInput {
   };
 }
 
+export function startDateMatchesWeeklyRule(input: RecurrenceInput): boolean {
+  if (input.frequency !== "weekly") return true;
+  const days = input.daysOfWeek?.length ? input.daysOfWeek : null;
+  if (!days) return true;
+  return days.includes(toUtcDate(input.startDate).getUTCDay());
+}
+
 export function generateFutureOccurrenceDates(input: RecurrenceInput) {
   const rule = normalizeRecurrence(input);
   const start = toUtcDate(rule.startDate);
@@ -73,8 +80,9 @@ export function generateFutureOccurrenceDates(input: RecurrenceInput) {
 
   if (rule.frequency === "weekly") {
     const days = rule.daysOfWeek?.length ? rule.daysOfWeek : [start.getUTCDay()];
-
-    for (let cursor = addUtcDays(start, 1); cursor <= end; cursor = addUtcDays(cursor, 1)) {
+    // Start from start date itself — the caller is responsible for handling whether
+    // the start date was already created as a separate task.
+    for (let cursor = start; cursor <= end; cursor = addUtcDays(cursor, 1)) {
       const diffDays = Math.floor((cursor.getTime() - start.getTime()) / 86_400_000);
       const weekOffset = Math.floor(diffDays / 7);
       if (weekOffset % rule.interval !== 0) continue;
