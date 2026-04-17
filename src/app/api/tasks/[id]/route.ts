@@ -23,6 +23,7 @@ export async function PATCH(
     priority?: "urgent" | "high" | "medium" | "low";
     scheduledDate?: string;
     scheduledTime?: string | null;
+    updateScope?: "single" | "all";
     recurrence?: {
       enabled?: boolean;
       frequency?: RecurrenceFrequency;
@@ -78,6 +79,42 @@ export async function PATCH(
   }
 
   const updatedTask = updateResult.data;
+
+  // Bulk update: sync content to all sibling tasks from the same recurrence rule
+  if (body.updateScope === "all" && currentRecurrenceRuleId) {
+    const siblingResult = await supabase
+      .from("generated_task_sources")
+      .select("task_id")
+      .eq("recurrence_rule_id", currentRecurrenceRuleId)
+      .neq("task_id", id);
+
+    const siblingIds = ((siblingResult.data as { task_id: string }[] | null) ?? []).map((r) => r.task_id);
+
+    if (siblingIds.length > 0) {
+      await supabase
+        .from("tasks")
+        .update({
+          title: updatedTask.title,
+          description: updatedTask.description,
+          priority: updatedTask.priority,
+          scheduled_time: updatedTask.scheduled_time,
+          updated_by: actorResult.data.id,
+        })
+        .in("id", siblingIds)
+        .is("deleted_at", null);
+    }
+
+    await supabase
+      .from("recurrence_rules")
+      .update({
+        title_template: updatedTask.title,
+        description_template: updatedTask.description,
+        default_priority: updatedTask.priority,
+        time_of_day: updatedTask.scheduled_time,
+        updated_by: actorResult.data.id,
+      })
+      .eq("id", currentRecurrenceRuleId);
+  }
 
   if (body.recurrence?.enabled) {
     if (!body.recurrence.frequency || !body.recurrence.endDate) {

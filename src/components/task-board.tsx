@@ -419,6 +419,7 @@ export function TaskBoard({
   const [inviteLinks, setInviteLinks] = useState<Record<string, string>>({});
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editUpdateScope, setEditUpdateScope] = useState<"single" | "all">("single");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
   const [copySourceTaskId, setCopySourceTaskId] = useState<string>("");
@@ -1607,6 +1608,7 @@ export function TaskBoard({
 
   function openEditTask(task: TaskRecord) {
     setEditingTaskId(task.id);
+    setEditUpdateScope("single");
     setCopySourceTaskId("");
     setPendingReferenceFiles([]);
     setTaskForm({
@@ -1739,7 +1741,7 @@ export function TaskBoard({
     const result = editingTaskId
       ? await callJson(`/api/tasks/${editingTaskId}`, {
           method: "PATCH",
-          body: JSON.stringify(body),
+          body: JSON.stringify({ ...body, updateScope: editUpdateScope }),
         })
       : await callJson("/api/tasks", {
           method: "POST",
@@ -2794,6 +2796,9 @@ export function TaskBoard({
                 onSave={handleSaveTask}
                 setPendingReferenceFiles={setPendingReferenceFiles}
                 setForm={setTaskForm}
+                hasRecurrenceRule={Boolean(editingTaskId && state.tasks.find((t) => t.id === editingTaskId)?.recurrence_rule_id)}
+                updateScope={editUpdateScope}
+                onUpdateScopeChange={setEditUpdateScope}
                 inline
               />
             </Card>
@@ -4612,6 +4617,9 @@ export function TaskBoard({
             onSave={handleSaveTask}
             setPendingReferenceFiles={setPendingReferenceFiles}
             setForm={setTaskForm}
+            hasRecurrenceRule={Boolean(editingTaskId && state.tasks.find((t) => t.id === editingTaskId)?.recurrence_rule_id)}
+            updateScope={editUpdateScope}
+            onUpdateScopeChange={setEditUpdateScope}
           />
         </div>
       ) : null}
@@ -4997,6 +5005,9 @@ function TaskModal({
   isEditing,
   isSaving,
   onCopySourceChange,
+  hasRecurrenceRule = false,
+  updateScope = "single",
+  onUpdateScopeChange,
   inline = false,
 }: {
   currentGroupName: string;
@@ -5011,6 +5022,9 @@ function TaskModal({
   isEditing: boolean;
   isSaving: boolean;
   onCopySourceChange: (taskId: string) => void;
+  hasRecurrenceRule?: boolean;
+  updateScope?: "single" | "all";
+  onUpdateScopeChange?: (scope: "single" | "all") => void;
   inline?: boolean;
 }) {
   const selectedSlot = scheduledTimeToSlot(form.scheduledTime);
@@ -5314,6 +5328,35 @@ function TaskModal({
             ) : null}
           </div>
         </div>
+        {isEditing && hasRecurrenceRule && onUpdateScopeChange ? (
+          <div className="mt-5 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-3">
+            <p className="text-xs font-semibold text-[var(--warning-ink)]">繰り返しタスクの変更範囲</p>
+            <div className="mt-2 flex flex-col gap-1.5">
+              <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+                <input
+                  type="radio"
+                  name="update-scope"
+                  value="single"
+                  checked={updateScope === "single"}
+                  onChange={() => onUpdateScopeChange("single")}
+                  className="accent-[var(--brand)]"
+                />
+                <span className="text-[var(--ink-soft)]">このタスクのみ変更</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+                <input
+                  type="radio"
+                  name="update-scope"
+                  value="all"
+                  checked={updateScope === "all"}
+                  onChange={() => onUpdateScopeChange("all")}
+                  className="accent-[var(--brand)]"
+                />
+                <span className="font-semibold text-[var(--warning-ink)]">繰り返し全タスクを変更（タイトル・説明・優先度・時間帯）</span>
+              </label>
+            </div>
+          </div>
+        ) : null}
         <div className="mt-5 grid grid-cols-2 gap-3">
           <button className={modalSecondaryButtonClass} onClick={onClose} type="button">
             閉じる
