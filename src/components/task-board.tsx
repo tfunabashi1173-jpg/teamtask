@@ -2532,9 +2532,8 @@ export function TaskBoard({
       enablePushPrompt
       wide
     >
-      <div className="desktop-layout hidden lg:flex min-h-screen">
-        <div className="flex w-full min-h-screen">
-        <div className="flex w-full">
+      <div className="desktop-layout hidden lg:flex h-screen overflow-hidden">
+        <div className="flex w-full h-full">
         <aside className="flex h-screen w-[220px] shrink-0 flex-col border-r border-[#e2e8f0] bg-white sticky top-0">
 
           {/* App logo / name */}
@@ -2626,7 +2625,7 @@ export function TaskBoard({
 
         </aside>
 
-        <main className="flex min-h-screen flex-1 flex-col overflow-y-auto bg-[#f1f5f9]">
+        <main className="flex flex-1 flex-col overflow-y-auto bg-[#f1f5f9]">
           {desktopPanelMode === "home" ? (
             <div className="p-6">
             <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.58fr)_minmax(300px,0.62fr)]">
@@ -3422,7 +3421,6 @@ export function TaskBoard({
             </Card>
           ) : null}
         </main>
-      </div>
       </div>
       </div>
 
@@ -4717,15 +4715,15 @@ function Shell({
       <PwaRegister enablePushPrompt={enablePushPrompt} />
       {isProcessing ? <Spinner /> : null}
       <div
-        className={`mx-auto flex min-h-screen w-full flex-col bg-transparent pb-10 pt-5 text-[var(--ink)] ${
+        className={`mx-auto flex w-full flex-col bg-transparent text-[var(--ink)] ${
           wide
-            ? "max-w-[1680px] px-4 sm:px-5 lg:px-7 xl:px-8"
-            : "max-w-md px-5"
+            ? "min-h-screen pb-10 pt-5 max-w-[1680px] px-4 sm:px-5 lg:block lg:min-h-0 lg:p-0 lg:max-w-none"
+            : "min-h-screen pb-10 pt-5 max-w-md px-5"
         }`}
       >
-        <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-[var(--brand)]/20" />
-        <div className="flex flex-col gap-5">{children}</div>
-        <Footer appVersion={appVersion} commitSha={commitSha} />
+        <div className={`mx-auto mb-5 h-1 w-10 rounded-full bg-[var(--brand)]/20 ${wide ? "lg:hidden" : ""}`} />
+        <div className={`flex flex-col gap-5 ${wide ? "lg:block" : ""}`}>{children}</div>
+        {!wide && <Footer appVersion={appVersion} commitSha={commitSha} />}
       </div>
       <div
         className={`pointer-events-none fixed inset-x-0 top-4 z-50 mx-auto flex w-full flex-col gap-2 px-4 ${
