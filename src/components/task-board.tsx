@@ -2762,7 +2762,11 @@ export function TaskBoard({
                         >
                           <button className="min-w-0 text-left" onClick={() => openTaskDetail(task)} type="button">
                             <p className="truncate text-sm font-semibold text-[var(--ink)]">
-                              {formatTaskTitleIcon(task)} {task.title}
+                              {formatTaskTitleIcon(task)}{" "}
+                              {task.title}
+                              {task.recurrence_rule_id && (
+                                <span className="ml-1.5 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold text-[#244234] bg-[#d1fae5] align-middle">繰返</span>
+                              )}
                             </p>
                           </button>
                           <span className="text-sm text-[var(--muted)]">{slotLabel(scheduledTimeToSlot(task.scheduled_time))}</span>
