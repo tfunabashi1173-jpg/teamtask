@@ -2627,9 +2627,9 @@ export function TaskBoard({
 
         </aside>
 
-        <main className="ml-[220px] min-h-screen bg-[#f1f5f9]">
+        <main className="ml-[220px] min-h-screen bg-[#f1f5f9] px-8">
           {desktopPanelMode === "home" ? (
-            <div className="p-6">
+            <div className="py-6">
             <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.58fr)_minmax(300px,0.62fr)]">
               <div className="grid gap-5">
                 <Card className="rounded-lg border border-[#e2e8f0] bg-white px-6 py-6 shadow-none">
@@ -2812,7 +2812,7 @@ export function TaskBoard({
           ) : null}
 
           {desktopPanelMode === "create" ? (
-            <Card className="m-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
+            <Card className="my-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
               <TaskModal
                 currentGroupName={
                   state.groups.find((group) => group.id === activeGroupId)?.name ?? "グループ未設定"
@@ -2839,7 +2839,7 @@ export function TaskBoard({
           ) : null}
 
           {desktopPanelMode === "detail" && selectedTask ? (
-            <Card className="m-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
+            <Card className="my-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
               <TaskDetailModal
                 actionPending={taskActionPending}
                 task={selectedTask}
@@ -2863,7 +2863,7 @@ export function TaskBoard({
           ) : null}
 
           {desktopPanelMode === "manage" ? (
-            <Card className="m-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
+            <Card className="my-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
               <div>
                 <h3 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">管理画面</h3>
                 <p className="mt-1 text-sm text-[var(--muted)]">メンバー承認・招待・設定</p>
@@ -2999,7 +2999,7 @@ export function TaskBoard({
           ) : null}
 
           {desktopPanelMode === "group" ? (
-            <Card className="m-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
+            <Card className="my-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
               <h3 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">グループ詳細</h3>
               <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
                 <div className="rounded-md border border-[#e2e8f0] bg-white px-5 py-5">
@@ -3032,7 +3032,7 @@ export function TaskBoard({
           ) : null}
 
           {desktopPanelMode === "tasks" ? (
-            <Card className="m-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
+            <Card className="my-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">タスク一覧</h2>
@@ -3098,7 +3098,7 @@ export function TaskBoard({
           ) : null}
 
           {desktopPanelMode === "notifications" ? (
-            <Card className="m-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
+            <Card className="my-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h2 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">通知一覧</h2>
@@ -3128,7 +3128,7 @@ export function TaskBoard({
           ) : null}
 
           {desktopPanelMode === "bulk" ? (
-            <Card className="m-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
+            <Card className="my-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">一括登録</h2>
