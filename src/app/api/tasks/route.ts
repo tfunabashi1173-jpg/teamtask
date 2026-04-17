@@ -149,6 +149,7 @@ export async function POST(request: NextRequest) {
     // Skip the start date in the generated list if a task was already created for it.
     const allDates = generateFutureOccurrenceDates(recurrence);
     const futureDates = startMatches ? allDates.filter((d) => d !== body.scheduledDate) : allDates;
+
     if (futureDates.length > 0) {
       const futureInsertResult = await supabase
         .from("tasks")
@@ -173,7 +174,7 @@ export async function POST(request: NextRequest) {
       if (futureInsertResult.error) {
         await supabase.from("generated_task_sources").delete().eq("recurrence_rule_id", recurrenceResult.data.id);
         await supabase.from("recurrence_rules").delete().eq("id", recurrenceResult.data.id);
-        await supabase.from("tasks").delete().eq("id", insertResult.data.id);
+        if (startMatches) await supabase.from("tasks").delete().eq("id", insertResult.data.id);
         return NextResponse.json({ error: futureInsertResult.error.message }, { status: 500 });
       }
 
@@ -188,7 +189,7 @@ export async function POST(request: NextRequest) {
       if (sourceInsertResult.error) {
         await supabase.from("generated_task_sources").delete().eq("recurrence_rule_id", recurrenceResult.data.id);
         await supabase.from("recurrence_rules").delete().eq("id", recurrenceResult.data.id);
-        if (startMatches) await supabase.from("tasks").delete().eq("id", insertResult.data.id);
+        await supabase.from("tasks").delete().eq("id", insertResult.data.id);
         return NextResponse.json({ error: sourceInsertResult.error.message }, { status: 500 });
       }
 

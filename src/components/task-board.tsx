@@ -284,6 +284,9 @@ function sortTasks(tasks: TaskRecord[]) {
   const rank = { urgent: 0, high: 1, medium: 2, low: 3 };
 
   return [...tasks].sort((a, b) => {
+    const dateCmp = a.scheduled_date.localeCompare(b.scheduled_date);
+    if (dateCmp !== 0) return dateCmp;
+
     const aIsActiveUrgent = a.priority === "urgent" && a.status !== "done";
     const bIsActiveUrgent = b.priority === "urgent" && b.status !== "done";
 
@@ -412,6 +415,7 @@ export function TaskBoard({
   const [taskSavePending, setTaskSavePending] = useState(false);
   const [taskActionPending, setTaskActionPending] = useState<ActionType | null>(null);
   const [taskDeletePendingId, setTaskDeletePendingId] = useState<string | null>(null);
+  const [deleteConfirmTaskId, setDeleteConfirmTaskId] = useState<string | null>(null);
   const [approvalPendingId, setApprovalPendingId] = useState<string | null>(null);
   const [memberToDelete, setMemberToDelete] = useState<{ id: string; name: string } | null>(null);
   const [removeMemberPending, setRemoveMemberPending] = useState(false);
@@ -510,17 +514,35 @@ export function TaskBoard({
     [activeGroupId, homeDate, state.tasks],
   );
 
-  const rangedTasks = useMemo(
-    () =>
-      sortTasks(
-        state.tasks.filter((task) => {
-          if (task.deleted_at) return false;
-          if (task.group_id !== activeGroupId) return false;
-          return task.scheduled_date >= rangeStart && task.scheduled_date <= rangeEnd;
-        }),
-      ),
-    [activeGroupId, rangeEnd, rangeStart, state.tasks],
-  );
+  const rangedTasks = useMemo(() => {
+    const filtered = state.tasks.filter((task) => {
+      if (task.deleted_at) return false;
+      if (task.group_id !== activeGroupId) return false;
+      return task.scheduled_date >= rangeStart && task.scheduled_date <= rangeEnd;
+    });
+
+    // 同じ繰り返しルールのタスクは直近1件（今日以降で最も近い日、なければ最新の過去日）に集約
+    const recurGroups = new Map<string, TaskRecord[]>();
+    const nonRecurring: TaskRecord[] = [];
+    for (const task of filtered) {
+      if (task.recurrence_rule_id) {
+        const group = recurGroups.get(task.recurrence_rule_id) ?? [];
+        group.push(task);
+        recurGroups.set(task.recurrence_rule_id, group);
+      } else {
+        nonRecurring.push(task);
+      }
+    }
+
+    const representatives: TaskRecord[] = [];
+    for (const group of recurGroups.values()) {
+      const sorted = [...group].sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date));
+      const upcoming = sorted.filter((t) => t.scheduled_date >= todayDate);
+      representatives.push(upcoming.length > 0 ? upcoming[0] : sorted[sorted.length - 1]);
+    }
+
+    return sortTasks([...nonRecurring, ...representatives]);
+  }, [activeGroupId, rangeEnd, rangeStart, state.tasks, todayDate]);
 
   const counts = useMemo(
     () => ({
@@ -1884,20 +1906,34 @@ export function TaskBoard({
     await syncLatestState();
   }
 
-  async function handleDeleteTask(taskId: string) {
+  async function handleDeleteTask(taskId: string, scope: "single" | "all" = "single") {
     setTaskDeletePendingId(taskId);
-    const result = await callJson(`/api/tasks/${taskId}`, { method: "DELETE" });
+    setDeleteConfirmTaskId(null);
+    const deletedTask = state.tasks.find((t) => t.id === taskId);
+    const result = await callJson(`/api/tasks/${taskId}`, {
+      method: "DELETE",
+      body: JSON.stringify({ deleteScope: scope }),
+    });
     setTaskDeletePendingId(null);
     if (!result.ok) {
       pushToast("error", "タスク削除に失敗しました。");
       return;
     }
 
-    pushToast("success", "タスクを削除しました。");
-    setState((current) => ({
-      ...current,
-      tasks: current.tasks.filter((task) => task.id !== taskId),
-    }));
+    const ruleId = deletedTask?.recurrence_rule_id;
+    if (scope === "all" && ruleId) {
+      pushToast("success", "繰り返しタスクを全て削除しました。");
+      setState((current) => ({
+        ...current,
+        tasks: current.tasks.filter((task) => task.recurrence_rule_id !== ruleId),
+      }));
+    } else {
+      pushToast("success", "タスクを削除しました。");
+      setState((current) => ({
+        ...current,
+        tasks: current.tasks.filter((task) => task.id !== taskId),
+      }));
+    }
   }
 
   async function copyText(label: string, value: string) {
@@ -2728,7 +2764,11 @@ export function TaskBoard({
                         >
                           <button className="min-w-0 text-left" onClick={() => openTaskDetail(task)} type="button">
                             <p className="truncate text-sm font-semibold text-[var(--ink)]">
-                              {formatTaskTitleIcon(task)} {task.title}
+                              {formatTaskTitleIcon(task)}{" "}
+                              {task.title}
+                              {task.recurrence_rule_id && (
+                                <span className="ml-1.5 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold text-[#244234] bg-[#d1fae5] align-middle">繰返</span>
+                              )}
                             </p>
                           </button>
                           <span className="text-sm text-[var(--muted)]">{slotLabel(scheduledTimeToSlot(task.scheduled_time))}</span>
@@ -3072,12 +3112,18 @@ export function TaskBoard({
                   rangedTasks.map((task) => (
                     <div key={task.id} className={`grid grid-cols-[minmax(0,1.5fr)_120px_110px_110px_220px] items-center gap-4 border-t border-black/5 px-5 py-4 transition-colors hover:bg-black/[0.02] ${taskCardSurfaceClass(task)}`}>
                       <button className="min-w-0 text-left" onClick={() => openTaskDetail(task)} type="button">
-                        <p className="truncate text-sm font-semibold text-[var(--ink)]">{formatTaskTitleIcon(task)} {task.title}</p>
+                        <p className="truncate text-sm font-semibold text-[var(--ink)]">
+                          {formatTaskTitleIcon(task)}{" "}
+                          {task.title}
+                          {task.recurrence_rule_id && (
+                            <span className="ml-1.5 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold text-[#244234] bg-[#d1fae5] align-middle">繰返</span>
+                          )}
+                        </p>
                       </button>
                       <span className="text-sm text-[var(--muted)]">{task.scheduled_date}</span>
                       <span className="text-sm text-[var(--muted)]">{slotLabel(scheduledTimeToSlot(task.scheduled_time))}</span>
                       <span className={taskStatusChipClass(task.status)}>{formatStatus(task.status)}</span>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <button className={miniUtilityButtonClass} onClick={() => openEditTask(task)} type="button">編集</button>
                         <button
                           className={miniUtilityButtonClass}
@@ -3089,9 +3135,44 @@ export function TaskBoard({
                         >
                           コピー
                         </button>
-                        <button className={miniDangerButtonClass} onClick={() => handleDeleteTask(task.id)} type="button" disabled={taskDeletePendingId === task.id}>
-                          {taskDeletePendingId === task.id ? "削除中" : "削除"}
-                        </button>
+                        {deleteConfirmTaskId === task.id ? (
+                          <>
+                            <button
+                              className={miniDangerButtonClass}
+                              onClick={() => handleDeleteTask(task.id, "single")}
+                              disabled={taskDeletePendingId === task.id}
+                              type="button"
+                            >
+                              {taskDeletePendingId === task.id ? "削除中..." : "この1件"}
+                            </button>
+                            {task.recurrence_rule_id && (
+                              <button
+                                className={miniDangerButtonClass}
+                                onClick={() => handleDeleteTask(task.id, "all")}
+                                disabled={taskDeletePendingId === task.id}
+                                type="button"
+                              >
+                                全て削除
+                              </button>
+                            )}
+                            <button
+                              className={miniUtilityButtonClass}
+                              onClick={() => setDeleteConfirmTaskId(null)}
+                              type="button"
+                            >
+                              ✕
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            className={miniDangerButtonClass}
+                            onClick={() => setDeleteConfirmTaskId(task.id)}
+                            disabled={taskDeletePendingId === task.id}
+                            type="button"
+                          >
+                            {taskDeletePendingId === task.id ? "削除中" : "削除"}
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))
@@ -3554,6 +3635,9 @@ export function TaskBoard({
                           <h2 className="font-[family-name:var(--font-heading)] text-sm leading-6 tracking-[-0.01em] text-[var(--ink)]">
                             {formatTaskTitleIcon(task)}{" "}
                             {task.title}
+                            {task.recurrence_rule_id && (
+                              <span className="ml-1.5 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold text-[#244234] bg-[#d1fae5] align-middle">繰返</span>
+                            )}
                           </h2>
                           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
                             {slotLabel(scheduledTimeToSlot(task.scheduled_time))} / {formatStatus(task.status)}
@@ -3730,6 +3814,9 @@ export function TaskBoard({
                     <h2 className="font-[family-name:var(--font-heading)] text-sm leading-6 tracking-[-0.01em] text-[var(--ink)]">
                       {formatTaskTitleIcon(task)}{" "}
                       {task.title}
+                      {task.recurrence_rule_id && (
+                        <span className="ml-1.5 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold text-[#244234] bg-[#d1fae5] align-middle">繰返</span>
+                      )}
                     </h2>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <span className="rounded-full bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-[var(--ink-soft)]">

@@ -80,6 +80,7 @@ export function generateFutureOccurrenceDates(input: RecurrenceInput) {
 
   if (rule.frequency === "weekly") {
     const days = rule.daysOfWeek?.length ? rule.daysOfWeek : [start.getUTCDay()];
+
     // Start from start date itself — the caller is responsible for handling whether
     // the start date was already created as a separate task.
     for (let cursor = start; cursor <= end; cursor = addUtcDays(cursor, 1)) {
