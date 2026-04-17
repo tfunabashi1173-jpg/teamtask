@@ -284,9 +284,6 @@ function sortTasks(tasks: TaskRecord[]) {
   const rank = { urgent: 0, high: 1, medium: 2, low: 3 };
 
   return [...tasks].sort((a, b) => {
-    const dateCmp = a.scheduled_date.localeCompare(b.scheduled_date);
-    if (dateCmp !== 0) return dateCmp;
-
     const aIsActiveUrgent = a.priority === "urgent" && a.status !== "done";
     const bIsActiveUrgent = b.priority === "urgent" && b.status !== "done";
 
@@ -415,7 +412,6 @@ export function TaskBoard({
   const [taskSavePending, setTaskSavePending] = useState(false);
   const [taskActionPending, setTaskActionPending] = useState<ActionType | null>(null);
   const [taskDeletePendingId, setTaskDeletePendingId] = useState<string | null>(null);
-  const [deleteConfirmTaskId, setDeleteConfirmTaskId] = useState<string | null>(null);
   const [approvalPendingId, setApprovalPendingId] = useState<string | null>(null);
   const [memberToDelete, setMemberToDelete] = useState<{ id: string; name: string } | null>(null);
   const [removeMemberPending, setRemoveMemberPending] = useState(false);
@@ -514,35 +510,17 @@ export function TaskBoard({
     [activeGroupId, homeDate, state.tasks],
   );
 
-  const rangedTasks = useMemo(() => {
-    const filtered = state.tasks.filter((task) => {
-      if (task.deleted_at) return false;
-      if (task.group_id !== activeGroupId) return false;
-      return task.scheduled_date >= rangeStart && task.scheduled_date <= rangeEnd;
-    });
-
-    // 同じ繰り返しルールのタスクは直近1件（今日以降で最も近い日、なければ最新の過去日）に集約
-    const recurGroups = new Map<string, TaskRecord[]>();
-    const nonRecurring: TaskRecord[] = [];
-    for (const task of filtered) {
-      if (task.recurrence_rule_id) {
-        const group = recurGroups.get(task.recurrence_rule_id) ?? [];
-        group.push(task);
-        recurGroups.set(task.recurrence_rule_id, group);
-      } else {
-        nonRecurring.push(task);
-      }
-    }
-
-    const representatives: TaskRecord[] = [];
-    for (const group of recurGroups.values()) {
-      const sorted = [...group].sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date));
-      const upcoming = sorted.filter((t) => t.scheduled_date >= todayDate);
-      representatives.push(upcoming.length > 0 ? upcoming[0] : sorted[sorted.length - 1]);
-    }
-
-    return sortTasks([...nonRecurring, ...representatives]);
-  }, [activeGroupId, rangeEnd, rangeStart, state.tasks, todayDate]);
+  const rangedTasks = useMemo(
+    () =>
+      sortTasks(
+        state.tasks.filter((task) => {
+          if (task.deleted_at) return false;
+          if (task.group_id !== activeGroupId) return false;
+          return task.scheduled_date >= rangeStart && task.scheduled_date <= rangeEnd;
+        }),
+      ),
+    [activeGroupId, rangeEnd, rangeStart, state.tasks],
+  );
 
   const counts = useMemo(
     () => ({
@@ -1049,12 +1027,13 @@ export function TaskBoard({
       void ensureLatestBuild();
       void consumePendingLineLogin();
       void refreshPushSetupNotice();
+      void refreshAppState();
     }, 0);
 
     return () => {
       window.clearTimeout(timer);
     };
-  }, [consumePendingLineLogin, ensureLatestBuild, refreshPushSetupNotice]);
+  }, [consumePendingLineLogin, ensureLatestBuild, refreshAppState, refreshPushSetupNotice]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -1905,34 +1884,20 @@ export function TaskBoard({
     await syncLatestState();
   }
 
-  async function handleDeleteTask(taskId: string, scope: "single" | "all" = "single") {
+  async function handleDeleteTask(taskId: string) {
     setTaskDeletePendingId(taskId);
-    setDeleteConfirmTaskId(null);
-    const deletedTask = state.tasks.find((t) => t.id === taskId);
-    const result = await callJson(`/api/tasks/${taskId}`, {
-      method: "DELETE",
-      body: JSON.stringify({ deleteScope: scope }),
-    });
+    const result = await callJson(`/api/tasks/${taskId}`, { method: "DELETE" });
     setTaskDeletePendingId(null);
     if (!result.ok) {
       pushToast("error", "タスク削除に失敗しました。");
       return;
     }
 
-    const ruleId = deletedTask?.recurrence_rule_id;
-    if (scope === "all" && ruleId) {
-      pushToast("success", "繰り返しタスクを全て削除しました。");
-      setState((current) => ({
-        ...current,
-        tasks: current.tasks.filter((task) => task.recurrence_rule_id !== ruleId),
-      }));
-    } else {
-      pushToast("success", "タスクを削除しました。");
-      setState((current) => ({
-        ...current,
-        tasks: current.tasks.filter((task) => task.id !== taskId),
-      }));
-    }
+    pushToast("success", "タスクを削除しました。");
+    setState((current) => ({
+      ...current,
+      tasks: current.tasks.filter((task) => task.id !== taskId),
+    }));
   }
 
   async function copyText(label: string, value: string) {
@@ -2762,11 +2727,7 @@ export function TaskBoard({
                         >
                           <button className="min-w-0 text-left" onClick={() => openTaskDetail(task)} type="button">
                             <p className="truncate text-sm font-semibold text-[var(--ink)]">
-                              {formatTaskTitleIcon(task)}{" "}
-                              {task.title}
-                              {task.recurrence_rule_id && (
-                                <span className="ml-1.5 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold text-[#244234] bg-[#d1fae5] align-middle">繰返</span>
-                              )}
+                              {formatTaskTitleIcon(task)} {task.title}
                             </p>
                           </button>
                           <span className="text-sm text-[var(--muted)]">{slotLabel(scheduledTimeToSlot(task.scheduled_time))}</span>
@@ -3107,18 +3068,12 @@ export function TaskBoard({
                   rangedTasks.map((task) => (
                     <div key={task.id} className={`grid grid-cols-[minmax(0,1.5fr)_120px_110px_110px_220px] items-center gap-4 border-t border-black/5 px-5 py-4 transition-colors hover:bg-black/[0.02] ${taskCardSurfaceClass(task)}`}>
                       <button className="min-w-0 text-left" onClick={() => openTaskDetail(task)} type="button">
-                        <p className="truncate text-sm font-semibold text-[var(--ink)]">
-                          {formatTaskTitleIcon(task)}{" "}
-                          {task.title}
-                          {task.recurrence_rule_id && (
-                            <span className="ml-1.5 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold text-[#244234] bg-[#d1fae5] align-middle">繰返</span>
-                          )}
-                        </p>
+                        <p className="truncate text-sm font-semibold text-[var(--ink)]">{formatTaskTitleIcon(task)} {task.title}</p>
                       </button>
                       <span className="text-sm text-[var(--muted)]">{task.scheduled_date}</span>
                       <span className="text-sm text-[var(--muted)]">{slotLabel(scheduledTimeToSlot(task.scheduled_time))}</span>
                       <span className={taskStatusChipClass(task.status)}>{formatStatus(task.status)}</span>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex gap-2">
                         <button className={miniUtilityButtonClass} onClick={() => openEditTask(task)} type="button">編集</button>
                         <button
                           className={miniUtilityButtonClass}
@@ -3130,44 +3085,9 @@ export function TaskBoard({
                         >
                           コピー
                         </button>
-                        {deleteConfirmTaskId === task.id ? (
-                          <>
-                            <button
-                              className={miniDangerButtonClass}
-                              onClick={() => handleDeleteTask(task.id, "single")}
-                              disabled={taskDeletePendingId === task.id}
-                              type="button"
-                            >
-                              {taskDeletePendingId === task.id ? "削除中..." : "この1件"}
-                            </button>
-                            {task.recurrence_rule_id && (
-                              <button
-                                className={miniDangerButtonClass}
-                                onClick={() => handleDeleteTask(task.id, "all")}
-                                disabled={taskDeletePendingId === task.id}
-                                type="button"
-                              >
-                                全て削除
-                              </button>
-                            )}
-                            <button
-                              className={miniUtilityButtonClass}
-                              onClick={() => setDeleteConfirmTaskId(null)}
-                              type="button"
-                            >
-                              ✕
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            className={miniDangerButtonClass}
-                            onClick={() => setDeleteConfirmTaskId(task.id)}
-                            disabled={taskDeletePendingId === task.id}
-                            type="button"
-                          >
-                            {taskDeletePendingId === task.id ? "削除中" : "削除"}
-                          </button>
-                        )}
+                        <button className={miniDangerButtonClass} onClick={() => handleDeleteTask(task.id)} type="button" disabled={taskDeletePendingId === task.id}>
+                          {taskDeletePendingId === task.id ? "削除中" : "削除"}
+                        </button>
                       </div>
                     </div>
                   ))
@@ -3511,52 +3431,36 @@ export function TaskBoard({
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.95fr)] lg:items-start">
           <div className="grid gap-5">
             <Card>
-              {/* ヘッダー: グループセレクタ + 一覧リンク + 新規ボタン */}
-              <div className="flex items-center gap-2">
-                <select
-                  className="min-w-0 flex-1 truncate bg-transparent text-xs font-semibold text-[var(--muted)] outline-none"
-                  value={activeGroupId}
-                  onChange={(event) => setCurrentGroupId(event.target.value)}
-                >
-                  {state.groups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  className="shrink-0 rounded-lg border border-black/8 bg-white px-2.5 py-1.5 text-xs font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]"
-                  onClick={() => setScreenMode("tasks")}
-                  type="button"
-                >
-                  一覧
-                </button>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand)]/60">
+                    TASK BOARD
+                  </p>
+                  <div
+                    key={homeDateMotionKey}
+                    className={`${
+                      homeDateMotion === "prev"
+                        ? "home-date-slide-prev"
+                        : homeDateMotion === "next"
+                          ? "home-date-slide-next"
+                          : "home-date-slide-reset"
+                    }`}
+                  >
+                    <h1 className="mt-1.5 font-[family-name:var(--font-heading)] text-[1.85rem] leading-none tracking-[-0.03em] lg:text-[2.3rem]">
+                      {formatHomeHeadingDate(homeDate)}
+                    </h1>
+                    <p className="mt-1.5 text-xs font-medium text-[var(--muted)]">
+                      {homeDateOffset === 0
+                        ? "本日"
+                        : homeDateOffset > 0
+                          ? `${homeDateOffset}日後`
+                          : `${Math.abs(homeDateOffset)}日前`}
+                    </p>
+                  </div>
+                </div>
                 <button className={primaryIconButtonClass} onClick={openCreateTask} type="button">
                   +
                 </button>
-              </div>
-
-              {/* 日付ヘッダー */}
-              <div
-                key={homeDateMotionKey}
-                className={`mt-3 ${
-                  homeDateMotion === "prev"
-                    ? "home-date-slide-prev"
-                    : homeDateMotion === "next"
-                      ? "home-date-slide-next"
-                      : "home-date-slide-reset"
-                }`}
-              >
-                <h1 className="font-[family-name:var(--font-heading)] text-[1.85rem] leading-none tracking-[-0.03em] lg:text-[2.3rem]">
-                  {formatHomeHeadingDate(homeDate)}
-                </h1>
-                <p className="mt-1 text-xs font-medium text-[var(--muted)]">
-                  {homeDateOffset === 0
-                    ? "本日"
-                    : homeDateOffset > 0
-                      ? `${homeDateOffset}日後`
-                      : `${Math.abs(homeDateOffset)}日前`}
-                </p>
               </div>
 
               <div className="mt-4 grid grid-cols-4 gap-2 lg:gap-3">
@@ -3590,15 +3494,37 @@ export function TaskBoard({
                 </button>
               </div>
 
-              <div className="mt-3 flex justify-end">
-                <button
-                  className="text-xs font-medium text-[var(--muted)] underline-offset-2 hover:underline disabled:opacity-40"
-                  onClick={() => setShowGroupModal(true)}
-                  type="button"
-                  disabled={!currentGroup}
+              <div className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-center">
+                <select
+                  className={`${selectCardClass} flex-1`}
+                  value={activeGroupId}
+                  onChange={(event) => setCurrentGroupId(event.target.value)}
                 >
-                  グループ詳細
-                </button>
+                  {state.groups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="grid grid-cols-2 gap-2 lg:w-auto">
+                  <button
+                    className={squareUtilityButtonClass}
+                    onClick={() => setScreenMode("tasks")}
+                    type="button"
+                  >
+                    <span className="text-base leading-none">≡</span>
+                    <span>一覧</span>
+                  </button>
+                  <button
+                    className={squareUtilityButtonClass}
+                    onClick={() => setShowGroupModal(true)}
+                    type="button"
+                    disabled={!currentGroup}
+                  >
+                    <span className="text-base leading-none">⌘</span>
+                    <span>詳細</span>
+                  </button>
+                </div>
               </div>
 
               {!isOnline || syncState !== "idle" ? (
@@ -3632,9 +3558,6 @@ export function TaskBoard({
                           <h2 className="font-[family-name:var(--font-heading)] text-sm leading-6 tracking-[-0.01em] text-[var(--ink)]">
                             {formatTaskTitleIcon(task)}{" "}
                             {task.title}
-                            {task.recurrence_rule_id && (
-                              <span className="ml-1.5 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold text-[#244234] bg-[#d1fae5] align-middle">繰返</span>
-                            )}
                           </h2>
                           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
                             {slotLabel(scheduledTimeToSlot(task.scheduled_time))} / {formatStatus(task.status)}
@@ -3811,9 +3734,6 @@ export function TaskBoard({
                     <h2 className="font-[family-name:var(--font-heading)] text-sm leading-6 tracking-[-0.01em] text-[var(--ink)]">
                       {formatTaskTitleIcon(task)}{" "}
                       {task.title}
-                      {task.recurrence_rule_id && (
-                        <span className="ml-1.5 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold text-[#244234] bg-[#d1fae5] align-middle">繰返</span>
-                      )}
                     </h2>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <span className="rounded-full bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-[var(--ink-soft)]">
@@ -5967,13 +5887,13 @@ const inputClass =
 const primaryButtonClass =
   "rounded-2xl bg-[var(--brand)] px-5 py-3.5 text-sm font-semibold text-white transition-transform active:scale-[0.97]";
 const primaryIconButtonClass =
-  "flex h-12 w-12 items-center justify-center rounded-2xl bg-[#244234] text-2xl font-light leading-none text-white shadow-[0_4px_12px_rgba(36,66,52,0.25)] transition-transform active:scale-[0.95]";
+  "flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--brand)] text-2xl font-light leading-none text-white shadow-[0_4px_12px_rgba(79,70,229,0.3)] transition-transform active:scale-[0.95]";
 const secondaryButtonClass =
   "rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
 const segmentedButtonClass =
   "rounded-xl border border-black/8 bg-white px-4 py-2.5 text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
 const segmentedActiveButtonClass =
-  "rounded-xl bg-[#244234] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_4px_10px_rgba(36,66,52,0.2)] transition-transform active:scale-[0.97]";
+  "rounded-xl bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_6px_14px_rgba(79,70,229,0.28)] transition-transform active:scale-[0.97]";
 const selectCardClass =
   "min-w-0 rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink)] outline-none";
 const squareUtilityButtonClass =
