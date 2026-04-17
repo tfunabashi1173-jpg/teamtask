@@ -2497,7 +2497,7 @@ export function TaskBoard({
       enablePushPrompt
       wide
     >
-      <div className="hidden lg:block">
+      <div className="desktop-compact hidden lg:block">
         <div className="rounded-[40px] border border-black/5 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(247,245,238,0.94))] p-4 shadow-[0_24px_70px_rgba(15,23,42,0.10)] xl:p-5">
         <div className="grid lg:grid-cols-[236px_minmax(0,1fr)] lg:gap-5 xl:grid-cols-[244px_minmax(0,1fr)]">
         <aside className="sticky top-5 grid gap-4 self-start">
@@ -2505,7 +2505,7 @@ export function TaskBoard({
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/60">
               Workspace
             </p>
-            <h2 className="mt-3 font-[family-name:var(--font-heading)] text-[2rem] leading-tight tracking-[-0.05em] text-white">
+            <h2 className="mt-3 font-[family-name:var(--font-heading)] text-[1.55rem] leading-tight tracking-[-0.04em] text-white xl:text-[1.72rem]">
               {state.workspace?.name ?? "Workspace"}
             </h2>
             <p className="mt-2 text-sm text-white/70">

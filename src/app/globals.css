@@ -96,3 +96,25 @@ input {
 .home-date-slide-reset {
   animation: home-date-slide-reset 180ms ease-out;
 }
+
+@media (min-width: 1024px) {
+  .desktop-compact .text-sm {
+    font-size: 0.82rem;
+    line-height: 1.28rem;
+  }
+
+  .desktop-compact .text-base {
+    font-size: 0.92rem;
+    line-height: 1.34rem;
+  }
+
+  .desktop-compact .text-lg {
+    font-size: 1.03rem;
+    line-height: 1.5rem;
+  }
+
+  .desktop-compact .text-2xl {
+    font-size: 1.38rem;
+    line-height: 1.9rem;
+  }
+}
