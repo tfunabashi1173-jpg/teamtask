@@ -1691,11 +1691,24 @@ export function TaskBoard({
         ? state.tasks.find(
             (item) => item.scheduled_date === scheduledDate && item.title === title,
           )
+        : null) ??
+      (title
+        ? [...state.tasks]
+            .filter((item) => item.title === title)
+            .sort((a, b) => {
+              const baseTime = new Date(log.created_at).getTime();
+              const aTime = new Date(`${a.scheduled_date}T00:00:00`).getTime();
+              const bTime = new Date(`${b.scheduled_date}T00:00:00`).getTime();
+              return Math.abs(aTime - baseTime) - Math.abs(bTime - baseTime);
+            })[0] ?? null
         : null);
 
     if (task) {
       openTaskDetail(task);
+      return;
     }
+
+    pushToast("error", "通知に対応するタスクが見つかりません。");
   }
 
   function updateBatchRow(rowId: string, patch: Partial<BatchTaskRow>) {
