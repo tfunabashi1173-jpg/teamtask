@@ -2627,7 +2627,7 @@ export function TaskBoard({
 
         </aside>
 
-        <main className="ml-[220px] min-h-screen bg-[#f1f5f9] px-8">
+        <main className="ml-[220px] min-h-screen bg-[#f1f5f9] pl-10 pr-10">
           {desktopPanelMode === "home" ? (
             <div className="py-6">
             <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.58fr)_minmax(300px,0.62fr)]">
@@ -3433,36 +3433,52 @@ export function TaskBoard({
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.95fr)] lg:items-start">
           <div className="grid gap-5">
             <Card>
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand)]/60">
-                    TASK BOARD
-                  </p>
-                  <div
-                    key={homeDateMotionKey}
-                    className={`${
-                      homeDateMotion === "prev"
-                        ? "home-date-slide-prev"
-                        : homeDateMotion === "next"
-                          ? "home-date-slide-next"
-                          : "home-date-slide-reset"
-                    }`}
-                  >
-                    <h1 className="mt-1.5 font-[family-name:var(--font-heading)] text-[1.85rem] leading-none tracking-[-0.03em] lg:text-[2.3rem]">
-                      {formatHomeHeadingDate(homeDate)}
-                    </h1>
-                    <p className="mt-1.5 text-xs font-medium text-[var(--muted)]">
-                      {homeDateOffset === 0
-                        ? "本日"
-                        : homeDateOffset > 0
-                          ? `${homeDateOffset}日後`
-                          : `${Math.abs(homeDateOffset)}日前`}
-                    </p>
-                  </div>
-                </div>
+              {/* ヘッダー: グループセレクタ + 一覧リンク + 新規ボタン */}
+              <div className="flex items-center gap-2">
+                <select
+                  className="min-w-0 flex-1 truncate bg-transparent text-xs font-semibold text-[var(--muted)] outline-none"
+                  value={activeGroupId}
+                  onChange={(event) => setCurrentGroupId(event.target.value)}
+                >
+                  {state.groups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="shrink-0 rounded-lg border border-black/8 bg-white px-2.5 py-1.5 text-xs font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]"
+                  onClick={() => setScreenMode("tasks")}
+                  type="button"
+                >
+                  一覧
+                </button>
                 <button className={primaryIconButtonClass} onClick={openCreateTask} type="button">
                   +
                 </button>
+              </div>
+
+              {/* 日付ヘッダー */}
+              <div
+                key={homeDateMotionKey}
+                className={`mt-3 ${
+                  homeDateMotion === "prev"
+                    ? "home-date-slide-prev"
+                    : homeDateMotion === "next"
+                      ? "home-date-slide-next"
+                      : "home-date-slide-reset"
+                }`}
+              >
+                <h1 className="font-[family-name:var(--font-heading)] text-[1.85rem] leading-none tracking-[-0.03em] lg:text-[2.3rem]">
+                  {formatHomeHeadingDate(homeDate)}
+                </h1>
+                <p className="mt-1 text-xs font-medium text-[var(--muted)]">
+                  {homeDateOffset === 0
+                    ? "本日"
+                    : homeDateOffset > 0
+                      ? `${homeDateOffset}日後`
+                      : `${Math.abs(homeDateOffset)}日前`}
+                </p>
               </div>
 
               <div className="mt-4 grid grid-cols-4 gap-2 lg:gap-3">
@@ -3496,37 +3512,15 @@ export function TaskBoard({
                 </button>
               </div>
 
-              <div className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-center">
-                <select
-                  className={`${selectCardClass} flex-1`}
-                  value={activeGroupId}
-                  onChange={(event) => setCurrentGroupId(event.target.value)}
+              <div className="mt-3 flex justify-end">
+                <button
+                  className="text-xs font-medium text-[var(--muted)] underline-offset-2 hover:underline disabled:opacity-40"
+                  onClick={() => setShowGroupModal(true)}
+                  type="button"
+                  disabled={!currentGroup}
                 >
-                  {state.groups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </select>
-                <div className="grid grid-cols-2 gap-2 lg:w-auto">
-                  <button
-                    className={squareUtilityButtonClass}
-                    onClick={() => setScreenMode("tasks")}
-                    type="button"
-                  >
-                    <span className="text-base leading-none">≡</span>
-                    <span>一覧</span>
-                  </button>
-                  <button
-                    className={squareUtilityButtonClass}
-                    onClick={() => setShowGroupModal(true)}
-                    type="button"
-                    disabled={!currentGroup}
-                  >
-                    <span className="text-base leading-none">⌘</span>
-                    <span>詳細</span>
-                  </button>
-                </div>
+                  グループ詳細
+                </button>
               </div>
 
               {!isOnline || syncState !== "idle" ? (
@@ -5889,13 +5883,13 @@ const inputClass =
 const primaryButtonClass =
   "rounded-2xl bg-[var(--brand)] px-5 py-3.5 text-sm font-semibold text-white transition-transform active:scale-[0.97]";
 const primaryIconButtonClass =
-  "flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--brand)] text-2xl font-light leading-none text-white shadow-[0_4px_12px_rgba(79,70,229,0.3)] transition-transform active:scale-[0.95]";
+  "flex h-12 w-12 items-center justify-center rounded-2xl bg-[#244234] text-2xl font-light leading-none text-white shadow-[0_4px_12px_rgba(36,66,52,0.25)] transition-transform active:scale-[0.95]";
 const secondaryButtonClass =
   "rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
 const segmentedButtonClass =
   "rounded-xl border border-black/8 bg-white px-4 py-2.5 text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
 const segmentedActiveButtonClass =
-  "rounded-xl bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_6px_14px_rgba(79,70,229,0.28)] transition-transform active:scale-[0.97]";
+  "rounded-xl bg-[#244234] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_4px_10px_rgba(36,66,52,0.2)] transition-transform active:scale-[0.97]";
 const selectCardClass =
   "min-w-0 rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink)] outline-none";
 const squareUtilityButtonClass =
