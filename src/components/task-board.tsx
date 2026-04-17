@@ -2825,12 +2825,9 @@ export function TaskBoard({
 
           {desktopPanelMode === "manage" ? (
             <Card className="m-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">管理画面</h3>
-                  <p className="mt-1 text-sm text-[var(--muted)]">メンバー承認・招待・設定</p>
-                </div>
-                <button className={desktopSecondaryButtonClass} onClick={() => setShowManageModal(false)} type="button">閉じる</button>
+              <div>
+                <h3 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">管理画面</h3>
+                <p className="mt-1 text-sm text-[var(--muted)]">メンバー承認・招待・設定</p>
               </div>
               <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
                 <div className="grid gap-5">
@@ -2964,10 +2961,7 @@ export function TaskBoard({
 
           {desktopPanelMode === "group" ? (
             <Card className="m-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">グループ詳細</h3>
-                <button className={desktopSecondaryButtonClass} onClick={() => setShowGroupModal(false)} type="button">閉じる</button>
-              </div>
+              <h3 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">グループ詳細</h3>
               <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
                 <div className="rounded-md border border-[#e2e8f0] bg-white px-5 py-5">
                   <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--muted)]">GROUP</p>
