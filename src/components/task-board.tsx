@@ -5079,7 +5079,10 @@ function NotificationBubble({
         </button>
       </div>
       <div
-        className={`flex w-full items-start gap-3 transition-transform duration-200 ${isOpen ? "-translate-x-14" : "translate-x-0"}`}
+        className={`flex w-full items-start gap-3 transition-transform duration-200 ${isOpen ? "-translate-x-14" : "translate-x-0"} ${
+          hasTask ? "cursor-pointer" : ""
+        }`}
+        onClick={hasTask ? onTaskClick : undefined}
         onTouchStart={(event) => {
           touchStartXRef.current = event.touches[0]?.clientX ?? null;
         }}
@@ -5109,8 +5112,9 @@ function NotificationBubble({
         </div>
       )}
       <div
-        className={`relative min-w-0 flex-1 rounded-[24px] bg-[var(--chip)] px-4 py-3 text-[var(--ink)] shadow-[0_10px_20px_rgba(31,41,51,0.05)] ${hasTask ? "cursor-pointer hover:bg-[var(--chip)]/80 active:scale-[0.99] transition-all" : ""}`}
-        onClick={hasTask ? onTaskClick : undefined}
+        className={`relative min-w-0 flex-1 rounded-[24px] bg-[var(--chip)] px-4 py-3 text-[var(--ink)] shadow-[0_10px_20px_rgba(31,41,51,0.05)] ${
+          hasTask ? "hover:bg-[var(--chip)]/80 active:scale-[0.99] transition-all" : ""
+        }`}
       >
         <div className="absolute left-[-7px] top-4 h-3.5 w-3.5 rotate-45 bg-[var(--chip)]" />
         <p className="text-sm font-semibold text-[var(--ink-soft)]">{actorName}</p>
