@@ -3638,6 +3638,9 @@ export function TaskBoard({
                           <h2 className="font-[family-name:var(--font-heading)] text-sm leading-6 tracking-[-0.01em] text-[var(--ink)]">
                             {formatTaskTitleIcon(task)}{" "}
                             {task.title}
+                            {task.recurrence_rule_id && (
+                              <span className="ml-1.5 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold text-[#244234] bg-[#d1fae5] align-middle">繰返</span>
+                            )}
                           </h2>
                           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
                             {slotLabel(scheduledTimeToSlot(task.scheduled_time))} / {formatStatus(task.status)}
@@ -3814,6 +3817,9 @@ export function TaskBoard({
                     <h2 className="font-[family-name:var(--font-heading)] text-sm leading-6 tracking-[-0.01em] text-[var(--ink)]">
                       {formatTaskTitleIcon(task)}{" "}
                       {task.title}
+                      {task.recurrence_rule_id && (
+                        <span className="ml-1.5 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold text-[#244234] bg-[#d1fae5] align-middle">繰返</span>
+                      )}
                     </h2>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <span className="rounded-full bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-[var(--ink-soft)]">
