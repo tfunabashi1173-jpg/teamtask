@@ -2622,6 +2622,11 @@ export function TaskBoard({
             </button>
           </div>
 
+          {/* Version */}
+          <div className="shrink-0 border-t border-[#e2e8f0] px-3 py-2">
+            <p className="text-[10px] text-[var(--muted)]">{appVersion} ({commitSha})</p>
+          </div>
+
         </aside>
 
         <main className="ml-[220px] min-h-screen bg-[#f1f5f9]">
