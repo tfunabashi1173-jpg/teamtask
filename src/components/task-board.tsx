@@ -1653,6 +1653,14 @@ export function TaskBoard({
     setSelectedTaskId(task.id);
   }
 
+  function openTaskFromLog(log: TaskLogRecord) {
+    if (!log.task?.id) return;
+    const task = state.tasks.find((item) => item.id === log.task?.id);
+    if (task) {
+      openTaskDetail(task);
+    }
+  }
+
   function updateBatchRow(rowId: string, patch: Partial<BatchTaskRow>) {
     setBatchRows((current) =>
       current.map((row) => (row.id === rowId ? { ...row, ...patch } : row)),
@@ -2799,18 +2807,15 @@ export function TaskBoard({
                   <div className="mt-4 flex flex-col gap-2 overflow-y-auto pr-1" style={{ height: "calc(100% - 2.5rem)" }}>
                     {state.logs.length > 0 ? (
                       state.logs.map((log) => (
-                        <NotificationBubble
-                          key={log.id}
-                          isOpen={openNotificationId === log.id}
-                          log={log}
-                          onClose={() => setOpenNotificationId(null)}
-                          onDismiss={() => handleDismissLog(log.id)}
-                          onOpen={() => setOpenNotificationId(log.id)}
-                          onTaskClick={log.task?.id ? () => {
-                            const task = state.tasks.find((t) => t.id === log.task?.id);
-                            if (task) openTaskDetail(task);
-                          } : undefined}
-                        />
+                      <NotificationBubble
+                        key={log.id}
+                        isOpen={openNotificationId === log.id}
+                        log={log}
+                        onClose={() => setOpenNotificationId(null)}
+                        onDismiss={() => handleDismissLog(log.id)}
+                        onOpen={() => setOpenNotificationId(log.id)}
+                        onTaskClick={log.task?.id ? () => openTaskFromLog(log) : undefined}
+                      />
                       ))
                     ) : (
                       <p className="text-sm text-[var(--muted)]">通知はまだありません。</p>
@@ -3203,11 +3208,12 @@ export function TaskBoard({
                     <NotificationBubble
                       key={log.id}
                       isOpen={openNotificationId === log.id}
-                      log={log}
-                      onClose={() => setOpenNotificationId(null)}
-                      onDismiss={() => handleDismissLog(log.id)}
-                      onOpen={() => setOpenNotificationId(log.id)}
-                    />
+                    log={log}
+                    onClose={() => setOpenNotificationId(null)}
+                    onDismiss={() => handleDismissLog(log.id)}
+                    onOpen={() => setOpenNotificationId(log.id)}
+                    onTaskClick={log.task?.id ? () => openTaskFromLog(log) : undefined}
+                  />
                   ))
                 ) : (
                   <p className="text-sm text-[var(--muted)]">通知はまだありません。</p>
@@ -3727,6 +3733,7 @@ export function TaskBoard({
                     onClose={() => setOpenNotificationId(null)}
                     onDismiss={() => handleDismissLog(latestLog.id)}
                     onOpen={() => setOpenNotificationId(latestLog.id)}
+                    onTaskClick={latestLog.task?.id ? () => openTaskFromLog(latestLog) : undefined}
                   />
                 ) : (
                   <p className="text-sm text-[var(--muted)]">通知はまだありません。</p>
@@ -3902,6 +3909,7 @@ export function TaskBoard({
                   onClose={() => setOpenNotificationId(null)}
                   onDismiss={() => handleDismissLog(log.id)}
                   onOpen={() => setOpenNotificationId(log.id)}
+                  onTaskClick={log.task?.id ? () => openTaskFromLog(log) : undefined}
                 />
               ))
             ) : (
