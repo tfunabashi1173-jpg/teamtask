@@ -3338,7 +3338,8 @@ export function TaskBoard({
 
                               <div className="grid gap-4 md:grid-cols-2">
                                 <FormField label="期間開始">
-                                  <NativePickerField
+                                  <input
+                                    className={inputClass}
                                     type="date"
                                     value={row.scheduledDate}
                                     onChange={(event) => updateBatchRow(row.id, {
@@ -3349,9 +3350,11 @@ export function TaskBoard({
                                   />
                                 </FormField>
                                 <FormField label="期間終了">
-                                  <NativePickerField
+                                  <input
+                                    className={inputClass}
                                     type="date"
                                     value={row.recurrenceEndDate}
+                                    min={row.scheduledDate}
                                     onChange={(event) => updateBatchRow(row.id, { recurrenceEndDate: event.target.value })}
                                   />
                                 </FormField>
@@ -3973,7 +3976,8 @@ export function TaskBoard({
                       <div className="mt-4 grid gap-3">
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                           <FormField label="開始日">
-                            <NativePickerField
+                            <input
+                              className={inputClass}
                               type="date"
                               value={row.scheduledDate}
                               onChange={(event) =>
@@ -3986,9 +3990,11 @@ export function TaskBoard({
                             />
                           </FormField>
                           <FormField label="終了日">
-                            <NativePickerField
+                            <input
+                              className={inputClass}
                               type="date"
                               value={row.recurrenceEndDate}
+                              min={row.scheduledDate}
                               onChange={(event) => updateBatchRow(row.id, { recurrenceEndDate: event.target.value })}
                             />
                           </FormField>
@@ -4291,7 +4297,8 @@ export function TaskBoard({
                     <td className="border-y border-black/5 bg-white px-2 py-4">
                       {row.recurrenceEnabled ? (
                         <div className="grid gap-2">
-                          <NativePickerField
+                          <input
+                            className={inputClass}
                             type="date"
                             value={row.scheduledDate}
                             onChange={(event) =>
@@ -4302,9 +4309,11 @@ export function TaskBoard({
                               })
                             }
                           />
-                          <NativePickerField
+                          <input
+                            className={inputClass}
                             type="date"
                             value={row.recurrenceEndDate}
+                            min={row.scheduledDate}
                             onChange={(event) => updateBatchRow(row.id, { recurrenceEndDate: event.target.value })}
                           />
                         </div>
