@@ -339,6 +339,10 @@ function logMessage(log: TaskLogRecord) {
   return `「${title}」を更新しました`;
 }
 
+function isTaskLinkedLog(log: TaskLogRecord) {
+  return log.action_type !== "member_joined" && log.action_type !== "member_removed";
+}
+
 function formatRecurrenceSummary(task: TaskRecord) {
   if (!task.recurrence?.is_active) return null;
 
@@ -2847,7 +2851,7 @@ export function TaskBoard({
                         onClose={() => setOpenNotificationId(null)}
                         onDismiss={() => handleDismissLog(log.id)}
                         onOpen={() => setOpenNotificationId(log.id)}
-                        onTaskClick={log.task?.id ? () => openTaskFromLog(log) : undefined}
+                        onTaskClick={isTaskLinkedLog(log) ? () => openTaskFromLog(log) : undefined}
                       />
                       ))
                     ) : (
@@ -3245,7 +3249,7 @@ export function TaskBoard({
                     onClose={() => setOpenNotificationId(null)}
                     onDismiss={() => handleDismissLog(log.id)}
                     onOpen={() => setOpenNotificationId(log.id)}
-                    onTaskClick={log.task?.id ? () => openTaskFromLog(log) : undefined}
+                    onTaskClick={isTaskLinkedLog(log) ? () => openTaskFromLog(log) : undefined}
                   />
                   ))
                 ) : (
@@ -3766,7 +3770,7 @@ export function TaskBoard({
                     onClose={() => setOpenNotificationId(null)}
                     onDismiss={() => handleDismissLog(latestLog.id)}
                     onOpen={() => setOpenNotificationId(latestLog.id)}
-                    onTaskClick={latestLog.task?.id ? () => openTaskFromLog(latestLog) : undefined}
+                    onTaskClick={isTaskLinkedLog(latestLog) ? () => openTaskFromLog(latestLog) : undefined}
                   />
                 ) : (
                   <p className="text-sm text-[var(--muted)]">通知はまだありません。</p>
@@ -3942,7 +3946,7 @@ export function TaskBoard({
                   onClose={() => setOpenNotificationId(null)}
                   onDismiss={() => handleDismissLog(log.id)}
                   onOpen={() => setOpenNotificationId(log.id)}
-                  onTaskClick={log.task?.id ? () => openTaskFromLog(log) : undefined}
+                  onTaskClick={isTaskLinkedLog(log) ? () => openTaskFromLog(log) : undefined}
                 />
               ))
             ) : (
@@ -5093,7 +5097,7 @@ function NotificationBubble({
   const actorName = log.actor?.display_name ?? "誰か";
   const actorImage = log.actor?.line_picture_url ?? null;
   const touchStartXRef = useRef<number | null>(null);
-  const hasTask = Boolean(log.task?.id && onTaskClick);
+  const hasTask = Boolean(onTaskClick);
 
   return (
     <div className="relative w-full shrink-0 overflow-hidden rounded-[24px]">
