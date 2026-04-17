@@ -2534,29 +2534,29 @@ export function TaskBoard({
           <nav className="flex flex-1 flex-col gap-0.5 px-2 pt-3">
             <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">Menu</p>
             <button
-              className={desktopScreenMode === "home" ? desktopNavActiveClass : desktopNavButtonClass}
-              onClick={() => setScreenMode("home")}
+              className={desktopPanelMode === "home" ? desktopNavActiveClass : desktopNavButtonClass}
+              onClick={() => { setScreenMode("home"); setCreateTaskOpen(false); setSelectedTaskId(null); setShowManageModal(false); setShowGroupModal(false); }}
               type="button"
             >
               ダッシュボード
             </button>
             <button
-              className={desktopScreenMode === "tasks" ? desktopNavActiveClass : desktopNavButtonClass}
-              onClick={() => setScreenMode("tasks")}
+              className={desktopPanelMode === "tasks" ? desktopNavActiveClass : desktopNavButtonClass}
+              onClick={() => { setScreenMode("tasks"); setCreateTaskOpen(false); setSelectedTaskId(null); setShowManageModal(false); setShowGroupModal(false); }}
               type="button"
             >
               タスク一覧
             </button>
             <button
-              className={desktopScreenMode === "bulk" ? desktopNavActiveClass : desktopNavButtonClass}
-              onClick={() => setScreenMode("bulk")}
+              className={desktopPanelMode === "bulk" ? desktopNavActiveClass : desktopNavButtonClass}
+              onClick={() => { setScreenMode("bulk"); setCreateTaskOpen(false); setSelectedTaskId(null); setShowManageModal(false); setShowGroupModal(false); }}
               type="button"
             >
               一括登録
             </button>
             <button
-              className={desktopScreenMode === "notifications" ? desktopNavActiveClass : desktopNavButtonClass}
-              onClick={() => setScreenMode("notifications")}
+              className={desktopPanelMode === "notifications" ? desktopNavActiveClass : desktopNavButtonClass}
+              onClick={() => { setScreenMode("notifications"); setCreateTaskOpen(false); setSelectedTaskId(null); setShowManageModal(false); setShowGroupModal(false); }}
               type="button"
             >
               通知
@@ -2577,11 +2577,11 @@ export function TaskBoard({
           {/* Utility links (bottom) */}
           <div className="flex shrink-0 flex-col gap-0.5 border-t border-[#e2e8f0] px-2 py-2">
             {state.appUser.role === "admin" ? (
-              <button className={desktopNavButtonClass} onClick={() => setShowManageModal(true)} type="button">
+              <button className={desktopPanelMode === "manage" ? desktopNavActiveClass : desktopNavButtonClass} onClick={() => { setShowManageModal(true); setShowGroupModal(false); setCreateTaskOpen(false); setSelectedTaskId(null); }} type="button">
                 管理
               </button>
             ) : null}
-            <button className={desktopNavButtonClass} onClick={() => setShowGroupModal(true)} type="button" disabled={!currentGroup}>
+            <button className={desktopPanelMode === "group" ? desktopNavActiveClass : desktopNavButtonClass} onClick={() => { setShowGroupModal(true); setShowManageModal(false); setCreateTaskOpen(false); setSelectedTaskId(null); }} type="button" disabled={!currentGroup}>
               グループ詳細
             </button>
             <button className={`${desktopDangerButtonClass} w-full justify-start`} onClick={handleLogout} type="button" disabled={isSubmitting}>
