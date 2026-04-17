@@ -2497,94 +2497,106 @@ export function TaskBoard({
       enablePushPrompt
       wide
     >
-      <div className="desktop-compact hidden lg:block">
-        <div className="rounded-[40px] border border-black/5 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(247,245,238,0.94))] p-4 shadow-[0_24px_70px_rgba(15,23,42,0.10)] xl:p-5">
-        <div className="grid lg:grid-cols-[236px_minmax(0,1fr)] lg:gap-5 xl:grid-cols-[244px_minmax(0,1fr)]">
-        <aside className="sticky top-5 grid gap-4 self-start">
-          <Card className="border border-black/5 bg-[linear-gradient(180deg,#244234_0%,#315843_100%)] text-white shadow-[0_22px_48px_rgba(36,66,52,0.28)]">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/60">
-              Workspace
-            </p>
-            <h2 className="mt-3 font-[family-name:var(--font-heading)] text-[1.55rem] leading-tight tracking-[-0.04em] text-white xl:text-[1.72rem]">
-              {state.workspace?.name ?? "Workspace"}
-            </h2>
-            <p className="mt-2 text-sm text-white/70">
-              {state.appUser.display_name} / {state.appUser.role}
-            </p>
-            <div className="mt-5 rounded-[24px] border border-white/10 bg-white/8 p-4 backdrop-blur-sm">
-              <FormField label="グループ">
-                <select
-                  className={`${selectCardClass} border-white/10 bg-white text-[var(--ink)]`}
-                  value={activeGroupId}
-                  onChange={(event) => setCurrentGroupId(event.target.value)}
-                >
-                  {state.groups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </select>
-              </FormField>
-            </div>
-            <button className="mt-4 w-full rounded-[22px] bg-white px-5 py-3.5 text-sm font-semibold text-[#244234] shadow-[0_10px_24px_rgba(255,255,255,0.15)]" onClick={openCreateTask} type="button">
-              新規タスク
-            </button>
-          </Card>
+      <div className="desktop-layout hidden lg:flex min-h-screen">
+        <div className="flex w-full min-h-screen">
+        <div className="flex w-full">
+        <aside className="flex h-screen w-[220px] shrink-0 flex-col border-r border-[#e2e8f0] bg-white sticky top-0">
 
-          <Card className="border border-black/5 bg-[rgba(255,255,255,0.88)] shadow-[0_14px_36px_rgba(15,23,42,0.08)]">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--muted)]">Navigation</p>
-            <div className="mt-4 grid gap-2">
-              <button
-                className={desktopScreenMode === "home" ? desktopNavActiveClass : desktopNavButtonClass}
-                onClick={() => setScreenMode("home")}
-                type="button"
-              >
-                ダッシュボード
-              </button>
-              <button
-                className={desktopScreenMode === "tasks" ? desktopNavActiveClass : desktopNavButtonClass}
-                onClick={() => setScreenMode("tasks")}
-                type="button"
-              >
-                タスク一覧
-              </button>
-              <button
-                className={desktopScreenMode === "bulk" ? desktopNavActiveClass : desktopNavButtonClass}
-                onClick={() => setScreenMode("bulk")}
-                type="button"
-              >
-                一括登録
-              </button>
-              <button
-                className={desktopScreenMode === "notifications" ? desktopNavActiveClass : desktopNavButtonClass}
-                onClick={() => setScreenMode("notifications")}
-                type="button"
-              >
-                通知
-              </button>
+          {/* App logo / name */}
+          <div className="flex h-14 items-center gap-2.5 border-b border-[#e2e8f0] px-4 shrink-0">
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#244234]">
+              <span className="text-xs font-bold text-white">T</span>
             </div>
-            <div className="mt-4 grid gap-2">
-              {state.appUser.role === "admin" ? (
-                <button className={desktopSecondaryButtonClass} onClick={() => setShowManageModal(true)} type="button">
-                  管理
-                </button>
-              ) : null}
-              <button className={desktopSecondaryButtonClass} onClick={() => setShowGroupModal(true)} type="button" disabled={!currentGroup}>
-                グループ詳細
+            <span className="text-sm font-semibold text-[var(--ink)]">Team Task</span>
+          </div>
+
+          {/* Workspace + group selector */}
+          <div className="border-b border-[#e2e8f0] px-3 py-3 shrink-0">
+            <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">Workspace</p>
+            <p className="truncate px-1 text-sm font-semibold text-[var(--ink)]">{state.workspace?.name ?? "Workspace"}</p>
+            <p className="mt-0.5 truncate px-1 text-xs text-[var(--muted)]">
+              {state.appUser.display_name} · {state.appUser.role}
+            </p>
+            <select
+              className="mt-2 w-full rounded-md border border-[#e2e8f0] bg-[#f8fafc] px-2.5 py-1.5 text-xs font-medium text-[var(--ink)] outline-none focus:border-[#244234]/40 focus:ring-2 focus:ring-[#244234]/10"
+              value={activeGroupId}
+              onChange={(event) => setCurrentGroupId(event.target.value)}
+            >
+              {state.groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Primary nav */}
+          <nav className="flex flex-1 flex-col gap-0.5 px-2 pt-3">
+            <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">Menu</p>
+            <button
+              className={desktopScreenMode === "home" ? desktopNavActiveClass : desktopNavButtonClass}
+              onClick={() => setScreenMode("home")}
+              type="button"
+            >
+              ダッシュボード
+            </button>
+            <button
+              className={desktopScreenMode === "tasks" ? desktopNavActiveClass : desktopNavButtonClass}
+              onClick={() => setScreenMode("tasks")}
+              type="button"
+            >
+              タスク一覧
+            </button>
+            <button
+              className={desktopScreenMode === "bulk" ? desktopNavActiveClass : desktopNavButtonClass}
+              onClick={() => setScreenMode("bulk")}
+              type="button"
+            >
+              一括登録
+            </button>
+            <button
+              className={desktopScreenMode === "notifications" ? desktopNavActiveClass : desktopNavButtonClass}
+              onClick={() => setScreenMode("notifications")}
+              type="button"
+            >
+              通知
+            </button>
+          </nav>
+
+          {/* New task CTA */}
+          <div className="shrink-0 border-t border-[#e2e8f0] px-3 py-3">
+            <button
+              className="w-full rounded-md bg-[#244234] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#1a3128] active:bg-[#15271f]"
+              onClick={openCreateTask}
+              type="button"
+            >
+              + 新規タスク
+            </button>
+          </div>
+
+          {/* Utility links (bottom) */}
+          <div className="flex shrink-0 flex-col gap-0.5 border-t border-[#e2e8f0] px-2 py-2">
+            {state.appUser.role === "admin" ? (
+              <button className={desktopNavButtonClass} onClick={() => setShowManageModal(true)} type="button">
+                管理
               </button>
-              <button className={desktopDangerButtonClass} onClick={handleLogout} type="button" disabled={isSubmitting}>
-                {isSubmitting ? "処理中..." : "ログアウト"}
-              </button>
-            </div>
-          </Card>
+            ) : null}
+            <button className={desktopNavButtonClass} onClick={() => setShowGroupModal(true)} type="button" disabled={!currentGroup}>
+              グループ詳細
+            </button>
+            <button className={`${desktopDangerButtonClass} w-full justify-start`} onClick={handleLogout} type="button" disabled={isSubmitting}>
+              {isSubmitting ? "処理中..." : "ログアウト"}
+            </button>
+          </div>
 
         </aside>
 
-        <main className="min-w-0 grid gap-5">
+        <main className="flex min-h-screen flex-1 flex-col overflow-y-auto bg-[#f1f5f9]">
           {desktopPanelMode === "home" ? (
+            <div className="p-6">
             <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.58fr)_minmax(300px,0.62fr)]">
               <div className="grid gap-5">
-                <Card className="border border-black/5 bg-[linear-gradient(135deg,#ffffff_0%,#f4f1e8_100%)] px-7 py-7 shadow-[0_18px_42px_rgba(15,23,42,0.10)]">
+                <Card className="rounded-lg border border-[#e2e8f0] bg-white px-6 py-6 shadow-none">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--brand)]/70">
@@ -2656,7 +2668,7 @@ export function TaskBoard({
                   </div>
                 </Card>
 
-                <Card className="border border-black/5 bg-[rgba(255,255,255,0.88)] px-6 py-6 shadow-[0_16px_38px_rgba(15,23,42,0.08)]">
+                <Card className="rounded-lg border border-[#e2e8f0] bg-white px-6 py-6 shadow-none">
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">本日のタスク</h2>
                     <button className={desktopSecondaryButtonClass} onClick={() => setScreenMode("tasks")} type="button">
@@ -2666,8 +2678,8 @@ export function TaskBoard({
                   {sortedTasks.length === 0 ? (
                     <p className="text-sm text-[var(--muted)]">今日のタスクはありません。</p>
                   ) : (
-                    <div className="overflow-hidden rounded-[26px] border border-black/6 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
-                      <div className="grid grid-cols-[minmax(0,1.5fr)_120px_120px_110px] bg-[linear-gradient(180deg,#f7f5ee_0%,#f1ede2_100%)] px-5 py-3 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
+                    <div className="overflow-hidden rounded-md border border-[#e2e8f0] bg-white">
+                      <div className="grid grid-cols-[minmax(0,1.5fr)_120px_120px_110px] bg-[#f8fafc] px-5 py-3 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
                         <span>タスク</span>
                         <span>時間帯</span>
                         <span>状態</span>
@@ -2696,7 +2708,7 @@ export function TaskBoard({
               </div>
 
               <div className="grid gap-5">
-                <Card className="self-start border border-black/5 bg-[linear-gradient(180deg,rgba(235,240,255,0.92),rgba(255,255,255,0.92))] px-6 py-6 shadow-[0_16px_36px_rgba(79,70,229,0.10)]">
+                <Card className="self-start rounded-lg border border-[#e2e8f0] bg-white px-6 py-6 shadow-none">
                   <div className="flex items-center justify-between gap-3">
                     <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">最新通知</h2>
                     <button
@@ -2723,7 +2735,7 @@ export function TaskBoard({
                 </Card>
 
                 {state.appUser.role === "admin" && state.pendingRequests.length > 0 ? (
-                  <Card className="border border-[var(--danger)]/10 bg-[linear-gradient(180deg,#fff7f7_0%,#ffffff_100%)] shadow-[0_16px_34px_rgba(220,38,38,0.08)]">
+                  <Card className="rounded-lg border border-[var(--danger)]/20 bg-[#fef2f2] shadow-none">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-[var(--danger)]">承認待ち申請があります</p>
@@ -2739,7 +2751,7 @@ export function TaskBoard({
                 ) : null}
 
                 {isPwaMode && pushSetupNotice ? (
-                  <Card className="border border-black/5 bg-[linear-gradient(180deg,#fbfaf6_0%,#ffffff_100%)] shadow-[0_14px_32px_rgba(15,23,42,0.06)]">
+                  <Card className="rounded-lg border border-[#e2e8f0] bg-white shadow-none">
                     <p className={`text-sm font-semibold ${pushSetupNotice.tone === "error" ? "text-[var(--danger)]" : "text-[var(--brand)]"}`}>
                       通知設定の案内
                     </p>
@@ -2753,17 +2765,18 @@ export function TaskBoard({
                 ) : null}
 
                 {devicePermissionNotice ? (
-                  <Card className="border border-black/5 bg-[linear-gradient(180deg,#fbfaf6_0%,#ffffff_100%)] shadow-[0_14px_32px_rgba(15,23,42,0.06)]">
+                  <Card className="rounded-lg border border-[#e2e8f0] bg-white shadow-none">
                     <p className="text-sm font-semibold text-[var(--brand)]">権限の案内</p>
                     <p className="mt-2 text-sm leading-7 text-[var(--muted)]">{devicePermissionNotice.message}</p>
                   </Card>
                 ) : null}
               </div>
             </div>
+            </div>
           ) : null}
 
           {desktopPanelMode === "create" ? (
-            <Card className="border border-black/5 bg-[rgba(255,255,255,0.92)] px-7 py-7 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
+            <Card className="m-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
               <TaskModal
                 currentGroupName={
                   state.groups.find((group) => group.id === activeGroupId)?.name ?? "グループ未設定"
@@ -2787,7 +2800,7 @@ export function TaskBoard({
           ) : null}
 
           {desktopPanelMode === "detail" && selectedTask ? (
-            <Card className="border border-black/5 bg-[rgba(255,255,255,0.92)] px-7 py-7 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
+            <Card className="m-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
               <TaskDetailModal
                 actionPending={taskActionPending}
                 task={selectedTask}
@@ -2811,7 +2824,7 @@ export function TaskBoard({
           ) : null}
 
           {desktopPanelMode === "manage" ? (
-            <Card className="border border-black/5 bg-[rgba(255,255,255,0.92)] px-7 py-7 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
+            <Card className="m-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">管理画面</h3>
@@ -2848,7 +2861,7 @@ export function TaskBoard({
                       {state.members.map((member) => (
                         <div
                           key={member.id}
-                          className="flex items-center justify-between rounded-[18px] bg-[var(--chip)] px-3 py-2.5"
+                          className="flex items-center justify-between rounded-md border border-[#e2e8f0] bg-white px-3 py-2.5"
                         >
                           <div>
                             <p className="text-sm font-semibold">{member.display_name}</p>
@@ -2872,7 +2885,7 @@ export function TaskBoard({
                       <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">グループ招待</p>
                       <div className="mt-3 flex flex-col gap-3">
                         {state.groups.map((group) => (
-                          <div key={group.id} className="rounded-[18px] bg-[var(--chip)] px-3 py-3">
+                          <div key={group.id} className="rounded-md border border-[#e2e8f0] bg-white px-3 py-3">
                             <div className="flex items-center justify-between gap-3">
                               <div>
                                 <p className="text-sm font-semibold">{group.name}</p>
@@ -2908,7 +2921,7 @@ export function TaskBoard({
                 </div>
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">通知設定</p>
-                  <div className="mt-3 grid gap-3 rounded-[22px] bg-[var(--surface)] px-4 py-4">
+                  <div className="mt-3 grid gap-3 rounded-md border border-[#e2e8f0] bg-[#f8fafc] px-4 py-4">
                     <FormField label="朝通知時刻（タスクあり）">
                       <NativePickerField
                         type="time"
@@ -2950,13 +2963,13 @@ export function TaskBoard({
           ) : null}
 
           {desktopPanelMode === "group" ? (
-            <Card className="border border-black/5 bg-[rgba(255,255,255,0.92)] px-7 py-7 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
+            <Card className="m-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
               <div className="flex items-start justify-between gap-3">
                 <h3 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">グループ詳細</h3>
                 <button className={desktopSecondaryButtonClass} onClick={() => setShowGroupModal(false)} type="button">閉じる</button>
               </div>
               <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
-                <div className="rounded-[22px] bg-[var(--chip)] px-5 py-5">
+                <div className="rounded-md border border-[#e2e8f0] bg-white px-5 py-5">
                   <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--muted)]">GROUP</p>
                   <p className="mt-2 font-[family-name:var(--font-heading)] text-2xl tracking-[-0.03em] text-[var(--ink)]">
                     {currentGroup?.name ?? "グループ未設定"}
@@ -2967,7 +2980,7 @@ export function TaskBoard({
                     <p className="mt-3 text-sm text-[var(--muted)]">グループ説明は設定されていません。</p>
                   )}
                 </div>
-                <div className="rounded-[22px] border border-[var(--danger)]/20 bg-red-50/60 px-5 py-5">
+                <div className="rounded-md border border-[var(--danger)]/20 bg-[#fef2f2] px-5 py-5">
                   <p className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--danger)]/70">危険操作</p>
                   <p className="mt-2 text-sm leading-6 text-[var(--ink-soft)]">
                     この操作を行うと、現在のグループから退出します。過去の履歴は残ります。
@@ -2986,7 +2999,7 @@ export function TaskBoard({
           ) : null}
 
           {desktopPanelMode === "tasks" ? (
-            <Card className="border border-black/5 bg-[rgba(255,255,255,0.9)] px-7 py-7 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
+            <Card className="m-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">タスク一覧</h2>
@@ -3009,8 +3022,8 @@ export function TaskBoard({
                   <NativePickerField type="date" value={rangeEnd} onChange={(event) => setRangeEnd(event.target.value)} />
                 </FormField>
               </div>
-              <div className="mt-5 overflow-hidden rounded-[26px] border border-black/6 bg-white">
-                <div className="grid grid-cols-[minmax(0,1.5fr)_120px_110px_110px_220px] bg-[linear-gradient(180deg,#f7f5ee_0%,#f1ede2_100%)] px-5 py-3 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
+              <div className="mt-5 overflow-hidden rounded-md border border-[#e2e8f0] bg-white">
+                <div className="grid grid-cols-[minmax(0,1.5fr)_120px_110px_110px_220px] bg-[#f8fafc] px-5 py-3 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
                   <span>タイトル</span>
                   <span>日付</span>
                   <span>時間帯</span>
@@ -3052,7 +3065,7 @@ export function TaskBoard({
           ) : null}
 
           {desktopPanelMode === "notifications" ? (
-            <Card className="border border-black/5 bg-[linear-gradient(180deg,#fbfaf6_0%,#ffffff_100%)] px-7 py-7 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
+            <Card className="m-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h2 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">通知一覧</h2>
@@ -3082,7 +3095,7 @@ export function TaskBoard({
           ) : null}
 
           {desktopPanelMode === "bulk" ? (
-            <Card className="border border-black/5 bg-[rgba(255,255,255,0.9)] px-7 py-7 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
+            <Card className="m-6 rounded-lg border border-[#e2e8f0] bg-white px-7 py-7 shadow-none">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="font-[family-name:var(--font-heading)] text-2xl tracking-[-0.04em]">一括登録</h2>
@@ -3092,7 +3105,7 @@ export function TaskBoard({
                   タスク一覧へ
                 </button>
               </div>
-              <div className="mt-4 rounded-2xl bg-[var(--chip)] px-4 py-4 text-sm text-[var(--ink-soft)]">
+              <div className="mt-4 rounded-md border border-[#244234]/15 bg-[#f0fdf4] px-4 py-3 text-sm text-[var(--ink-soft)]">
                 登録先グループ: {currentGroup?.name ?? "グループ未設定"}
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
@@ -3102,7 +3115,7 @@ export function TaskBoard({
               </div>
               <div className="mt-5 grid gap-4">
                 {batchRows.map((row, index) => (
-                  <div key={row.id} className="rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.05)]">
+                  <div key={row.id} className="rounded-md border border-[#e2e8f0] bg-white p-5">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
                         <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--surface)] text-sm font-bold text-[var(--ink-soft)]">
@@ -3248,7 +3261,7 @@ export function TaskBoard({
                           </div>
                         </div>
 
-                        <div className="rounded-[22px] bg-[var(--surface)] px-4 py-4">
+                        <div className="rounded-md border border-[#e2e8f0] bg-[#f8fafc] px-4 py-4">
                           <div className="flex items-center justify-between gap-3">
                             <p className="text-sm font-semibold text-[var(--ink-soft)]">繰り返し</p>
                             <button
@@ -5838,13 +5851,13 @@ const modalSecondaryButtonClass =
 const closeWideButtonClass =
   "w-full rounded-2xl border border-black/8 bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]";
 const desktopSecondaryButtonClass =
-  "rounded-[18px] border border-black/8 bg-[linear-gradient(180deg,#ffffff_0%,#f7f5ee_100%)] px-4 py-3 text-sm font-semibold text-[var(--ink-soft)] shadow-[0_8px_18px_rgba(15,23,42,0.06)] transition-transform hover:-translate-y-[1px] active:scale-[0.97]";
+  "inline-flex items-center gap-1.5 rounded-md border border-[#e2e8f0] bg-white px-3.5 py-2 text-sm font-medium text-[var(--ink-soft)] transition-colors hover:bg-[#f8fafc] hover:border-[#cbd5e1] active:bg-[#f1f5f9]";
 const desktopDangerButtonClass =
-  "rounded-[18px] border border-[var(--danger)]/20 bg-[linear-gradient(180deg,#fff5f5_0%,#feecec_100%)] px-4 py-3 text-sm font-semibold text-[var(--danger)] shadow-[0_8px_18px_rgba(220,38,38,0.07)] transition-transform hover:-translate-y-[1px] active:scale-[0.97]";
+  "inline-flex items-center gap-1.5 rounded-md border border-[var(--danger)]/20 bg-white px-3.5 py-2 text-sm font-medium text-[var(--danger)] transition-colors hover:bg-[#fef2f2] hover:border-[var(--danger)]/30 active:bg-[#fee2e2]";
 const desktopNavButtonClass =
-  "w-full rounded-[18px] border border-black/8 bg-[linear-gradient(180deg,#ffffff_0%,#f7f5ee_100%)] px-4 py-3 text-left text-sm font-semibold text-[var(--ink-soft)] shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition-transform hover:-translate-y-[1px] active:scale-[0.97]";
+  "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-[var(--ink-soft)] transition-colors hover:bg-[#f1f5f9] hover:text-[var(--ink)]";
 const desktopNavActiveClass =
-  "w-full rounded-[18px] bg-[linear-gradient(135deg,#244234_0%,#3c6a53_100%)] px-4 py-3 text-left text-sm font-semibold text-white shadow-[0_16px_32px_rgba(36,66,52,0.26)] transition-transform hover:-translate-y-[1px] active:scale-[0.97]";
+  "flex w-full items-center gap-2 rounded-md border-l-2 border-[#244234] bg-[#f0fdf4] pl-[10px] pr-3 py-2 text-sm font-semibold text-[#244234]";
 
 function priorityPillClass(selected: boolean) {
   return `flex h-9 w-9 items-center justify-center rounded-full border text-base transition-transform active:scale-[0.96] ${

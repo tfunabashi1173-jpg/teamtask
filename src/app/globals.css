@@ -98,23 +98,26 @@ input {
 }
 
 @media (min-width: 1024px) {
-  .desktop-compact .text-sm {
-    font-size: 0.82rem;
-    line-height: 1.28rem;
+  .desktop-layout {
+    --ds-sidebar-bg: #ffffff;
+    --ds-sidebar-border: #e2e8f0;
+    --ds-content-bg: #f1f5f9;
+    --ds-panel-bg: #ffffff;
+    --ds-panel-border: #e2e8f0;
+    --ds-nav-active-bg: #f0fdf4;
+    --ds-nav-active-border: #244234;
+    --ds-nav-active-text: #244234;
+    /* Cancel Shell's pt-5 pb-10 lg:px-7 to achieve full-bleed layout */
+    margin-top: -1.25rem;
+    margin-bottom: -2.5rem;
+    margin-left: -1.75rem;
+    margin-right: -1.75rem;
   }
+}
 
-  .desktop-compact .text-base {
-    font-size: 0.92rem;
-    line-height: 1.34rem;
-  }
-
-  .desktop-compact .text-lg {
-    font-size: 1.03rem;
-    line-height: 1.5rem;
-  }
-
-  .desktop-compact .text-2xl {
-    font-size: 1.38rem;
-    line-height: 1.9rem;
+@media (min-width: 1280px) {
+  .desktop-layout {
+    margin-left: -2rem;
+    margin-right: -2rem;
   }
 }
