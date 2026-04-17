@@ -1654,8 +1654,41 @@ export function TaskBoard({
   }
 
   function openTaskFromLog(log: TaskLogRecord) {
-    if (!log.task?.id) return;
-    const task = state.tasks.find((item) => item.id === log.task?.id);
+    const directTask = log.task?.id
+      ? state.tasks.find((item) => item.id === log.task?.id)
+      : null;
+    if (directTask) {
+      openTaskDetail(directTask);
+      return;
+    }
+
+    const recurrenceRuleId =
+      log.after_value?.recurrence_rule_id ?? log.before_value?.recurrence_rule_id ?? null;
+    const scheduledDate =
+      log.after_value?.scheduled_date ?? log.before_value?.scheduled_date ?? null;
+    const title = log.task?.title ?? log.after_value?.title ?? log.before_value?.title ?? null;
+
+    const task =
+      (recurrenceRuleId && scheduledDate
+        ? state.tasks.find(
+            (item) =>
+              item.recurrence_rule_id === recurrenceRuleId &&
+              item.scheduled_date === scheduledDate,
+          )
+        : null) ??
+      (recurrenceRuleId
+        ? state.tasks.find(
+            (item) =>
+              item.recurrence_rule_id === recurrenceRuleId &&
+              (!title || item.title === title),
+          )
+        : null) ??
+      (scheduledDate && title
+        ? state.tasks.find(
+            (item) => item.scheduled_date === scheduledDate && item.title === title,
+          )
+        : null);
+
     if (task) {
       openTaskDetail(task);
     }

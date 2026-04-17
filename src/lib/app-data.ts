@@ -68,9 +68,17 @@ export type TaskLogRecord = {
   created_at: string;
   before_value?: {
     status?: string | null;
+    title?: string | null;
+    scheduled_date?: string | null;
+    recurrence_rule_id?: string | null;
+    memberName?: string | null;
   } | null;
   after_value?: {
     memberName?: string | null;
+    title?: string | null;
+    scheduled_date?: string | null;
+    recurrence_rule_id?: string | null;
+    status?: string | null;
   } | null;
   actor: {
     display_name: string;
