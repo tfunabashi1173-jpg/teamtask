@@ -2532,8 +2532,8 @@ export function TaskBoard({
       enablePushPrompt
       wide
     >
-      <div className="desktop-layout hidden lg:flex lg:h-screen lg:overflow-hidden">
-        <aside className="flex h-full w-[220px] shrink-0 flex-col overflow-y-auto border-r border-[#e2e8f0] bg-white">
+      <div className="desktop-layout hidden lg:block">
+        <aside className="fixed inset-y-0 left-0 z-10 flex w-[220px] flex-col overflow-y-auto border-r border-[#e2e8f0] bg-white">
 
           {/* App logo / name */}
           <div className="flex h-14 items-center gap-2.5 border-b border-[#e2e8f0] px-4 shrink-0">
@@ -2624,7 +2624,7 @@ export function TaskBoard({
 
         </aside>
 
-        <main className="flex flex-1 flex-col overflow-y-auto bg-[#f1f5f9]">
+        <main className="ml-[220px] min-h-screen bg-[#f1f5f9]">
           {desktopPanelMode === "home" ? (
             <div className="p-6">
             <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.58fr)_minmax(300px,0.62fr)]">
