@@ -2667,8 +2667,8 @@ export function TaskBoard({
         <main className="ml-[220px] min-h-screen bg-[#f1f5f9] pl-10 pr-10">
           {desktopPanelMode === "home" ? (
             <div className="py-6">
-            <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.58fr)_minmax(300px,0.62fr)]">
-              <div className="grid gap-5">
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.58fr)_minmax(300px,0.62fr)] xl:items-stretch">
+              <div className="grid gap-5 self-start">
                 <Card className="rounded-lg border border-[#e2e8f0] bg-white px-6 py-6 shadow-none">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
@@ -2784,8 +2784,8 @@ export function TaskBoard({
                 </Card>
               </div>
 
-              <div className="grid gap-5">
-                <Card className="rounded-lg border border-[#e2e8f0] bg-white px-6 py-6 shadow-none">
+              <div className="flex flex-col gap-5">
+                <Card className="flex flex-col rounded-lg border border-[#e2e8f0] bg-white px-6 py-6 shadow-none">
                   <div className="flex items-center justify-between gap-3">
                     <h2 className="font-[family-name:var(--font-heading)] text-lg tracking-[-0.03em]">最新通知</h2>
                     <button
@@ -2797,8 +2797,8 @@ export function TaskBoard({
                     </button>
                   </div>
                   <div className="mt-4 flex flex-col gap-2">
-                    {state.logs.slice(0, 5).length > 0 ? (
-                      state.logs.slice(0, 5).map((log) => (
+                    {state.logs.length > 0 ? (
+                      state.logs.map((log) => (
                         <NotificationBubble
                           key={log.id}
                           isOpen={openNotificationId === log.id}
