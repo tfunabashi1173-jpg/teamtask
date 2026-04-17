@@ -297,7 +297,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
   const { sessionUser, errorResponse } = await requireSession();
@@ -306,6 +306,15 @@ export async function DELETE(
   }
 
   const { id } = await context.params;
+
+  let deleteScope: "single" | "all" = "single";
+  try {
+    const body = await request.json();
+    if (body?.deleteScope === "all") deleteScope = "all";
+  } catch {
+    // body省略時は single 扱い
+  }
+
   const supabase = createSupabaseAdminClient();
   const actorResult = await supabase
     .from("app_users")
@@ -322,12 +331,51 @@ export async function DELETE(
     return NextResponse.json({ error: "TASK_NOT_FOUND" }, { status: 404 });
   }
 
+  const now = new Date().toISOString();
+
+  if (deleteScope === "all") {
+    const sourceResult = await supabase
+      .from("generated_task_sources")
+      .select("task_id,recurrence_rule_id")
+      .eq("task_id", id)
+      .maybeSingle();
+
+    const recurrenceRuleId = sourceResult.data?.recurrence_rule_id ?? null;
+
+    if (recurrenceRuleId) {
+      const siblingResult = await supabase
+        .from("generated_task_sources")
+        .select("task_id")
+        .eq("recurrence_rule_id", recurrenceRuleId);
+
+      const allTaskIds = ((siblingResult.data as { task_id: string }[] | null) ?? []).map(
+        (r) => r.task_id,
+      );
+
+      if (allTaskIds.length > 0) {
+        await supabase
+          .from("tasks")
+          .update({ deleted_at: now, updated_by: actorResult.data.id })
+          .in("id", allTaskIds);
+      }
+
+      await supabase
+        .from("generated_task_sources")
+        .delete()
+        .eq("recurrence_rule_id", recurrenceRuleId);
+
+      await supabase
+        .from("recurrence_rules")
+        .update({ is_active: false, updated_by: actorResult.data.id })
+        .eq("id", recurrenceRuleId);
+
+      return NextResponse.json({ ok: true, deletedRuleId: recurrenceRuleId });
+    }
+  }
+
   await supabase
     .from("tasks")
-    .update({
-      deleted_at: new Date().toISOString(),
-      updated_by: actorResult.data.id,
-    })
+    .update({ deleted_at: now, updated_by: actorResult.data.id })
     .eq("id", id);
 
   await supabase.from("task_activity_logs").insert({
