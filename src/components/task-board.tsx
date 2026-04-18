@@ -5395,8 +5395,8 @@ function TaskModal({
             </div>
 
             {form.recurrenceEnabled ? (
-              <div className="mt-4 grid gap-3">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="mt-4 grid gap-4">
+                <div className="grid gap-4 md:grid-cols-2">
                   <FormField label="繰り返し">
                     <select
                       className={inputClass}
@@ -5433,7 +5433,7 @@ function TaskModal({
                   </FormField>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-2">
                   <FormField label="期間開始">
                     <input
                       className={inputClass}
