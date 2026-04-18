@@ -6030,7 +6030,7 @@ function Footer({
   commitSha: string;
 }) {
   return (
-    <footer className="mt-6 rounded-[28px] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+    <footer className="mt-6 rounded-[28px] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-[0_8px_24px_rgba(15,23,42,0.06)] lg:hidden">
       <div className="flex items-center justify-between">
         <span>アプリ版</span>
         <span className="font-medium text-[var(--ink)]">
