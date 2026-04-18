@@ -14,7 +14,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type ActionType = "start" | "confirm" | "complete" | "pause" | "postpone";
 type SyncState = "idle" | "queued" | "syncing" | "error";
-type ScreenMode = "home" | "tasks" | "notifications" | "bulk";
+type ScreenMode = "home" | "tasks" | "notifications" | "bulk" | "manage" | "group";
 
 type Toast = {
   id: number;
@@ -2605,7 +2605,8 @@ export function TaskBoard({
   }
 
   const desktopScreenMode =
-    screenMode === "tasks" || screenMode === "notifications" || screenMode === "bulk"
+    screenMode === "tasks" || screenMode === "notifications" || screenMode === "bulk" ||
+    screenMode === "manage" || screenMode === "group"
       ? screenMode
       : "home";
   const desktopPanelMode =
@@ -2613,11 +2614,7 @@ export function TaskBoard({
       ? "create"
       : selectedTask
         ? "detail"
-        : showManageModal
-          ? "manage"
-          : showGroupModal
-            ? "group"
-            : desktopScreenMode;
+        : desktopScreenMode;
 
   return (
     <Shell
@@ -2703,11 +2700,11 @@ export function TaskBoard({
               </button>
             </div>
             {state.appUser.role === "admin" ? (
-              <button className={desktopPanelMode === "manage" ? desktopNavActiveClass : desktopNavButtonClass} onClick={() => { setShowManageModal(true); setShowGroupModal(false); setCreateTaskOpen(false); setSelectedTaskId(null); }} type="button">
+              <button className={desktopPanelMode === "manage" ? desktopNavActiveClass : desktopNavButtonClass} onClick={() => { setScreenMode("manage"); setCreateTaskOpen(false); setSelectedTaskId(null); setShowManageModal(false); setShowGroupModal(false); }} type="button">
                 管理
               </button>
             ) : null}
-            <button className={desktopPanelMode === "group" ? desktopNavActiveClass : desktopNavButtonClass} onClick={() => { setShowGroupModal(true); setShowManageModal(false); setCreateTaskOpen(false); setSelectedTaskId(null); }} type="button" disabled={!currentGroup}>
+            <button className={desktopPanelMode === "group" ? desktopNavActiveClass : desktopNavButtonClass} onClick={() => { setScreenMode("group"); setCreateTaskOpen(false); setSelectedTaskId(null); setShowManageModal(false); setShowGroupModal(false); }} type="button" disabled={!currentGroup}>
               グループ詳細
             </button>
           </div>
