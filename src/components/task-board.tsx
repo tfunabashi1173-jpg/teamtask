@@ -5371,10 +5371,10 @@ function TaskModal({
               ))}
             </div>
           </div>
-          <div className="rounded-3xl bg-[var(--surface)] px-4 py-4">
+          <div className="rounded-md border border-[#e2e8f0] bg-[#f8fafc] px-4 py-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold text-[var(--ink)]">繰り返し</p>
+                <p className="text-sm font-semibold text-[var(--ink-soft)]">繰り返し</p>
               </div>
               <button
                 className={form.recurrenceEnabled ? segmentedActiveButtonClass : segmentedButtonClass}
@@ -5435,7 +5435,8 @@ function TaskModal({
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <FormField label="期間開始">
-                    <NativePickerField
+                    <input
+                      className={inputClass}
                       type="date"
                       value={form.scheduledDate}
                       onChange={(event) =>
@@ -5452,7 +5453,8 @@ function TaskModal({
                     />
                   </FormField>
                   <FormField label="期間終了">
-                    <NativePickerField
+                    <input
+                      className={inputClass}
                       type="date"
                       value={form.recurrenceEndDate}
                       min={form.scheduledDate}
