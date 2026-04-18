@@ -5325,12 +5325,9 @@ function TaskModal({
                         ? [weekdayFromDate(event.target.value)]
                         : current.recurrenceDaysOfWeek,
                     recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
-                    recurrenceEndDate:
-                      current.recurrenceEnabled && current.recurrenceEndDate && event.target.value > current.recurrenceEndDate
-                        ? event.target.value
-                        : current.recurrenceEndDate,
                   }))
                 }
+                disabled={form.recurrenceEnabled}
               />
             </FormField>
             <div className="min-w-0">
@@ -5443,9 +5440,11 @@ function TaskModal({
                     </div>
                   </FormField>
                   <FormField label="期間終了">
-                    <NativePickerField
+                    <input
+                      className={inputClass}
                       type="date"
                       value={form.recurrenceEndDate}
+                      min={form.scheduledDate}
                       onChange={(event) =>
                         setForm((current) => ({
                           ...current,
