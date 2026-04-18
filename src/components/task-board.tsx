@@ -3332,7 +3332,7 @@ export function TaskBoard({
                         <div>
                           <p className="mb-2 text-sm text-[var(--muted)]">画像</p>
                           <div className="grid gap-3 lg:grid-cols-[140px_minmax(0,1fr)]">
-                            <label className={`${secondaryButtonClass} inline-flex justify-center`}>
+                            <label className={`${secondaryButtonClass} inline-flex cursor-pointer justify-center self-start`}>
                               追加
                               <input
                                 className="hidden"
