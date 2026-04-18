@@ -2721,7 +2721,7 @@ export function TaskBoard({
           </div>
 
           <div className="shrink-0 border-t border-[#e2e8f0] px-4 py-2.5">
-            <p className="text-xs font-medium text-[var(--muted)]">{appVersion}</p>
+            <p className="text-xs font-medium text-[var(--muted)]">{appVersion} ({commitSha})</p>
           </div>
 
         </aside>
