@@ -1863,7 +1863,7 @@ export function TaskBoard({
               .map((t) => t.id)
           : [];
 
-      for (const file of pendingReferenceFiles.slice(0, 2)) {
+      for (const file of pendingReferenceFiles.slice(0, 5)) {
         const photo = await handleReferencePhotoUpload(taskId, file);
         if (photo && siblingIds.length > 0) {
           for (const siblingId of siblingIds) {
@@ -1939,7 +1939,7 @@ export function TaskBoard({
       const siblingTaskIds: string[] = Array.isArray(json?.siblingTaskIds) ? (json.siblingTaskIds as string[]) : [];
 
       if (taskId && row.pendingReferenceFiles.length > 0) {
-        for (const file of row.pendingReferenceFiles.slice(0, 2)) {
+        for (const file of row.pendingReferenceFiles.slice(0, 5)) {
           const photo = await handleReferencePhotoUpload(taskId, file);
           // Share the same uploaded file to all sibling recurring tasks
           if (photo && siblingTaskIds.length > 0) {
@@ -2089,7 +2089,7 @@ export function TaskBoard({
           task.id === taskId
             ? {
                 ...task,
-                reference_photos: [...(task.reference_photos ?? []), createdPhoto].slice(0, 2),
+                reference_photos: [...(task.reference_photos ?? []), createdPhoto].slice(0, 5),
               }
             : task,
         ),
@@ -3346,7 +3346,7 @@ export function TaskBoard({
                                 onChange={(event) => {
                                   const files = Array.from(event.currentTarget.files ?? []).filter((file) => file.type.startsWith("image/"));
                                   updateBatchRow(row.id, {
-                                    pendingReferenceFiles: [...row.pendingReferenceFiles, ...files].slice(0, 2),
+                                    pendingReferenceFiles: [...row.pendingReferenceFiles, ...files].slice(0, 5),
                                   });
                                   event.currentTarget.value = "";
                                 }}
@@ -4054,7 +4054,7 @@ export function TaskBoard({
                   <div className="grid grid-cols-[1fr_auto] items-end gap-3">
                     <div>
                       <p className="text-xs font-semibold text-[var(--ink)]">説明画像</p>
-                      <p className="mt-1 text-xs text-[var(--muted)]">各行ごとに2枚まで添付できます。</p>
+                      <p className="mt-1 text-xs text-[var(--muted)]">各行ごとに5枚まで添付できます。</p>
                     </div>
                     <label className={secondaryButtonClass}>
                       追加
@@ -4068,7 +4068,7 @@ export function TaskBoard({
                             file.type.startsWith("image/"),
                           );
                           updateBatchRow(row.id, {
-                            pendingReferenceFiles: [...row.pendingReferenceFiles, ...files].slice(0, 2),
+                            pendingReferenceFiles: [...row.pendingReferenceFiles, ...files].slice(0, 5),
                           });
                           event.currentTarget.value = "";
                         }}
@@ -4330,7 +4330,7 @@ export function TaskBoard({
                                 file.type.startsWith("image/"),
                               );
                               updateBatchRow(row.id, {
-                                pendingReferenceFiles: [...row.pendingReferenceFiles, ...files].slice(0, 2),
+                                pendingReferenceFiles: [...row.pendingReferenceFiles, ...files].slice(0, 5),
                               });
                               event.currentTarget.value = "";
                             }}
@@ -5220,7 +5220,7 @@ function TaskModal({
     if (!fileList?.length) return;
     const files = Array.from(fileList).filter((file) => file.type.startsWith("image/"));
     if (files.length === 0) return;
-    setPendingReferenceFiles((current) => [...current, ...files].slice(0, 2));
+    setPendingReferenceFiles((current) => [...current, ...files].slice(0, 5));
   }
 
   const content = (
@@ -5269,7 +5269,7 @@ function TaskModal({
           <div className="flex items-end justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs font-semibold text-[var(--ink)]">説明画像</p>
-              <p className="mt-1 text-xs text-[var(--muted)]">登録時に説明画像を2枚まで添付できます。</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">登録時に説明画像を5枚まで添付できます。</p>
             </div>
             <button className="shrink-0 rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]"
               onClick={() => referenceInputRef.current?.click()} type="button">追加</button>
@@ -5765,7 +5765,7 @@ function TaskDetailModal({
               <div>
                 <p className="text-xs font-semibold text-[var(--ink)]">説明画像</p>
               </div>
-              {(task.reference_photos?.length ?? 0) < 2 ? (
+              {(task.reference_photos?.length ?? 0) < 5 ? (
                 <button
                   className={secondaryButtonClass}
                   onClick={() => referencePhotoInputRef.current?.click()}
@@ -5774,7 +5774,7 @@ function TaskDetailModal({
                   追加
                 </button>
               ) : (
-                <span className="text-xs font-semibold text-[var(--muted)]">2 / 2枚</span>
+                <span className="text-xs font-semibold text-[var(--muted)]">5 / 5枚</span>
               )}
             </div>
 
