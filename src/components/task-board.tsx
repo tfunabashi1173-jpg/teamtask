@@ -1863,13 +1863,31 @@ export function TaskBoard({
               .map((t) => t.id)
           : [];
 
-      for (const file of pendingReferenceFiles.slice(0, 5)) {
-        const photo = await handleReferencePhotoUpload(taskId, file);
-        if (photo && siblingIds.length > 0) {
-          for (const siblingId of siblingIds) {
-            await handleReferencePhotoLink(siblingId, photo.id);
-          }
-        }
+      // Upload all files in parallel (silent mode — show single summary toast)
+      const uploadResults = await Promise.allSettled(
+        pendingReferenceFiles.slice(0, 5).map((file) => handleReferencePhotoUpload(taskId, file, true)),
+      );
+      const uploadedPhotos = uploadResults.flatMap((r) =>
+        r.status === "fulfilled" && r.value ? [r.value] : [],
+      );
+
+      // Link uploaded photos to sibling recurring tasks
+      if (uploadedPhotos.length > 0 && siblingIds.length > 0) {
+        await Promise.all(
+          uploadedPhotos.flatMap((photo) =>
+            siblingIds.map((siblingId) => handleReferencePhotoLink(siblingId, photo.id)),
+          ),
+        );
+      }
+
+      const failCount = pendingReferenceFiles.slice(0, 5).length - uploadedPhotos.length;
+      if (failCount > 0) {
+        pushToast(
+          uploadedPhotos.length > 0 ? "error" : "error",
+          uploadedPhotos.length > 0
+            ? `説明画像 ${failCount}枚の保存に失敗しました（${uploadedPhotos.length}枚成功）。`
+            : "説明画像の保存に失敗しました。",
+        );
       }
     }
 
@@ -1939,14 +1957,19 @@ export function TaskBoard({
       const siblingTaskIds: string[] = Array.isArray(json?.siblingTaskIds) ? (json.siblingTaskIds as string[]) : [];
 
       if (taskId && row.pendingReferenceFiles.length > 0) {
-        for (const file of row.pendingReferenceFiles.slice(0, 5)) {
-          const photo = await handleReferencePhotoUpload(taskId, file);
-          // Share the same uploaded file to all sibling recurring tasks
-          if (photo && siblingTaskIds.length > 0) {
-            for (const siblingId of siblingTaskIds) {
-              await handleReferencePhotoLink(siblingId, photo.id);
-            }
-          }
+        const batchUploadResults = await Promise.allSettled(
+          row.pendingReferenceFiles.slice(0, 5).map((file) => handleReferencePhotoUpload(taskId, file, true)),
+        );
+        const batchUploadedPhotos = batchUploadResults.flatMap((r) =>
+          r.status === "fulfilled" && r.value ? [r.value] : [],
+        );
+        // Share uploaded photos to all sibling recurring tasks
+        if (batchUploadedPhotos.length > 0 && siblingTaskIds.length > 0) {
+          await Promise.all(
+            batchUploadedPhotos.flatMap((photo) =>
+              siblingTaskIds.map((siblingId) => handleReferencePhotoLink(siblingId, photo.id)),
+            ),
+          );
         }
       }
     }
@@ -2063,7 +2086,7 @@ export function TaskBoard({
     pushToast("success", "写真を削除しました。");
   }
 
-  async function handleReferencePhotoUpload(taskId: string, file: File): Promise<TaskPhotoRecord | null> {
+  async function handleReferencePhotoUpload(taskId: string, file: File, silent?: boolean): Promise<TaskPhotoRecord | null> {
     const formData = new FormData();
     formData.append("file", file);
 
@@ -2078,7 +2101,7 @@ export function TaskBoard({
         | null;
 
       if (!response.ok || !json || !("photo" in json) || !json.photo) {
-        pushToast("error", "説明画像の保存に失敗しました。");
+        if (!silent) pushToast("error", "説明画像の保存に失敗しました。");
         return null;
       }
 
@@ -2094,10 +2117,10 @@ export function TaskBoard({
             : task,
         ),
       }));
-      pushToast("success", "説明画像を保存しました。");
+      if (!silent) pushToast("success", "説明画像を保存しました。");
       return createdPhoto;
     } catch {
-      pushToast("error", "説明画像の保存に失敗しました。");
+      if (!silent) pushToast("error", "説明画像の保存に失敗しました。");
       return null;
     }
   }

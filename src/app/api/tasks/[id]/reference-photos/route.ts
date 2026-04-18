@@ -3,7 +3,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { buildTaskReferencePhotoPath, getTaskPhotoBucketName } from "@/lib/tasks/photos";
 
-const MAX_REFERENCE_PHOTOS = 2;
+const MAX_REFERENCE_PHOTOS = 5;
 
 export async function POST(
   request: NextRequest,
