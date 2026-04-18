@@ -2631,6 +2631,7 @@ export function TaskBoard({
               <span className="text-xs font-bold text-white">T</span>
             </div>
             <span className="text-sm font-semibold text-[var(--ink)]">Team Task</span>
+            <span className="rounded-full bg-[#244234]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#244234]">β版</span>
           </div>
 
           {/* Workspace + group selector */}
