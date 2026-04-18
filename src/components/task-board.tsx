@@ -5435,8 +5435,7 @@ function TaskModal({
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <FormField label="期間開始">
-                    <input
-                      className={inputClass}
+                    <NativePickerField
                       type="date"
                       value={form.scheduledDate}
                       onChange={(event) =>
@@ -5453,11 +5452,9 @@ function TaskModal({
                     />
                   </FormField>
                   <FormField label="期間終了">
-                    <input
-                      className={inputClass}
+                    <NativePickerField
                       type="date"
                       value={form.recurrenceEndDate}
-                      min={form.scheduledDate}
                       onChange={(event) =>
                         setForm((current) => ({
                           ...current,
