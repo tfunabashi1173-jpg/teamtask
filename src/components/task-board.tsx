@@ -5237,116 +5237,91 @@ function TaskModal({
           {isEditing ? "タスクを編集" : "タスクを追加"}
         </h3>
         <p className="mt-1 text-sm text-[var(--muted)]">追加先: {currentGroupName}</p>
-        <div className="mt-4 grid gap-3">
-          <div>
-            <p className="text-xs font-semibold text-[var(--ink)]">既存タスクをコピー</p>
-            <p className="mt-1 text-xs text-[var(--muted)]">
-              {availableCopyTasks.length > 0
-                ? "選択すると入力欄へ反映されます。"
-                : "コピー元に使える既存タスクはありません。"}
-            </p>
-            {availableCopyTasks.length > 0 ? (
-              <select
-                className={`${inputClass} mt-2`}
-                value={copySourceTaskId}
-                onChange={(event) => onCopySourceChange(event.target.value)}
-              >
-                <option value="">選択しない</option>
-                {availableCopyTasks.map((task) => (
-                  <option key={task.id} value={task.id}>
-                    {task.title}
-                  </option>
-                ))}
-              </select>
-            ) : null}
-          </div>
+        {/* ── 既存タスクをコピー（常に全幅） ── */}
+        <div className="mt-4">
+          <p className="text-xs font-semibold text-[var(--ink)]">既存タスクをコピー</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            {availableCopyTasks.length > 0 ? "選択すると入力欄へ反映されます。" : "コピー元に使える既存タスクはありません。"}
+          </p>
+          {availableCopyTasks.length > 0 ? (
+            <select className={`${inputClass} mt-2`} value={copySourceTaskId} onChange={(event) => onCopySourceChange(event.target.value)}>
+              <option value="">選択しない</option>
+              {availableCopyTasks.map((task) => (
+                <option key={task.id} value={task.id}>{task.title}</option>
+              ))}
+            </select>
+          ) : null}
+        </div>
+
+        {/* ── メインコンテンツ：デスクトップ2カラム / モバイル1カラム ── */}
+        <div className={`mt-4 ${inline ? "grid grid-cols-2 gap-5" : "grid gap-3"}`}>
+
+          {/* 左カラム（デスクトップ）/ 全体（モバイル）: タイトル・説明・画像 */}
+          <div className={`grid gap-3 content-start`}>
           <FormField label="タイトル">
-            <input
-              className={inputClass}
-              placeholder="タスク名"
-              value={form.title}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, title: event.target.value }))
-              }
-            />
+            <input className={inputClass} placeholder="タスク名" value={form.title}
+              onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} />
           </FormField>
           <FormField label="説明">
-            <textarea
-              className={`${inputClass} min-h-28`}
-              placeholder="説明"
-              value={form.description}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, description: event.target.value }))
-              }
-            />
+            <textarea className={`${inputClass} min-h-28`} placeholder="説明" value={form.description}
+              onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
           </FormField>
           <div className="flex items-end justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs font-semibold text-[var(--ink)]">説明画像</p>
               <p className="mt-1 text-xs text-[var(--muted)]">登録時に説明画像を2枚まで添付できます。</p>
             </div>
-            <button
-              className="shrink-0 rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]"
-              onClick={() => referenceInputRef.current?.click()}
-              type="button"
-            >
-              追加
-            </button>
+            <button className="shrink-0 rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]"
+              onClick={() => referenceInputRef.current?.click()} type="button">追加</button>
           </div>
           {pendingReferenceFiles.length > 0 ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {pendingReferenceFiles.map((file, index) => (
                 <div key={`${file.name}-${index}`} className="rounded-2xl bg-[var(--surface)] px-3 py-3">
                   <p className="truncate text-xs font-semibold text-[var(--ink-soft)]">{file.name}</p>
-                  <button
-                    className="mt-2 text-xs font-semibold text-[var(--danger)]"
-                    onClick={() =>
-                      setPendingReferenceFiles((current) => current.filter((_, fileIndex) => fileIndex !== index))
-                    }
-                    type="button"
-                  >
-                    削除
-                  </button>
+                  <button className="mt-2 text-xs font-semibold text-[var(--danger)]"
+                    onClick={() => setPendingReferenceFiles((current) => current.filter((_, i) => i !== index))}
+                    type="button">削除</button>
                 </div>
               ))}
             </div>
           ) : null}
+          </div>
+
+          {/* 右カラム（デスクトップ）/ 続き（モバイル）: 実行日・時間帯・優先度・繰り返し */}
+          <div className={`grid gap-3 content-start`}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1.1fr_1fr]">
             <FormField label="実行日">
-              <NativePickerField
-                type="date"
-                value={form.scheduledDate}
-                onChange={(event) =>
-                  setForm((current) => ({
+              {inline && form.recurrenceEnabled ? (
+                <div className={`${inputClass} bg-[var(--surface)] text-[var(--muted)]`}>繰り返し時は未使用</div>
+              ) : inline ? (
+                <input className={inputClass} type="date" value={form.scheduledDate}
+                  onChange={(event) => setForm((current) => ({
                     ...current,
                     scheduledDate: event.target.value,
-                    recurrenceDaysOfWeek:
-                      current.recurrenceFrequency === "weekly"
-                        ? [weekdayFromDate(event.target.value)]
-                        : current.recurrenceDaysOfWeek,
+                    recurrenceDaysOfWeek: current.recurrenceFrequency === "weekly"
+                      ? [weekdayFromDate(event.target.value)] : current.recurrenceDaysOfWeek,
                     recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
-                  }))
-                }
-                disabled={form.recurrenceEnabled}
-              />
+                  }))} />
+              ) : (
+                <NativePickerField type="date" value={form.scheduledDate}
+                  onChange={(event) => setForm((current) => ({
+                    ...current,
+                    scheduledDate: event.target.value,
+                    recurrenceDaysOfWeek: current.recurrenceFrequency === "weekly"
+                      ? [weekdayFromDate(event.target.value)] : current.recurrenceDaysOfWeek,
+                    recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
+                  }))}
+                  disabled={form.recurrenceEnabled} />
+              )}
             </FormField>
             <div className="min-w-0">
               <p className="mb-2 text-sm text-[var(--muted)]">時間帯</p>
               <div className="grid grid-cols-3 gap-2">
                 {(["morning", "afternoon", "anytime"] as const).map((slot) => (
-                  <button
-                    key={slot}
-                    className={selectedSlotButtonClass(selectedSlot === slot)}
-                    onClick={() =>
-                      setForm((current) => ({
-                        ...current,
-                        scheduledTime: slotToScheduledTime(slot),
-                      }))
-                    }
-                    type="button"
-                  >
-                    {slotLabel(slot)}
-                  </button>
+                  <button key={slot} className={selectedSlotButtonClass(selectedSlot === slot)}
+                    onClick={() => setForm((current) => ({ ...current, scheduledTime: slotToScheduledTime(slot) }))}
+                    type="button">{slotLabel(slot)}</button>
                 ))}
               </div>
             </div>
@@ -5355,17 +5330,8 @@ function TaskModal({
             <p className="mb-2 text-sm text-[var(--muted)]">優先度</p>
             <div className="flex flex-wrap gap-2">
               {(["urgent", "high", "medium", "low"] as const).map((priority) => (
-                <button
-                  key={priority}
-                  className={priorityPillClass(form.priority === priority)}
-                  onClick={() =>
-                    setForm((current) => ({
-                      ...current,
-                      priority,
-                    }))
-                  }
-                  type="button"
-                >
+                <button key={priority} className={priorityPillClass(form.priority === priority)}
+                  onClick={() => setForm((current) => ({ ...current, priority }))} type="button">
                   {formatPriorityIcon(priority)}
                 </button>
               ))}
@@ -5646,7 +5612,8 @@ function TaskModal({
               ) : null
             )}
           </div>
-        </div>
+          </div>{/* 右カラム end */}
+        </div>{/* 2col grid end */}
         {isEditing && hasRecurrenceRule && onUpdateScopeChange ? (
           <div className="mt-5 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-3">
             <p className="text-xs font-semibold text-[var(--warning-ink)]">繰り返しタスクの変更範囲</p>
