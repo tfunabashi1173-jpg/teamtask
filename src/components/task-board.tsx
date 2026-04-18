@@ -4051,7 +4051,7 @@ export function TaskBoard({
                       <p className="text-xs font-semibold text-[var(--ink)]">説明画像</p>
                       <p className="mt-1 text-xs text-[var(--muted)]">各行ごとに5枚まで添付できます。</p>
                     </div>
-                    <label className={secondaryButtonClass}>
+                    <label className="rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]">
                       追加
                       <input
                         className="hidden"
@@ -5264,7 +5264,7 @@ function TaskModal({
               <p className="text-xs font-semibold text-[var(--ink)]">説明画像</p>
               <p className="mt-1 text-xs text-[var(--muted)]">登録時に説明画像を5枚まで添付できます。</p>
             </div>
-            <label className="shrink-0 cursor-pointer rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]">
+            <label className="shrink-0 cursor-pointer rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]">
               追加
               <input className="hidden" type="file" accept="image/*" multiple
                 onChange={(event) => { appendReferenceFiles(event.target.files); event.currentTarget.value = ""; }} />
@@ -5635,13 +5635,13 @@ function TaskModal({
             </div>
           </div>
         ) : null}
-        <div className={`mt-5 ${inline ? "grid" : "grid grid-cols-2"} gap-3`}>
+        <div className={`mt-5 ${inline ? "flex justify-end" : "grid grid-cols-2"} gap-3`}>
           {!inline && (
             <button className={modalSecondaryButtonClass} onClick={onClose} type="button">
               閉じる
             </button>
           )}
-          <button className={modalPrimaryButtonClass} onClick={onSave} type="button" disabled={isSaving}>
+          <button className={inline ? "rounded-2xl bg-[var(--brand)] px-6 py-2.5 text-sm font-semibold text-white transition-transform active:scale-[0.97]" : modalPrimaryButtonClass} onClick={onSave} type="button" disabled={isSaving}>
             {isSaving ? "処理中..." : isEditing ? "更新" : "登録"}
           </button>
         </div>
