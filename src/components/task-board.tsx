@@ -5402,7 +5402,7 @@ function TaskModal({
               inline ? (
                 /* Desktop layout: frequency first, then dates */
                 <div className="mt-4 grid gap-4">
-                  <div className="grid gap-4 md:grid-cols-3">
+                  <div className={`grid gap-4 ${form.recurrenceFrequency === "monthly" ? "grid-cols-3" : "grid-cols-2"}`}>
                     <FormField label="繰り返し">
                       <select
                         className={inputClass}
@@ -5456,9 +5456,7 @@ function TaskModal({
                           }
                         />
                       </FormField>
-                    ) : (
-                      <div />
-                    )}
+                    ) : null}
                   </div>
                   {form.recurrenceFrequency === "weekly" ? (
                     <FormField label="曜日">
@@ -5490,7 +5488,7 @@ function TaskModal({
                       </div>
                     </FormField>
                   ) : null}
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid grid-cols-2 gap-4">
                     <FormField label="期間開始">
                       <input
                         className={inputClass}
