@@ -2717,11 +2717,7 @@ export function TaskBoard({
             <button className={`${desktopDangerButtonClass} w-full justify-start`} onClick={handleLogout} type="button" disabled={isSubmitting}>
               {isSubmitting ? "処理中..." : "ログアウト"}
             </button>
-            <p className="mt-2 px-2 text-[10px] text-[var(--muted)]">{appVersion} ({commitSha})</p>
-          </div>
-
-          <div className="shrink-0 border-t border-[#e2e8f0] px-4 py-2.5">
-            <p className="text-xs font-medium text-[var(--muted)]">{appVersion} ({commitSha})</p>
+            <p className="mt-2 px-2 text-xs text-[var(--muted)]">{appVersion} ({commitSha})</p>
           </div>
 
         </aside>
