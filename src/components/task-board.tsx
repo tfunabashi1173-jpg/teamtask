@@ -5214,8 +5214,6 @@ function TaskModal({
   inline?: boolean;
 }) {
   const selectedSlot = scheduledTimeToSlot(form.scheduledTime);
-  const referenceInputRef = useRef<HTMLInputElement | null>(null);
-
   function appendReferenceFiles(fileList: FileList | null) {
     if (!fileList?.length) return;
     const files = Array.from(fileList).filter((file) => file.type.startsWith("image/"));
@@ -5271,8 +5269,11 @@ function TaskModal({
               <p className="text-xs font-semibold text-[var(--ink)]">説明画像</p>
               <p className="mt-1 text-xs text-[var(--muted)]">登録時に説明画像を5枚まで添付できます。</p>
             </div>
-            <button className="shrink-0 rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]"
-              onClick={() => referenceInputRef.current?.click()} type="button">追加</button>
+            <label className="shrink-0 cursor-pointer rounded-2xl border border-black/8 bg-white px-4 py-3 text-sm font-semibold text-[var(--ink-soft)]">
+              追加
+              <input className="hidden" type="file" accept="image/*" multiple
+                onChange={(event) => { appendReferenceFiles(event.target.files); event.currentTarget.value = ""; }} />
+            </label>
           </div>
           {pendingReferenceFiles.length > 0 ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -5647,17 +5648,6 @@ function TaskModal({
             {isSaving ? "処理中..." : isEditing ? "更新" : "登録"}
           </button>
         </div>
-        <input
-          ref={referenceInputRef}
-          className="hidden"
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={(event) => {
-            appendReferenceFiles(event.target.files);
-            event.currentTarget.value = "";
-          }}
-        />
       </div>
   );
 
@@ -5711,7 +5701,6 @@ function TaskDetailModal({
   const [isPhotoSubmitting, setIsPhotoSubmitting] = useState(false);
   const [isReferencePhotoSubmitting, setIsReferencePhotoSubmitting] = useState(false);
   const shouldOpenPhotoPickerOnDoneRef = useRef(false);
-  const referencePhotoInputRef = useRef<HTMLInputElement | null>(null);
   const completePhotoInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -5766,13 +5755,22 @@ function TaskDetailModal({
                 <p className="text-xs font-semibold text-[var(--ink)]">説明画像</p>
               </div>
               {(task.reference_photos?.length ?? 0) < 5 ? (
-                <button
-                  className={secondaryButtonClass}
-                  onClick={() => referencePhotoInputRef.current?.click()}
-                  type="button"
-                >
+                <label className={`${secondaryButtonClass} cursor-pointer`}>
                   追加
-                </button>
+                  <input
+                    className="hidden"
+                    type="file"
+                    accept="image/*"
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0];
+                      event.currentTarget.value = "";
+                      if (!file) return;
+                      setIsReferencePhotoSubmitting(true);
+                      await Promise.resolve(onReferencePhotoUpload(file));
+                      setIsReferencePhotoSubmitting(false);
+                    }}
+                  />
+                </label>
               ) : (
                 <span className="text-xs font-semibold text-[var(--muted)]">5 / 5枚</span>
               )}
@@ -5984,20 +5982,6 @@ function TaskDetailModal({
             閉じる
           </button>
         </div>
-        <input
-          ref={referencePhotoInputRef}
-          className="hidden"
-          type="file"
-          accept="image/*"
-          onChange={async (event) => {
-            const file = event.target.files?.[0];
-            event.currentTarget.value = "";
-            if (!file) return;
-            setIsReferencePhotoSubmitting(true);
-            await Promise.resolve(onReferencePhotoUpload(file));
-            setIsReferencePhotoSubmitting(false);
-          }}
-        />
         <input
           ref={completePhotoInputRef}
           className="hidden"
