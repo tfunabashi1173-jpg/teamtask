@@ -5325,9 +5325,12 @@ function TaskModal({
                         ? [weekdayFromDate(event.target.value)]
                         : current.recurrenceDaysOfWeek,
                     recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
+                    recurrenceEndDate:
+                      current.recurrenceEnabled && current.recurrenceEndDate && event.target.value > current.recurrenceEndDate
+                        ? event.target.value
+                        : current.recurrenceEndDate,
                   }))
                 }
-                disabled={form.recurrenceEnabled}
               />
             </FormField>
             <div className="min-w-0">
