@@ -1,3 +1,4 @@
+import sharp from "sharp";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
@@ -34,16 +35,35 @@ export async function GET(
     return NextResponse.json({ error: "PHOTO_NOT_FOUND" }, { status: 404 });
   }
 
-  const isThumb = request.nextUrl.searchParams.get("thumb") === "1";
   const signedUrlResult = await supabase.storage
     .from(getTaskPhotoBucketName())
-    .createSignedUrl(photoResult.data.storage_path, 60, isThumb ? {
-      transform: { width: 600, quality: 65 },
-    } : undefined);
+    .createSignedUrl(photoResult.data.storage_path, 300);
 
   if (signedUrlResult.error || !signedUrlResult.data?.signedUrl) {
     return NextResponse.json({ error: "SIGNED_URL_FAILED" }, { status: 500 });
   }
 
-  return NextResponse.redirect(signedUrlResult.data.signedUrl);
+  const isThumb = request.nextUrl.searchParams.get("thumb") === "1";
+  if (!isThumb) {
+    return NextResponse.redirect(signedUrlResult.data.signedUrl);
+  }
+
+  // Thumbnail: fetch → compress with sharp → return directly
+  try {
+    const imageResponse = await fetch(signedUrlResult.data.signedUrl);
+    if (!imageResponse.ok) throw new Error("fetch failed");
+    const buffer = Buffer.from(await imageResponse.arrayBuffer());
+    const compressed = await sharp(buffer)
+      .resize({ width: 600, withoutEnlargement: true })
+      .jpeg({ quality: 65 })
+      .toBuffer();
+    return new NextResponse(compressed as unknown as BodyInit, {
+      headers: {
+        "Content-Type": "image/jpeg",
+        "Cache-Control": "public, max-age=7200, stale-while-revalidate=86400",
+      },
+    });
+  } catch {
+    return NextResponse.redirect(signedUrlResult.data.signedUrl);
+  }
 }
