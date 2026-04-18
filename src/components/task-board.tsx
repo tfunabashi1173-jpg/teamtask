@@ -5635,10 +5635,12 @@ function TaskModal({
             </div>
           </div>
         ) : null}
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          <button className={modalSecondaryButtonClass} onClick={onClose} type="button">
-            閉じる
-          </button>
+        <div className={`mt-5 ${inline ? "grid" : "grid grid-cols-2"} gap-3`}>
+          {!inline && (
+            <button className={modalSecondaryButtonClass} onClick={onClose} type="button">
+              閉じる
+            </button>
+          )}
           <button className={modalPrimaryButtonClass} onClick={onSave} type="button" disabled={isSaving}>
             {isSaving ? "処理中..." : isEditing ? "更新" : "登録"}
           </button>
