@@ -2926,6 +2926,7 @@ export function TaskBoard({
                 onCopySourceChange={handleCopySourceChange}
                 onClose={() => setCreateTaskOpen(false)}
                 onSave={handleSaveTask}
+                onPreview={(url) => setPreviewPhotoUrl(url)}
                 setPendingReferenceFiles={setPendingReferenceFiles}
                 setForm={setTaskForm}
                 hasRecurrenceRule={Boolean(editingTaskId && state.tasks.find((t) => t.id === editingTaskId)?.recurrence_rule_id)}
@@ -4051,7 +4052,7 @@ export function TaskBoard({
                       <p className="text-xs font-semibold text-[var(--ink)]">説明画像</p>
                       <p className="mt-1 text-xs text-[var(--muted)]">各行ごとに5枚まで添付できます。</p>
                     </div>
-                    <label className="rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]">
+                    <label className="cursor-pointer self-end rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-[var(--ink-soft)] transition-transform active:scale-[0.97]">
                       追加
                       <input
                         className="hidden"
@@ -4786,6 +4787,7 @@ export function TaskBoard({
             onCopySourceChange={handleCopySourceChange}
             onClose={() => setCreateTaskOpen(false)}
             onSave={handleSaveTask}
+            onPreview={(url) => setPreviewPhotoUrl(url)}
             setPendingReferenceFiles={setPendingReferenceFiles}
             setForm={setTaskForm}
             hasRecurrenceRule={Boolean(editingTaskId && state.tasks.find((t) => t.id === editingTaskId)?.recurrence_rule_id)}
@@ -5183,6 +5185,7 @@ function TaskModal({
   setPendingReferenceFiles,
   onClose,
   onSave,
+  onPreview,
   isEditing,
   isSaving,
   onCopySourceChange,
@@ -5200,6 +5203,7 @@ function TaskModal({
   setPendingReferenceFiles: React.Dispatch<React.SetStateAction<File[]>>;
   onClose: () => void;
   onSave: () => void;
+  onPreview: (url: string) => void;
   isEditing: boolean;
   isSaving: boolean;
   onCopySourceChange: (taskId: string) => void;
@@ -5271,13 +5275,24 @@ function TaskModal({
             </label>
           </div>
           {pendingReferenceFiles.length > 0 ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-2">
               {pendingReferenceFiles.map((file, index) => (
-                <div key={`${file.name}-${index}`} className="rounded-2xl bg-[var(--surface)] px-3 py-3">
-                  <p className="truncate text-xs font-semibold text-[var(--ink-soft)]">{file.name}</p>
-                  <button className="mt-2 text-xs font-semibold text-[var(--danger)]"
+                <div key={`${file.name}-${index}`} className="relative">
+                  <button
+                    className="block aspect-square w-full overflow-hidden rounded-2xl bg-[var(--surface)]"
+                    onClick={() => onPreview(URL.createObjectURL(file))}
+                    type="button"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img alt={file.name} className="h-full w-full object-cover" src={URL.createObjectURL(file)} />
+                  </button>
+                  <button
+                    className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--danger)]"
                     onClick={() => setPendingReferenceFiles((current) => current.filter((_, i) => i !== index))}
-                    type="button">削除</button>
+                    type="button"
+                  >
+                    削除
+                  </button>
                 </div>
               ))}
             </div>
