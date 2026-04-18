@@ -5371,9 +5371,15 @@ function TaskModal({
               ))}
             </div>
           </div>
-          <div className="rounded-3xl bg-[var(--surface)] px-4 py-4 lg:rounded-md lg:border lg:border-[#e2e8f0] lg:bg-[#f8fafc]">
+          <div className={inline
+            ? "rounded-md border border-[#e2e8f0] bg-[#f8fafc] px-4 py-4"
+            : "rounded-3xl bg-[var(--surface)] px-4 py-4"
+          }>
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold text-[var(--ink)] lg:text-sm lg:text-[var(--ink-soft)]">繰り返し</p>
+              <p className={inline
+                ? "text-sm font-semibold text-[var(--ink-soft)]"
+                : "text-xs font-semibold text-[var(--ink)]"
+              }>繰り返し</p>
               <button
                 className={form.recurrenceEnabled ? segmentedActiveButtonClass : segmentedButtonClass}
                 onClick={() =>
@@ -5393,76 +5399,227 @@ function TaskModal({
             </div>
 
             {form.recurrenceEnabled ? (
-              <div className="mt-4 grid gap-3 lg:gap-4">
-                {/* Mobile only: dates first */}
-                <div className="grid grid-cols-2 gap-3 lg:hidden">
-                  <FormField label="開始日">
-                    <NativePickerField
-                      type="date"
-                      value={form.scheduledDate}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          scheduledDate: event.target.value,
-                          recurrenceDaysOfWeek:
-                            current.recurrenceFrequency === "weekly"
-                              ? [weekdayFromDate(event.target.value)]
-                              : current.recurrenceDaysOfWeek,
-                          recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
-                        }))
-                      }
-                    />
-                  </FormField>
-                  <FormField label="終了日">
-                    <NativePickerField
-                      type="date"
-                      value={form.recurrenceEndDate}
-                      min={form.scheduledDate}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          recurrenceEndDate: event.target.value,
-                        }))
-                      }
-                    />
-                  </FormField>
+              inline ? (
+                /* Desktop layout: frequency first, then dates */
+                <div className="mt-4 grid gap-4">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <FormField label="繰り返し">
+                      <select
+                        className={inputClass}
+                        value={form.recurrenceFrequency}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            recurrenceFrequency: event.target.value as TaskFormState["recurrenceFrequency"],
+                            recurrenceDaysOfWeek:
+                              event.target.value === "weekly"
+                                ? [weekdayFromDate(current.scheduledDate)]
+                                : current.recurrenceDaysOfWeek,
+                          }))
+                        }
+                      >
+                        <option value="daily">毎日</option>
+                        <option value="weekly">曜日指定（毎週）</option>
+                        <option value="monthly">毎月</option>
+                      </select>
+                    </FormField>
+                    <FormField label="間隔">
+                      <input
+                        className={inputClass}
+                        type="number"
+                        min={1}
+                        value={form.recurrenceInterval}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            recurrenceInterval: Math.max(1, Number(event.target.value || 1)),
+                          }))
+                        }
+                      />
+                    </FormField>
+                    {form.recurrenceFrequency === "monthly" ? (
+                      <FormField label="毎月の日">
+                        <input
+                          className={inputClass}
+                          type="number"
+                          min={1}
+                          max={31}
+                          value={form.recurrenceDayOfMonth}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              recurrenceDayOfMonth: Math.min(
+                                31,
+                                Math.max(1, Number(event.target.value || dayOfMonthFromDate(current.scheduledDate))),
+                              ),
+                            }))
+                          }
+                        />
+                      </FormField>
+                    ) : (
+                      <div />
+                    )}
+                  </div>
+                  {form.recurrenceFrequency === "weekly" ? (
+                    <FormField label="曜日">
+                      <div className="flex flex-wrap gap-2">
+                        {WEEKDAY_OPTIONS.map((option) => {
+                          const checked = form.recurrenceDaysOfWeek.includes(option.value);
+                          return (
+                            <button
+                              key={option.value}
+                              className={`rounded-2xl border px-3 py-2 text-sm font-semibold ${
+                                checked
+                                  ? "border-[var(--brand)] bg-[var(--brand)] text-white"
+                                  : "border-black/10 bg-white text-[var(--ink-soft)]"
+                              }`}
+                              onClick={() =>
+                                setForm((current) => ({
+                                  ...current,
+                                  recurrenceDaysOfWeek: checked
+                                    ? current.recurrenceDaysOfWeek.filter((day) => day !== option.value)
+                                    : [...current.recurrenceDaysOfWeek, option.value].sort((a, b) => a - b),
+                                }))
+                              }
+                              type="button"
+                            >
+                              {option.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </FormField>
+                  ) : null}
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <FormField label="期間開始">
+                      <input
+                        className={inputClass}
+                        type="date"
+                        value={form.scheduledDate}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            scheduledDate: event.target.value,
+                            recurrenceDaysOfWeek:
+                              current.recurrenceFrequency === "weekly"
+                                ? [weekdayFromDate(event.target.value)]
+                                : current.recurrenceDaysOfWeek,
+                            recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
+                          }))
+                        }
+                      />
+                    </FormField>
+                    <FormField label="期間終了">
+                      <input
+                        className={inputClass}
+                        type="date"
+                        value={form.recurrenceEndDate}
+                        min={form.scheduledDate}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            recurrenceEndDate: event.target.value,
+                          }))
+                        }
+                      />
+                    </FormField>
+                  </div>
                 </div>
-                {/* Frequency + interval: mobile 2-col, desktop 3-col */}
-                <div className="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-3">
-                  <FormField label="繰り返し">
-                    <select
-                      className={inputClass}
-                      value={form.recurrenceFrequency}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          recurrenceFrequency: event.target.value as TaskFormState["recurrenceFrequency"],
-                          recurrenceDaysOfWeek:
-                            event.target.value === "weekly"
-                              ? [weekdayFromDate(current.scheduledDate)]
-                              : current.recurrenceDaysOfWeek,
-                        }))
-                      }
-                    >
-                      <option value="daily">毎日</option>
-                      <option value="weekly">曜日指定（毎週）</option>
-                      <option value="monthly">毎月</option>
-                    </select>
-                  </FormField>
-                  <FormField label="間隔">
-                    <input
-                      className={inputClass}
-                      type="number"
-                      min={1}
-                      value={form.recurrenceInterval}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          recurrenceInterval: Math.max(1, Number(event.target.value || 1)),
-                        }))
-                      }
-                    />
-                  </FormField>
+              ) : (
+                /* Mobile layout: dates first, then frequency */
+                <div className="mt-4 grid gap-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField label="開始日">
+                      <NativePickerField
+                        type="date"
+                        value={form.scheduledDate}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            scheduledDate: event.target.value,
+                            recurrenceDaysOfWeek:
+                              current.recurrenceFrequency === "weekly"
+                                ? [weekdayFromDate(event.target.value)]
+                                : current.recurrenceDaysOfWeek,
+                            recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
+                          }))
+                        }
+                      />
+                    </FormField>
+                    <FormField label="終了日">
+                      <NativePickerField
+                        type="date"
+                        value={form.recurrenceEndDate}
+                        min={form.scheduledDate}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            recurrenceEndDate: event.target.value,
+                          }))
+                        }
+                      />
+                    </FormField>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField label="繰り返し">
+                      <select
+                        className={inputClass}
+                        value={form.recurrenceFrequency}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            recurrenceFrequency: event.target.value as TaskFormState["recurrenceFrequency"],
+                            recurrenceDaysOfWeek:
+                              event.target.value === "weekly"
+                                ? [weekdayFromDate(current.scheduledDate)]
+                                : current.recurrenceDaysOfWeek,
+                          }))
+                        }
+                      >
+                        <option value="daily">毎日</option>
+                        <option value="weekly">曜日指定（毎週）</option>
+                        <option value="monthly">毎月</option>
+                      </select>
+                    </FormField>
+                    <FormField label="間隔">
+                      <input
+                        className={inputClass}
+                        type="number"
+                        min={1}
+                        value={form.recurrenceInterval}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            recurrenceInterval: Math.max(1, Number(event.target.value || 1)),
+                          }))
+                        }
+                      />
+                    </FormField>
+                  </div>
+                  {form.recurrenceFrequency === "weekly" ? (
+                    <div className="flex flex-wrap gap-2">
+                      {WEEKDAY_OPTIONS.map((option) => {
+                        const checked = form.recurrenceDaysOfWeek.includes(option.value);
+                        return (
+                          <button
+                            key={option.value}
+                            className={checked ? segmentedActiveButtonClass : segmentedButtonClass}
+                            onClick={() =>
+                              setForm((current) => ({
+                                ...current,
+                                recurrenceDaysOfWeek: checked
+                                  ? current.recurrenceDaysOfWeek.filter((day) => day !== option.value)
+                                  : [...current.recurrenceDaysOfWeek, option.value].sort((a, b) => a - b),
+                              }))
+                            }
+                            type="button"
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
                   {form.recurrenceFrequency === "monthly" ? (
                     <FormField label="毎月の日">
                       <input
@@ -5482,72 +5639,13 @@ function TaskModal({
                         }
                       />
                     </FormField>
-                  ) : (
-                    <div />
-                  )}
+                  ) : null}
                 </div>
-                {form.recurrenceFrequency === "weekly" ? (
-                  <div className="flex flex-wrap gap-2">
-                    {WEEKDAY_OPTIONS.map((option) => {
-                      const checked = form.recurrenceDaysOfWeek.includes(option.value);
-                      return (
-                        <button
-                          key={option.value}
-                          className={checked ? segmentedActiveButtonClass : segmentedButtonClass}
-                          onClick={() =>
-                            setForm((current) => ({
-                              ...current,
-                              recurrenceDaysOfWeek: checked
-                                ? current.recurrenceDaysOfWeek.filter((day) => day !== option.value)
-                                : [...current.recurrenceDaysOfWeek, option.value].sort((a, b) => a - b),
-                            }))
-                          }
-                          type="button"
-                        >
-                          {option.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : null}
-                {/* Desktop only: dates below frequency */}
-                <div className="hidden grid-cols-2 gap-4 lg:grid">
-                  <FormField label="期間開始">
-                    <input
-                      className={inputClass}
-                      type="date"
-                      value={form.scheduledDate}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          scheduledDate: event.target.value,
-                          recurrenceDaysOfWeek:
-                            current.recurrenceFrequency === "weekly"
-                              ? [weekdayFromDate(event.target.value)]
-                              : current.recurrenceDaysOfWeek,
-                          recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
-                        }))
-                      }
-                    />
-                  </FormField>
-                  <FormField label="期間終了">
-                    <input
-                      className={inputClass}
-                      type="date"
-                      value={form.recurrenceEndDate}
-                      min={form.scheduledDate}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          recurrenceEndDate: event.target.value,
-                        }))
-                      }
-                    />
-                  </FormField>
-                </div>
-              </div>
+              )
             ) : (
-              <p className="mt-3 hidden text-sm text-[var(--muted)] lg:block">単発タスクとして登録します。</p>
+              inline ? (
+                <p className="mt-3 text-sm text-[var(--muted)]">単発タスクとして登録します。</p>
+              ) : null
             )}
           </div>
         </div>
