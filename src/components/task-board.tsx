@@ -5455,6 +5455,7 @@ function TaskModal({
                     <NativePickerField
                       type="date"
                       value={form.recurrenceEndDate}
+                      min={form.scheduledDate}
                       onChange={(event) =>
                         setForm((current) => ({
                           ...current,
@@ -5995,11 +5996,13 @@ function NativePickerField({
   value,
   onChange,
   disabled = false,
+  min,
 }: {
   type: "date" | "time";
   value: string;
   onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   disabled?: boolean;
+  min?: string;
 }) {
   const displayValue = type === "date" ? formatDateDisplay(value) : formatTimeDisplay(value);
 
@@ -6014,8 +6017,9 @@ function NativePickerField({
       </div>
       <input
         aria-label={type === "date" ? "日付を選択" : "時刻を選択"}
-        className="absolute inset-0 h-full w-full min-w-0 cursor-pointer opacity-0 disabled:pointer-events-none"
+        className="absolute inset-0 z-[1] h-full w-full min-w-0 cursor-pointer opacity-0 disabled:pointer-events-none"
         disabled={disabled}
+        min={min}
         onChange={onChange}
         type={type}
         value={value}
