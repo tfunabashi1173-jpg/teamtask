@@ -4868,7 +4868,7 @@ function Shell({
       >
         <div className={`mx-auto mb-5 h-1 w-10 rounded-full bg-[var(--brand)]/20${wide ? " lg:hidden" : ""}`} />
         <div className={`flex flex-col gap-5${wide ? " lg:block" : ""}`}>{children}</div>
-        {!wide && <Footer appVersion={appVersion} commitSha={commitSha} />}
+        <div className={wide ? "lg:hidden" : ""}><Footer appVersion={appVersion} commitSha={commitSha} /></div>
       </div>
       <div
         className={`pointer-events-none fixed inset-x-0 top-4 z-50 mx-auto flex w-full flex-col gap-2 px-4 ${
@@ -5435,9 +5435,22 @@ function TaskModal({
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <FormField label="期間開始">
-                    <div className={`${inputClass} overflow-hidden bg-[var(--chip)] text-[var(--ink-soft)]`}>
-                      <span className="block truncate">{formatDateDisplay(form.scheduledDate)}</span>
-                    </div>
+                    <input
+                      className={inputClass}
+                      type="date"
+                      value={form.scheduledDate}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          scheduledDate: event.target.value,
+                          recurrenceDaysOfWeek:
+                            current.recurrenceFrequency === "weekly"
+                              ? [weekdayFromDate(event.target.value)]
+                              : current.recurrenceDaysOfWeek,
+                          recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
+                        }))
+                      }
+                    />
                   </FormField>
                   <FormField label="期間終了">
                     <input
@@ -6034,7 +6047,7 @@ function Footer({
 }
 
 const inputClass =
-  "w-full min-w-0 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-shadow focus:border-[var(--brand)]/50 focus:ring-2 focus:ring-[var(--brand)]/10";
+  "w-full max-w-full min-w-0 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition-shadow focus:border-[var(--brand)]/50 focus:ring-2 focus:ring-[var(--brand)]/10";
 const primaryButtonClass =
   "rounded-2xl bg-[var(--brand)] px-5 py-3.5 text-sm font-semibold text-white transition-transform active:scale-[0.97]";
 const primaryIconButtonClass =
