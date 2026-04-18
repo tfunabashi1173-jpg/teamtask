@@ -2721,7 +2721,7 @@ export function TaskBoard({
           </div>
 
           <div className="shrink-0 border-t border-[#e2e8f0] px-4 py-2.5">
-            <p className="text-xs font-medium text-[var(--muted)]">v{appVersion}</p>
+            <p className="text-xs font-medium text-[var(--muted)]">{appVersion}</p>
           </div>
 
         </aside>
@@ -4872,13 +4872,7 @@ function Shell({
       >
         <div className={`mx-auto mb-5 h-1 w-10 rounded-full bg-[var(--brand)]/20${wide ? " lg:hidden" : ""}`} />
         <div className={`flex flex-col gap-5${wide ? " lg:block" : ""}`}>{children}</div>
-        {!wide ? (
-          <Footer appVersion={appVersion} commitSha={commitSha} />
-        ) : (
-          <div className="lg:hidden">
-            <Footer appVersion={appVersion} commitSha={commitSha} />
-          </div>
-        )}
+        {!wide && <Footer appVersion={appVersion} commitSha={commitSha} />}
       </div>
       <div
         className={`pointer-events-none fixed inset-x-0 top-4 z-50 mx-auto flex w-full flex-col gap-2 px-4 ${
@@ -6030,7 +6024,7 @@ function Footer({
   commitSha: string;
 }) {
   return (
-    <footer className="mt-6 rounded-[28px] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-[0_8px_24px_rgba(15,23,42,0.06)] lg:hidden">
+    <footer className="mt-6 rounded-[28px] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
       <div className="flex items-center justify-between">
         <span>アプリ版</span>
         <span className="font-medium text-[var(--ink)]">
