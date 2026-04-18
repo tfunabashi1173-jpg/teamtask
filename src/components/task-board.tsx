@@ -14,7 +14,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type ActionType = "start" | "confirm" | "complete" | "pause" | "postpone";
 type SyncState = "idle" | "queued" | "syncing" | "error";
-type ScreenMode = "home" | "tasks" | "notifications" | "bulk" | "manage" | "group";
+type ScreenMode = "home" | "tasks" | "notifications" | "bulk" | "manage" | "group" | "create";
 
 type Toast = {
   id: number;
@@ -2606,15 +2606,13 @@ export function TaskBoard({
 
   const desktopScreenMode =
     screenMode === "tasks" || screenMode === "notifications" || screenMode === "bulk" ||
-    screenMode === "manage" || screenMode === "group"
+    screenMode === "manage" || screenMode === "group" || screenMode === "create"
       ? screenMode
       : "home";
   const desktopPanelMode =
-    createTaskOpen
-      ? "create"
-      : selectedTask
-        ? "detail"
-        : desktopScreenMode;
+    selectedTask
+      ? "detail"
+      : desktopScreenMode;
 
   return (
     <Shell
@@ -2692,8 +2690,8 @@ export function TaskBoard({
           <div className="flex flex-col gap-1 border-t border-[#e2e8f0] px-2 pt-4 pb-2">
             <div className="px-1 pb-3">
               <button
-                className="w-full rounded-md bg-[#244234] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#1a3128] active:bg-[#15271f]"
-                onClick={openCreateTask}
+                className={`w-full rounded-md px-3.5 py-2 text-sm font-semibold text-white transition-colors ${desktopPanelMode === "create" ? "bg-[#1a3128]" : "bg-[#244234] hover:bg-[#1a3128] active:bg-[#15271f]"}`}
+                onClick={() => { openCreateTask(); setScreenMode("create"); setSelectedTaskId(null); setShowManageModal(false); setShowGroupModal(false); }}
                 type="button"
               >
                 + 新規タスク
