@@ -34,9 +34,12 @@ export async function GET(
     return NextResponse.json({ error: "PHOTO_NOT_FOUND" }, { status: 404 });
   }
 
+  const isThumb = request.nextUrl.searchParams.get("thumb") === "1";
   const signedUrlResult = await supabase.storage
     .from(getTaskPhotoBucketName())
-    .createSignedUrl(photoResult.data.storage_path, 60);
+    .createSignedUrl(photoResult.data.storage_path, 60, isThumb ? {
+      transform: { width: 600, quality: 65 },
+    } : undefined);
 
   if (signedUrlResult.error || !signedUrlResult.data?.signedUrl) {
     return NextResponse.json({ error: "SIGNED_URL_FAILED" }, { status: 500 });

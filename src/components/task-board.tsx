@@ -3204,11 +3204,13 @@ export function TaskBoard({
                       <span className="text-sm text-[var(--muted)]">{slotLabel(scheduledTimeToSlot(task.scheduled_time))}</span>
                       <span className={taskStatusChipClass(task.status)}>{formatStatus(task.status)}</span>
                       <div className="flex flex-wrap gap-2">
-                        <button className={miniUtilityButtonClass} onClick={() => openEditTask(task)} type="button">編集</button>
+                        <button className={miniUtilityButtonClass} onClick={() => { openEditTask(task); setScreenMode("create"); setSelectedTaskId(null); }} type="button">編集</button>
                         <button
                           className={miniUtilityButtonClass}
                           onClick={() => {
                             openCreateTask();
+                            setScreenMode("create");
+                            setSelectedTaskId(null);
                             handleCopySourceChange(task.id);
                           }}
                           type="button"
@@ -4847,6 +4849,7 @@ export function TaskBoard({
       {previewPhotoUrl ? (
         <ImagePreviewModal imageUrl={previewPhotoUrl} onClose={() => setPreviewPhotoUrl(null)} />
       ) : null}
+      {taskSavePending ? <Spinner /> : null}
     </Shell>
   );
 }
@@ -5826,7 +5829,7 @@ function TaskDetailModal({
                         <img
                           alt={photo.file_name}
                           className="h-full w-full object-cover"
-                          src={photo.preview_url}
+                          src={photo.preview_url.startsWith("/api/") ? `${photo.preview_url}?thumb=1` : photo.preview_url}
                         />
                       ) : (
                         <span className="flex h-full items-center justify-center text-xs text-[var(--muted)]">
@@ -5920,7 +5923,7 @@ function TaskDetailModal({
                           <img
                             alt={photo.file_name}
                             className="h-full w-full object-cover"
-                            src={photo.preview_url}
+                            src={photo.preview_url.startsWith("/api/") ? `${photo.preview_url}?thumb=1` : photo.preview_url}
                           />
                         ) : (
                           <span className="flex h-full items-center justify-center text-xs text-[var(--muted)]">
@@ -6060,6 +6063,23 @@ function ImagePreviewModal({
   imageUrl: string;
   onClose: () => void;
 }) {
+  async function handleDownload() {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = blob.type === "image/png" ? "photo.png" : "photo.jpg";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      window.open(imageUrl, "_blank");
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
@@ -6069,12 +6089,21 @@ function ImagePreviewModal({
         }
       }}
     >
-      <button className="absolute right-4 top-4 z-10 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-[var(--ink-soft)]" onClick={onClose} type="button">
-        閉じる
-      </button>
+      <div className="absolute right-4 top-4 z-10 flex gap-2" onMouseDown={(event) => event.stopPropagation()}>
+        <button
+          className="rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-[var(--ink-soft)]"
+          onClick={handleDownload}
+          type="button"
+        >
+          ダウンロード
+        </button>
+        <button className="rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-[var(--ink-soft)]" onClick={onClose} type="button">
+          閉じる
+        </button>
+      </div>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        alt="完了写真プレビュー"
+        alt="写真プレビュー"
         className="max-h-full max-w-full rounded-3xl object-contain"
         onMouseDown={(event) => event.stopPropagation()}
         src={imageUrl}
