@@ -5371,9 +5371,9 @@ function TaskModal({
               ))}
             </div>
           </div>
-          <div className="rounded-3xl bg-[var(--surface)] px-4 py-4">
+          <div className="rounded-3xl bg-[var(--surface)] px-4 py-4 lg:rounded-md lg:border lg:border-[#e2e8f0] lg:bg-[#f8fafc]">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold text-[var(--ink)]">繰り返し</p>
+              <p className="text-xs font-semibold text-[var(--ink)] lg:text-sm lg:text-[var(--ink-soft)]">繰り返し</p>
               <button
                 className={form.recurrenceEnabled ? segmentedActiveButtonClass : segmentedButtonClass}
                 onClick={() =>
@@ -5393,8 +5393,9 @@ function TaskModal({
             </div>
 
             {form.recurrenceEnabled ? (
-              <div className="mt-4 grid gap-3">
-                <div className="grid grid-cols-2 gap-3">
+              <div className="mt-4 grid gap-3 lg:gap-4">
+                {/* Mobile only: dates first */}
+                <div className="grid grid-cols-2 gap-3 lg:hidden">
                   <FormField label="開始日">
                     <NativePickerField
                       type="date"
@@ -5426,7 +5427,8 @@ function TaskModal({
                     />
                   </FormField>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                {/* Frequency + interval: mobile 2-col, desktop 3-col */}
+                <div className="grid grid-cols-2 gap-3 lg:gap-4 lg:grid-cols-3">
                   <FormField label="繰り返し">
                     <select
                       className={inputClass}
@@ -5461,6 +5463,28 @@ function TaskModal({
                       }
                     />
                   </FormField>
+                  {form.recurrenceFrequency === "monthly" ? (
+                    <FormField label="毎月の日">
+                      <input
+                        className={inputClass}
+                        type="number"
+                        min={1}
+                        max={31}
+                        value={form.recurrenceDayOfMonth}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            recurrenceDayOfMonth: Math.min(
+                              31,
+                              Math.max(1, Number(event.target.value || dayOfMonthFromDate(current.scheduledDate))),
+                            ),
+                          }))
+                        }
+                      />
+                    </FormField>
+                  ) : (
+                    <div />
+                  )}
                 </div>
                 {form.recurrenceFrequency === "weekly" ? (
                   <div className="flex flex-wrap gap-2">
@@ -5486,28 +5510,45 @@ function TaskModal({
                     })}
                   </div>
                 ) : null}
-                {form.recurrenceFrequency === "monthly" ? (
-                  <FormField label="毎月の日">
+                {/* Desktop only: dates below frequency */}
+                <div className="hidden grid-cols-2 gap-4 lg:grid">
+                  <FormField label="期間開始">
                     <input
                       className={inputClass}
-                      type="number"
-                      min={1}
-                      max={31}
-                      value={form.recurrenceDayOfMonth}
+                      type="date"
+                      value={form.scheduledDate}
                       onChange={(event) =>
                         setForm((current) => ({
                           ...current,
-                          recurrenceDayOfMonth: Math.min(
-                            31,
-                            Math.max(1, Number(event.target.value || dayOfMonthFromDate(current.scheduledDate))),
-                          ),
+                          scheduledDate: event.target.value,
+                          recurrenceDaysOfWeek:
+                            current.recurrenceFrequency === "weekly"
+                              ? [weekdayFromDate(event.target.value)]
+                              : current.recurrenceDaysOfWeek,
+                          recurrenceDayOfMonth: dayOfMonthFromDate(event.target.value),
                         }))
                       }
                     />
                   </FormField>
-                ) : null}
+                  <FormField label="期間終了">
+                    <input
+                      className={inputClass}
+                      type="date"
+                      value={form.recurrenceEndDate}
+                      min={form.scheduledDate}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          recurrenceEndDate: event.target.value,
+                        }))
+                      }
+                    />
+                  </FormField>
+                </div>
               </div>
-            ) : null}
+            ) : (
+              <p className="mt-3 hidden text-sm text-[var(--muted)] lg:block">単発タスクとして登録します。</p>
+            )}
           </div>
         </div>
         {isEditing && hasRecurrenceRule && onUpdateScopeChange ? (
