@@ -5842,18 +5842,21 @@ function TaskDetailModal({
                 <p className="text-xs font-semibold text-[var(--ink)]">説明画像</p>
               </div>
               {(task.reference_photos?.length ?? 0) < 5 ? (
-                <label className={`${secondaryButtonClass} cursor-pointer`}>
-                  追加
+                <label className={`${secondaryButtonClass} cursor-pointer ${isReferencePhotoSubmitting ? "pointer-events-none opacity-50" : ""}`}>
+                  {isReferencePhotoSubmitting ? "保存中…" : "追加"}
                   <input
                     className="hidden"
                     type="file"
                     accept="image/*"
+                    multiple
                     onChange={async (event) => {
-                      const file = event.target.files?.[0];
+                      const files = Array.from(event.target.files ?? []).filter((f) => f.type.startsWith("image/") || /\.(heic|heif)$/i.test(f.name));
                       event.currentTarget.value = "";
-                      if (!file) return;
+                      if (!files.length) return;
+                      const remaining = 5 - (task.reference_photos?.length ?? 0);
+                      const toUpload = files.slice(0, remaining);
                       setIsReferencePhotoSubmitting(true);
-                      await Promise.resolve(onReferencePhotoUpload(file));
+                      await Promise.allSettled(toUpload.map((file) => Promise.resolve(onReferencePhotoUpload(file))));
                       setIsReferencePhotoSubmitting(false);
                     }}
                   />
@@ -5863,6 +5866,12 @@ function TaskDetailModal({
               )}
             </div>
 
+            {isReferencePhotoSubmitting ? (
+              <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl bg-[var(--chip)] py-6 text-sm text-[var(--ink-soft)]">
+                <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[var(--muted)] border-t-[var(--ink)]" />
+                保存中…
+              </div>
+            ) : null}
             {task.reference_photos?.length ? (
               <div className="mt-4 grid grid-cols-2 gap-3">
                 {task.reference_photos.map((photo) => (
@@ -5946,17 +5955,23 @@ function TaskDetailModal({
                 </div>
                 {(task.photos?.length ?? 0) < 3 ? (
                   <button
-                    className={secondaryButtonClass}
+                    className={`${secondaryButtonClass} ${isPhotoSubmitting ? "pointer-events-none opacity-50" : ""}`}
                     onClick={() => completePhotoInputRef.current?.click()}
                     type="button"
                   >
-                    写真追加
+                    {isPhotoSubmitting ? "保存中…" : "写真追加"}
                   </button>
                 ) : (
                   <span className="text-xs font-semibold text-[var(--muted)]">3 / 3枚</span>
                 )}
               </div>
 
+              {isPhotoSubmitting ? (
+                <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl bg-[var(--chip)] py-6 text-sm text-[var(--ink-soft)]">
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[var(--muted)] border-t-[var(--ink)]" />
+                  保存中…
+                </div>
+              ) : null}
               {task.photos?.length ? (
                 <div className="mt-4 grid grid-cols-3 gap-3">
                   {task.photos.map((photo) => (
@@ -6074,12 +6089,15 @@ function TaskDetailModal({
           className="hidden"
           type="file"
           accept="image/*"
+          multiple
           onChange={async (event) => {
-            const file = event.target.files?.[0];
+            const files = Array.from(event.target.files ?? []).filter((f) => f.type.startsWith("image/") || /\.(heic|heif)$/i.test(f.name));
             event.currentTarget.value = "";
-            if (!file) return;
+            if (!files.length) return;
+            const remaining = 3 - (task.photos?.length ?? 0);
+            const toUpload = files.slice(0, remaining);
             setIsPhotoSubmitting(true);
-            await Promise.resolve(onPhotoUpload(file));
+            await Promise.allSettled(toUpload.map((file) => Promise.resolve(onPhotoUpload(file))));
             setIsPhotoSubmitting(false);
           }}
         />
