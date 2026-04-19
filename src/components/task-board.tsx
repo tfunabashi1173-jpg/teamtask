@@ -1829,9 +1829,9 @@ export function TaskBoard({
           method: "POST",
           body: JSON.stringify(body),
         });
-    setTaskSavePending(false);
 
     if (!result.ok) {
+      setTaskSavePending(false);
       pushToast("error", editingTaskId ? "タスク更新に失敗しました。" : "タスク作成に失敗しました。");
       return;
     }
@@ -1883,7 +1883,7 @@ export function TaskBoard({
       const failCount = pendingReferenceFiles.slice(0, 5).length - uploadedPhotos.length;
       if (failCount > 0) {
         pushToast(
-          uploadedPhotos.length > 0 ? "error" : "error",
+          "error",
           uploadedPhotos.length > 0
             ? `説明画像 ${failCount}枚の保存に失敗しました（${uploadedPhotos.length}枚成功）。`
             : "説明画像の保存に失敗しました。",
@@ -1891,6 +1891,7 @@ export function TaskBoard({
       }
     }
 
+    setTaskSavePending(false);
     pushToast("success", editingTaskId ? "タスクを更新しました。" : "タスクを作成しました。");
     setPendingReferenceFiles([]);
     setCreateTaskOpen(false);
@@ -2069,7 +2070,7 @@ export function TaskBoard({
     });
   }
 
-  async function handlePhotoUpload(taskId: string, file: File) {
+  async function handlePhotoUpload(taskId: string, file: File, silent?: boolean): Promise<boolean> {
     const compressed = await compressImage(file);
     const formData = new FormData();
     formData.append("file", compressed);
@@ -2085,8 +2086,8 @@ export function TaskBoard({
         | null;
 
       if (!response.ok || !json || !("photo" in json) || !json.photo) {
-        pushToast("error", "写真の保存に失敗しました。");
-        return;
+        if (!silent) pushToast("error", "写真の保存に失敗しました。");
+        return false;
       }
 
       const createdPhoto = json.photo as TaskPhotoRecord;
@@ -2099,9 +2100,11 @@ export function TaskBoard({
             : task,
         ),
       }));
-      pushToast("success", "写真を保存しました。");
+      if (!silent) pushToast("success", "写真を保存しました。");
+      return true;
     } catch {
-      pushToast("error", "写真の保存に失敗しました。");
+      if (!silent) pushToast("error", "写真の保存に失敗しました。");
+      return false;
     }
   }
 
@@ -3017,17 +3020,16 @@ export function TaskBoard({
                 onClose={() => setSelectedTaskId(null)}
                 onCopyText={copyText}
                 onAction={(action) => void performTaskAction(selectedTask, action)}
-                onReferencePhotoUpload={(file) => void handleReferencePhotoUpload(selectedTask.id, file)}
-                onReferencePhotoDelete={(photoId) =>
-                  void handleReferencePhotoDelete(selectedTask.id, photoId)
-                }
+                onReferencePhotoUpload={(file, silent) => handleReferencePhotoUpload(selectedTask.id, file, silent).then((r) => r !== null)}
+                onReferencePhotoDelete={(photoId) => handleReferencePhotoDelete(selectedTask.id, photoId)}
                 onReferencePhotoReplace={(photoId, file) =>
                   void handleReferencePhotoReplace(selectedTask.id, photoId, file)
                 }
-                onPhotoUpload={(file) => void handlePhotoUpload(selectedTask.id, file)}
-                onPhotoDelete={(photoId) => void handlePhotoDelete(selectedTask.id, photoId)}
+                onPhotoUpload={(file, silent) => handlePhotoUpload(selectedTask.id, file, silent)}
+                onPhotoDelete={(photoId) => handlePhotoDelete(selectedTask.id, photoId)}
                 onPhotoReplace={(photoId, file) => void handlePhotoReplace(selectedTask.id, photoId, file)}
                 onPreview={(url) => setPreviewPhotoUrl(url)}
+                onPushToast={pushToast}
                 inline
               />
             </Card>
@@ -4879,17 +4881,16 @@ export function TaskBoard({
             onClose={() => setSelectedTaskId(null)}
             onCopyText={copyText}
             onAction={(action) => void performTaskAction(selectedTask, action)}
-            onReferencePhotoUpload={(file) => void handleReferencePhotoUpload(selectedTask.id, file)}
-            onReferencePhotoDelete={(photoId) =>
-              void handleReferencePhotoDelete(selectedTask.id, photoId)
-            }
+            onReferencePhotoUpload={(file, silent) => handleReferencePhotoUpload(selectedTask.id, file, silent).then((r) => r !== null)}
+            onReferencePhotoDelete={(photoId) => handleReferencePhotoDelete(selectedTask.id, photoId)}
             onReferencePhotoReplace={(photoId, file) =>
               void handleReferencePhotoReplace(selectedTask.id, photoId, file)
             }
-            onPhotoUpload={(file) => void handlePhotoUpload(selectedTask.id, file)}
-            onPhotoDelete={(photoId) => void handlePhotoDelete(selectedTask.id, photoId)}
+            onPhotoUpload={(file, silent) => handlePhotoUpload(selectedTask.id, file, silent)}
+            onPhotoDelete={(photoId) => handlePhotoDelete(selectedTask.id, photoId)}
             onPhotoReplace={(photoId, file) => void handlePhotoReplace(selectedTask.id, photoId, file)}
             onPreview={(url) => setPreviewPhotoUrl(url)}
+            onPushToast={pushToast}
           />
         </div>
       ) : null}
@@ -5769,6 +5770,7 @@ function TaskDetailModal({
   onPhotoDelete,
   onPhotoReplace,
   onPreview,
+  onPushToast,
   inline = false,
 }: {
   actionPending: ActionType | null;
@@ -5776,17 +5778,20 @@ function TaskDetailModal({
   onClose: () => void;
   onCopyText: (label: string, value: string) => Promise<void>;
   onAction: (action: ActionType) => void;
-  onReferencePhotoUpload: (file: File) => void;
-  onReferencePhotoDelete: (photoId: string) => void;
+  onReferencePhotoUpload: (file: File, silent?: boolean) => Promise<boolean>;
+  onReferencePhotoDelete: (photoId: string) => Promise<void>;
   onReferencePhotoReplace: (photoId: string, file: File) => void;
-  onPhotoUpload: (file: File) => void;
-  onPhotoDelete: (photoId: string) => void;
+  onPhotoUpload: (file: File, silent?: boolean) => Promise<boolean>;
+  onPhotoDelete: (photoId: string) => Promise<void>;
   onPhotoReplace: (photoId: string, file: File) => void;
   onPreview: (url: string) => void;
+  onPushToast: (type: "success" | "error" | "info", message: string) => void;
   inline?: boolean;
 }) {
   const [isPhotoSubmitting, setIsPhotoSubmitting] = useState(false);
   const [isReferencePhotoSubmitting, setIsReferencePhotoSubmitting] = useState(false);
+  const [deletingRefPhotoIds, setDeletingRefPhotoIds] = useState<Set<string>>(new Set());
+  const [deletingPhotoIds, setDeletingPhotoIds] = useState<Set<string>>(new Set());
   const shouldOpenPhotoPickerOnDoneRef = useRef(false);
   const completePhotoInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -5856,7 +5861,16 @@ function TaskDetailModal({
                       const remaining = 5 - (task.reference_photos?.length ?? 0);
                       const toUpload = files.slice(0, remaining);
                       setIsReferencePhotoSubmitting(true);
-                      await Promise.allSettled(toUpload.map((file) => Promise.resolve(onReferencePhotoUpload(file))));
+                      const results = await Promise.allSettled(toUpload.map((file) => onReferencePhotoUpload(file, true)));
+                      const successCount = results.filter((r) => r.status === "fulfilled" && r.value).length;
+                      const failCount = toUpload.length - successCount;
+                      if (failCount > 0 && successCount > 0) {
+                        onPushToast("error", `${failCount}枚の保存に失敗しました（${successCount}枚成功）。`);
+                      } else if (failCount > 0) {
+                        onPushToast("error", "説明画像の保存に失敗しました。");
+                      } else {
+                        onPushToast("success", successCount === 1 ? "説明画像を保存しました。" : `説明画像 ${successCount}枚を保存しました。`);
+                      }
                       setIsReferencePhotoSubmitting(false);
                     }}
                   />
@@ -5894,13 +5908,24 @@ function TaskDetailModal({
                         </span>
                       )}
                     </button>
-                    <button
-                      className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--danger)]"
-                      onClick={() => onReferencePhotoDelete(photo.id)}
-                      type="button"
-                    >
-                      削除
-                    </button>
+                    {deletingRefPhotoIds.has(photo.id) ? (
+                      <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-white/90 px-2 py-1">
+                        <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[var(--muted)] border-t-[var(--danger)]" />
+                        <span className="text-[11px] font-semibold text-[var(--danger)]">削除中</span>
+                      </div>
+                    ) : (
+                      <button
+                        className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--danger)]"
+                        onClick={async () => {
+                          setDeletingRefPhotoIds((prev) => new Set(prev).add(photo.id));
+                          await onReferencePhotoDelete(photo.id);
+                          setDeletingRefPhotoIds((prev) => { const next = new Set(prev); next.delete(photo.id); return next; });
+                        }}
+                        type="button"
+                      >
+                        削除
+                      </button>
+                    )}
                     <label className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--ink-soft)]">
                       更新
                       <input
@@ -5994,13 +6019,24 @@ function TaskDetailModal({
                           </span>
                         )}
                       </button>
-                      <button
-                        className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--danger)]"
-                        onClick={() => onPhotoDelete(photo.id)}
-                        type="button"
-                      >
-                        削除
-                      </button>
+                      {deletingPhotoIds.has(photo.id) ? (
+                        <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-white/90 px-2 py-1">
+                          <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[var(--muted)] border-t-[var(--danger)]" />
+                          <span className="text-[11px] font-semibold text-[var(--danger)]">削除中</span>
+                        </div>
+                      ) : (
+                        <button
+                          className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--danger)]"
+                          onClick={async () => {
+                            setDeletingPhotoIds((prev) => new Set(prev).add(photo.id));
+                            await onPhotoDelete(photo.id);
+                            setDeletingPhotoIds((prev) => { const next = new Set(prev); next.delete(photo.id); return next; });
+                          }}
+                          type="button"
+                        >
+                          削除
+                        </button>
+                      )}
                       <label className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--ink-soft)]">
                         更新
                         <input
@@ -6097,7 +6133,16 @@ function TaskDetailModal({
             const remaining = 3 - (task.photos?.length ?? 0);
             const toUpload = files.slice(0, remaining);
             setIsPhotoSubmitting(true);
-            await Promise.allSettled(toUpload.map((file) => Promise.resolve(onPhotoUpload(file))));
+            const results = await Promise.allSettled(toUpload.map((file) => onPhotoUpload(file, true)));
+            const successCount = results.filter((r) => r.status === "fulfilled" && r.value).length;
+            const failCount = toUpload.length - successCount;
+            if (failCount > 0 && successCount > 0) {
+              onPushToast("error", `${failCount}枚の保存に失敗しました（${successCount}枚成功）。`);
+            } else if (failCount > 0) {
+              onPushToast("error", "写真の保存に失敗しました。");
+            } else {
+              onPushToast("success", successCount === 1 ? "写真を保存しました。" : `写真 ${successCount}枚を保存しました。`);
+            }
             setIsPhotoSubmitting(false);
           }}
         />
