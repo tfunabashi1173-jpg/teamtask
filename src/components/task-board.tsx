@@ -5354,12 +5354,12 @@ function TaskModal({
               {pendingReferenceFiles.map((file, index) => (
                 <div key={`${file.name}-${index}`} className="relative">
                   <button
-                    className="block aspect-square w-full overflow-hidden rounded-2xl bg-[var(--surface)]"
+                    className="block w-full overflow-hidden rounded-2xl bg-[var(--surface)]"
                     onClick={() => onPreview(URL.createObjectURL(file))}
                     type="button"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img alt={file.name} className="h-full w-full object-cover" src={URL.createObjectURL(file)} />
+                    <img alt={file.name} className="w-full object-contain" src={URL.createObjectURL(file)} />
                   </button>
                   <button
                     className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--danger)]"
@@ -5877,7 +5877,7 @@ function TaskDetailModal({
                 {task.reference_photos.map((photo) => (
                   <div key={photo.id} className="relative">
                     <button
-                      className="block aspect-square w-full overflow-hidden rounded-2xl bg-white"
+                      className="block w-full overflow-hidden rounded-2xl bg-white"
                       onClick={() => photo.preview_url && onPreview(photo.preview_url)}
                       type="button"
                     >
@@ -5885,11 +5885,11 @@ function TaskDetailModal({
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           alt={photo.file_name}
-                          className="h-full w-full object-cover"
+                          className="w-full object-contain"
                           src={photo.preview_url.startsWith("/api/") ? `${photo.preview_url}?thumb=1` : photo.preview_url}
                         />
                       ) : (
-                        <span className="flex h-full items-center justify-center text-xs text-[var(--muted)]">
+                        <span className="flex items-center justify-center py-4 text-xs text-[var(--muted)]">
                           画像
                         </span>
                       )}
@@ -5977,7 +5977,7 @@ function TaskDetailModal({
                   {task.photos.map((photo) => (
                     <div key={photo.id} className="relative">
                       <button
-                        className="block aspect-square w-full overflow-hidden rounded-2xl bg-white"
+                        className="block w-full overflow-hidden rounded-2xl bg-white"
                         onClick={() => photo.preview_url && onPreview(photo.preview_url)}
                         type="button"
                       >
@@ -5985,11 +5985,11 @@ function TaskDetailModal({
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             alt={photo.file_name}
-                            className="h-full w-full object-cover"
+                            className="w-full object-contain"
                             src={photo.preview_url.startsWith("/api/") ? `${photo.preview_url}?thumb=1` : photo.preview_url}
                           />
                         ) : (
-                          <span className="flex h-full items-center justify-center text-xs text-[var(--muted)]">
+                          <span className="flex items-center justify-center py-4 text-xs text-[var(--muted)]">
                             画像
                           </span>
                         )}
