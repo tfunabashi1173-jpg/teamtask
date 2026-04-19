@@ -3259,7 +3259,7 @@ export function TaskBoard({
                 </FormField>
               </div>
               <div className="mt-5 overflow-hidden rounded-md border border-[#e2e8f0] bg-white">
-                <div className="grid grid-cols-[minmax(0,1.5fr)_120px_110px_110px_220px] bg-[#f8fafc] px-5 py-3 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
+                <div className="grid grid-cols-[minmax(0,1fr)_110px_100px_110px_220px] bg-[#f8fafc] px-5 py-3 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
                   <span>タイトル</span>
                   <span>日付</span>
                   <span>時間帯</span>
@@ -3269,16 +3269,17 @@ export function TaskBoard({
                 {rangedTasks.length === 0 ? (
                   <div className="px-5 py-8 text-sm text-[var(--muted)]">対象タスクはありません。</div>
                 ) : (
-                  rangedTasks.map((task) => (
-                    <div key={task.id} className={`grid grid-cols-[minmax(0,1.5fr)_120px_110px_110px_220px] items-center gap-4 border-t border-black/5 px-5 py-4 transition-colors hover:bg-black/[0.02] ${taskCardSurfaceClass(task)}`}>
+                  rangedTasks.map((task) => {
+                    const recurrenceSummary = formatRecurrenceSummary(task);
+                    return (
+                    <div key={task.id} className={`grid grid-cols-[minmax(0,1fr)_110px_100px_110px_220px] items-center gap-4 border-t border-black/5 px-5 py-3 transition-colors hover:bg-black/[0.02] ${taskCardSurfaceClass(task)}`}>
                       <button className="min-w-0 text-left" onClick={() => openTaskDetail(task)} type="button">
                         <p className="truncate text-sm font-semibold text-[var(--ink)]">
-                          {formatTaskTitleIcon(task)}{" "}
-                          {task.title}
-                          {task.recurrence_rule_id && (
-                            <span className="ml-1.5 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold text-[#244234] bg-[#d1fae5] align-middle">繰返</span>
-                          )}
+                          {formatTaskTitleIcon(task)}{" "}{task.title}
                         </p>
+                        {recurrenceSummary ? (
+                          <p className="mt-0.5 truncate text-xs text-[#244234]">↻ {recurrenceSummary}</p>
+                        ) : null}
                       </button>
                       <span className="text-sm text-[var(--muted)]">{task.scheduled_date}</span>
                       <span className="text-sm text-[var(--muted)]">{slotLabel(scheduledTimeToSlot(task.scheduled_time))}</span>
@@ -3337,7 +3338,8 @@ export function TaskBoard({
                         )}
                       </div>
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </Card>
