@@ -1832,7 +1832,16 @@ export function TaskBoard({
 
     if (!result.ok) {
       setTaskSavePending(false);
-      pushToast("error", editingTaskId ? "タスク更新に失敗しました。" : "タスク作成に失敗しました。");
+      // 繰り返しタスクの類似重複検知
+      const errJson = result.json as { error?: string; similarTitle?: string } | null;
+      if (errJson && errJson.error === "DUPLICATE_RECURRENCE") {
+        pushToast(
+          "error",
+          `類似の繰り返しタスクが既に存在します（「${errJson.similarTitle ?? ""}」）。登録を中止しました。`,
+        );
+      } else {
+        pushToast("error", editingTaskId ? "タスク更新に失敗しました。" : "タスク作成に失敗しました。");
+      }
       return;
     }
 

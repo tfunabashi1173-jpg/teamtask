@@ -1,5 +1,37 @@
 export type RecurrenceFrequency = "daily" | "weekly" | "monthly";
 
+/** タイトルを正規化（スペース除去・小文字化） */
+function normalizeTitle(title: string): string {
+  return title.toLowerCase().replace(/[\s　]+/g, "");
+}
+
+/** bigram集合を生成 */
+function bigrams(s: string): Set<string> {
+  const set = new Set<string>();
+  for (let i = 0; i < s.length - 1; i++) {
+    set.add(s.slice(i, i + 2));
+  }
+  return set;
+}
+
+/**
+ * Dice係数によるタイトル類似度 (0〜1)
+ * PostgreSQL の pg_trgm.similarity() と同じアルゴリズム（trigram版のbigram適用）
+ */
+export function titleSimilarity(a: string, b: string): number {
+  const na = normalizeTitle(a);
+  const nb = normalizeTitle(b);
+  if (na === nb) return 1;
+  if (na.length < 2 || nb.length < 2) return 0;
+  const ba = bigrams(na);
+  const bb = bigrams(nb);
+  let intersection = 0;
+  for (const g of ba) {
+    if (bb.has(g)) intersection++;
+  }
+  return (2 * intersection) / (ba.size + bb.size);
+}
+
 export type RecurrenceInput = {
   frequency: RecurrenceFrequency;
   interval: number;

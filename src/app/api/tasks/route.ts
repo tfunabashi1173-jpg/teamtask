@@ -6,8 +6,11 @@ import {
   generateFutureOccurrenceDates,
   normalizeRecurrence,
   startDateMatchesWeeklyRule,
+  titleSimilarity,
   type RecurrenceFrequency,
 } from "@/lib/tasks/recurrence";
+
+const RECURRENCE_DUPLICATE_SIMILARITY_THRESHOLD = 0.75;
 
 export async function POST(request: NextRequest) {
   const { sessionUser, errorResponse } = await requireSession();
@@ -97,6 +100,34 @@ export async function POST(request: NextRequest) {
       await supabase.from("tasks").delete().eq("id", insertResult.data.id);
       return NextResponse.json({ error: "INVALID_RECURRENCE_PERIOD" }, { status: 400 });
     }
+
+    // ── 重複チェック ──────────────────────────────────────────────
+    // 同グループ・日付範囲が重なる既存ルールを取得し、タイトル類似度で判定
+    const existingRulesResult = await supabase
+      .from("recurrence_rules")
+      .select("id,title_template,start_date,end_date")
+      .eq("workspace_id", body.workspaceId)
+      .eq("group_id", body.visibilityType === "group" ? (body.groupId ?? "") : "")
+      .lte("start_date", body.recurrence.endDate)   // 既存の開始日 ≤ 新しい終了日
+      .gte("end_date", body.scheduledDate);          // 既存の終了日 ≥ 新しい開始日
+
+    if (!existingRulesResult.error && existingRulesResult.data) {
+      const similar = existingRulesResult.data.find(
+        (rule) => titleSimilarity(rule.title_template as string, trimmedTitle) >= RECURRENCE_DUPLICATE_SIMILARITY_THRESHOLD,
+      );
+      if (similar) {
+        await supabase.from("tasks").delete().eq("id", insertResult.data.id);
+        return NextResponse.json(
+          {
+            error: "DUPLICATE_RECURRENCE",
+            similarTitle: similar.title_template,
+            similarity: titleSimilarity(similar.title_template as string, trimmedTitle),
+          },
+          { status: 409 },
+        );
+      }
+    }
+    // ─────────────────────────────────────────────────────────────
 
     const recurrenceResult = await supabase
       .from("recurrence_rules")
