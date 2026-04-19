@@ -2108,11 +2108,11 @@ export function TaskBoard({
     }
   }
 
-  async function handlePhotoDelete(taskId: string, photoId: string) {
+  async function handlePhotoDelete(taskId: string, photoId: string, silent?: boolean): Promise<boolean> {
     const result = await callJson(`/api/tasks/${taskId}/photos/${photoId}`, { method: "DELETE" });
     if (!result.ok) {
-      pushToast("error", "写真の削除に失敗しました。");
-      return;
+      if (!silent) pushToast("error", "写真の削除に失敗しました。");
+      return false;
     }
 
     setState((current) => ({
@@ -2129,7 +2129,21 @@ export function TaskBoard({
         setPreviewPhotoUrl(null);
       }
     }
-    pushToast("success", "写真を削除しました。");
+    if (!silent) pushToast("success", "写真を削除しました。");
+    return true;
+  }
+
+  async function handleBatchPhotoDelete(taskId: string, photoIds: string[]): Promise<void> {
+    const results = await Promise.allSettled(photoIds.map((id) => handlePhotoDelete(taskId, id, true)));
+    const success = results.filter((r) => r.status === "fulfilled" && r.value).length;
+    const fail = photoIds.length - success;
+    if (fail > 0 && success > 0) {
+      pushToast("error", `${fail}枚の削除に失敗しました（${success}枚削除済み）。`);
+    } else if (fail > 0) {
+      pushToast("error", "写真の削除に失敗しました。");
+    } else {
+      pushToast("success", success === 1 ? "写真を削除しました。" : `写真 ${success}枚を削除しました。`);
+    }
   }
 
   async function handleReferencePhotoUpload(taskId: string, file: File, silent?: boolean): Promise<TaskPhotoRecord | null> {
@@ -2188,13 +2202,13 @@ export function TaskBoard({
     }
   }
 
-  async function handleReferencePhotoDelete(taskId: string, photoId: string) {
+  async function handleReferencePhotoDelete(taskId: string, photoId: string, silent?: boolean): Promise<boolean> {
     const result = await callJson(`/api/tasks/${taskId}/reference-photos/${photoId}`, {
       method: "DELETE",
     });
     if (!result.ok) {
-      pushToast("error", "説明画像の削除に失敗しました。");
-      return;
+      if (!silent) pushToast("error", "説明画像の削除に失敗しました。");
+      return false;
     }
 
     setState((current) => ({
@@ -2214,7 +2228,21 @@ export function TaskBoard({
         setPreviewPhotoUrl(null);
       }
     }
-    pushToast("success", "説明画像を削除しました。");
+    if (!silent) pushToast("success", "説明画像を削除しました。");
+    return true;
+  }
+
+  async function handleBatchReferencePhotoDelete(taskId: string, photoIds: string[]): Promise<void> {
+    const results = await Promise.allSettled(photoIds.map((id) => handleReferencePhotoDelete(taskId, id, true)));
+    const success = results.filter((r) => r.status === "fulfilled" && r.value).length;
+    const fail = photoIds.length - success;
+    if (fail > 0 && success > 0) {
+      pushToast("error", `${fail}枚の削除に失敗しました（${success}枚削除済み）。`);
+    } else if (fail > 0) {
+      pushToast("error", "説明画像の削除に失敗しました。");
+    } else {
+      pushToast("success", success === 1 ? "説明画像を削除しました。" : `説明画像 ${success}枚を削除しました。`);
+    }
   }
 
   async function handleReferencePhotoReplace(taskId: string, photoId: string, file: File) {
@@ -3021,12 +3049,14 @@ export function TaskBoard({
                 onCopyText={copyText}
                 onAction={(action) => void performTaskAction(selectedTask, action)}
                 onReferencePhotoUpload={(file, silent) => handleReferencePhotoUpload(selectedTask.id, file, silent).then((r) => r !== null)}
-                onReferencePhotoDelete={(photoId) => handleReferencePhotoDelete(selectedTask.id, photoId)}
+                onReferencePhotoDelete={(photoId) => handleReferencePhotoDelete(selectedTask.id, photoId, true).then(() => {})}
+                onBatchReferencePhotoDelete={(ids) => handleBatchReferencePhotoDelete(selectedTask.id, ids)}
                 onReferencePhotoReplace={(photoId, file) =>
                   void handleReferencePhotoReplace(selectedTask.id, photoId, file)
                 }
                 onPhotoUpload={(file, silent) => handlePhotoUpload(selectedTask.id, file, silent)}
-                onPhotoDelete={(photoId) => handlePhotoDelete(selectedTask.id, photoId)}
+                onPhotoDelete={(photoId) => handlePhotoDelete(selectedTask.id, photoId, true).then(() => {})}
+                onBatchPhotoDelete={(ids) => handleBatchPhotoDelete(selectedTask.id, ids)}
                 onPhotoReplace={(photoId, file) => void handlePhotoReplace(selectedTask.id, photoId, file)}
                 onPreview={(url) => setPreviewPhotoUrl(url)}
                 onPushToast={pushToast}
@@ -4882,12 +4912,14 @@ export function TaskBoard({
             onCopyText={copyText}
             onAction={(action) => void performTaskAction(selectedTask, action)}
             onReferencePhotoUpload={(file, silent) => handleReferencePhotoUpload(selectedTask.id, file, silent).then((r) => r !== null)}
-            onReferencePhotoDelete={(photoId) => handleReferencePhotoDelete(selectedTask.id, photoId)}
+            onReferencePhotoDelete={(photoId) => handleReferencePhotoDelete(selectedTask.id, photoId, true).then(() => {})}
+            onBatchReferencePhotoDelete={(ids) => handleBatchReferencePhotoDelete(selectedTask.id, ids)}
             onReferencePhotoReplace={(photoId, file) =>
               void handleReferencePhotoReplace(selectedTask.id, photoId, file)
             }
             onPhotoUpload={(file, silent) => handlePhotoUpload(selectedTask.id, file, silent)}
-            onPhotoDelete={(photoId) => handlePhotoDelete(selectedTask.id, photoId)}
+            onPhotoDelete={(photoId) => handlePhotoDelete(selectedTask.id, photoId, true).then(() => {})}
+            onBatchPhotoDelete={(ids) => handleBatchPhotoDelete(selectedTask.id, ids)}
             onPhotoReplace={(photoId, file) => void handlePhotoReplace(selectedTask.id, photoId, file)}
             onPreview={(url) => setPreviewPhotoUrl(url)}
             onPushToast={pushToast}
@@ -5765,9 +5797,11 @@ function TaskDetailModal({
   onAction,
   onReferencePhotoUpload,
   onReferencePhotoDelete,
+  onBatchReferencePhotoDelete,
   onReferencePhotoReplace,
   onPhotoUpload,
   onPhotoDelete,
+  onBatchPhotoDelete,
   onPhotoReplace,
   onPreview,
   onPushToast,
@@ -5780,9 +5814,11 @@ function TaskDetailModal({
   onAction: (action: ActionType) => void;
   onReferencePhotoUpload: (file: File, silent?: boolean) => Promise<boolean>;
   onReferencePhotoDelete: (photoId: string) => Promise<void>;
+  onBatchReferencePhotoDelete: (photoIds: string[]) => Promise<void>;
   onReferencePhotoReplace: (photoId: string, file: File) => void;
   onPhotoUpload: (file: File, silent?: boolean) => Promise<boolean>;
   onPhotoDelete: (photoId: string) => Promise<void>;
+  onBatchPhotoDelete: (photoIds: string[]) => Promise<void>;
   onPhotoReplace: (photoId: string, file: File) => void;
   onPreview: (url: string) => void;
   onPushToast: (type: "success" | "error" | "info", message: string) => void;
@@ -5792,6 +5828,10 @@ function TaskDetailModal({
   const [isReferencePhotoSubmitting, setIsReferencePhotoSubmitting] = useState(false);
   const [deletingRefPhotoIds, setDeletingRefPhotoIds] = useState<Set<string>>(new Set());
   const [deletingPhotoIds, setDeletingPhotoIds] = useState<Set<string>>(new Set());
+  const [refSelectMode, setRefSelectMode] = useState(false);
+  const [selectedRefIds, setSelectedRefIds] = useState<Set<string>>(new Set());
+  const [photoSelectMode, setPhotoSelectMode] = useState(false);
+  const [selectedPhotoIds2, setSelectedPhotoIds2] = useState<Set<string>>(new Set());
   const shouldOpenPhotoPickerOnDoneRef = useRef(false);
   const completePhotoInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -5842,57 +5882,102 @@ function TaskDetailModal({
           ) : null}
 
           <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold text-[var(--ink)]">説明画像</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-[var(--ink)]">説明画像</p>
+              <div className="flex items-center gap-2">
+                {refSelectMode ? (
+                  <>
+                    {selectedRefIds.size > 0 ? (
+                      <button
+                        className="rounded-2xl bg-[var(--danger)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                        disabled={isReferencePhotoSubmitting}
+                        onClick={async () => {
+                          setIsReferencePhotoSubmitting(true);
+                          await onBatchReferencePhotoDelete([...selectedRefIds]);
+                          setSelectedRefIds(new Set());
+                          setRefSelectMode(false);
+                          setIsReferencePhotoSubmitting(false);
+                        }}
+                        type="button"
+                      >
+                        削除 ({selectedRefIds.size})
+                      </button>
+                    ) : null}
+                    <button
+                      className={secondaryButtonClass}
+                      onClick={() => { setRefSelectMode(false); setSelectedRefIds(new Set()); }}
+                      type="button"
+                    >
+                      キャンセル
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {(task.reference_photos?.length ?? 0) > 0 ? (
+                      <button className={secondaryButtonClass} onClick={() => setRefSelectMode(true)} type="button">選択</button>
+                    ) : null}
+                    {(task.reference_photos?.length ?? 0) < 5 ? (
+                      <label className={`${secondaryButtonClass} cursor-pointer ${isReferencePhotoSubmitting ? "pointer-events-none opacity-50" : ""}`}>
+                        {isReferencePhotoSubmitting ? "保存中…" : "追加"}
+                        <input
+                          className="hidden"
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={async (event) => {
+                            const files = Array.from(event.target.files ?? []).filter((f) => f.type.startsWith("image/") || /\.(heic|heif)$/i.test(f.name));
+                            event.currentTarget.value = "";
+                            if (!files.length) return;
+                            const remaining = 5 - (task.reference_photos?.length ?? 0);
+                            const toUpload = files.slice(0, remaining);
+                            setIsReferencePhotoSubmitting(true);
+                            const results = await Promise.allSettled(toUpload.map((file) => onReferencePhotoUpload(file, true)));
+                            const successCount = results.filter((r) => r.status === "fulfilled" && r.value).length;
+                            const failCount = toUpload.length - successCount;
+                            if (failCount > 0 && successCount > 0) {
+                              onPushToast("error", `${failCount}枚の保存に失敗しました（${successCount}枚成功）。`);
+                            } else if (failCount > 0) {
+                              onPushToast("error", "説明画像の保存に失敗しました。");
+                            } else {
+                              onPushToast("success", successCount === 1 ? "説明画像を保存しました。" : `説明画像 ${successCount}枚を保存しました。`);
+                            }
+                            setIsReferencePhotoSubmitting(false);
+                          }}
+                        />
+                      </label>
+                    ) : (
+                      <span className="text-xs font-semibold text-[var(--muted)]">5 / 5枚</span>
+                    )}
+                  </>
+                )}
               </div>
-              {(task.reference_photos?.length ?? 0) < 5 ? (
-                <label className={`${secondaryButtonClass} cursor-pointer ${isReferencePhotoSubmitting ? "pointer-events-none opacity-50" : ""}`}>
-                  {isReferencePhotoSubmitting ? "保存中…" : "追加"}
-                  <input
-                    className="hidden"
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={async (event) => {
-                      const files = Array.from(event.target.files ?? []).filter((f) => f.type.startsWith("image/") || /\.(heic|heif)$/i.test(f.name));
-                      event.currentTarget.value = "";
-                      if (!files.length) return;
-                      const remaining = 5 - (task.reference_photos?.length ?? 0);
-                      const toUpload = files.slice(0, remaining);
-                      setIsReferencePhotoSubmitting(true);
-                      const results = await Promise.allSettled(toUpload.map((file) => onReferencePhotoUpload(file, true)));
-                      const successCount = results.filter((r) => r.status === "fulfilled" && r.value).length;
-                      const failCount = toUpload.length - successCount;
-                      if (failCount > 0 && successCount > 0) {
-                        onPushToast("error", `${failCount}枚の保存に失敗しました（${successCount}枚成功）。`);
-                      } else if (failCount > 0) {
-                        onPushToast("error", "説明画像の保存に失敗しました。");
-                      } else {
-                        onPushToast("success", successCount === 1 ? "説明画像を保存しました。" : `説明画像 ${successCount}枚を保存しました。`);
-                      }
-                      setIsReferencePhotoSubmitting(false);
-                    }}
-                  />
-                </label>
-              ) : (
-                <span className="text-xs font-semibold text-[var(--muted)]">5 / 5枚</span>
-              )}
             </div>
 
             {isReferencePhotoSubmitting ? (
               <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl bg-[var(--chip)] py-6 text-sm text-[var(--ink-soft)]">
                 <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[var(--muted)] border-t-[var(--ink)]" />
-                保存中…
+                {refSelectMode ? "削除中…" : "保存中…"}
               </div>
             ) : null}
             {task.reference_photos?.length ? (
               <div className="mt-4 grid grid-cols-2 gap-3">
-                {task.reference_photos.map((photo) => (
+                {task.reference_photos.map((photo) => {
+                  const isSelected = selectedRefIds.has(photo.id);
+                  return (
                   <div key={photo.id} className="relative">
                     <button
-                      className="block w-full overflow-hidden rounded-2xl bg-white"
-                      onClick={() => photo.preview_url && onPreview(photo.preview_url)}
+                      className={`block w-full overflow-hidden rounded-2xl bg-white transition-opacity ${refSelectMode && !isSelected ? "opacity-50" : ""}`}
+                      onClick={() => {
+                        if (refSelectMode) {
+                          setSelectedRefIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(photo.id)) next.delete(photo.id); else next.add(photo.id);
+                            return next;
+                          });
+                        } else {
+                          photo.preview_url && onPreview(photo.preview_url);
+                        }
+                      }}
                       type="button"
                     >
                       {photo.preview_url ? (
@@ -5908,7 +5993,11 @@ function TaskDetailModal({
                         </span>
                       )}
                     </button>
-                    {deletingRefPhotoIds.has(photo.id) ? (
+                    {refSelectMode ? (
+                      <div className={`pointer-events-none absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border-2 ${isSelected ? "border-[var(--brand)] bg-[var(--brand)]" : "border-white/80 bg-black/20"}`}>
+                        {isSelected ? <span className="text-[10px] font-bold text-white">✓</span> : null}
+                      </div>
+                    ) : deletingRefPhotoIds.has(photo.id) ? (
                       <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-white/90 px-2 py-1">
                         <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[var(--muted)] border-t-[var(--danger)]" />
                         <span className="text-[11px] font-semibold text-[var(--danger)]">削除中</span>
@@ -5926,24 +6015,27 @@ function TaskDetailModal({
                         削除
                       </button>
                     )}
-                    <label className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--ink-soft)]">
-                      更新
-                      <input
-                        className="hidden"
-                        type="file"
-                        accept="image/*"
-                        onChange={async (event) => {
-                          const file = event.target.files?.[0];
-                          event.currentTarget.value = "";
-                          if (!file) return;
-                          setIsReferencePhotoSubmitting(true);
-                          await Promise.resolve(onReferencePhotoReplace(photo.id, file));
-                          setIsReferencePhotoSubmitting(false);
-                        }}
-                      />
-                    </label>
+                    {!refSelectMode ? (
+                      <label className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--ink-soft)]">
+                        更新
+                        <input
+                          className="hidden"
+                          type="file"
+                          accept="image/*"
+                          onChange={async (event) => {
+                            const file = event.target.files?.[0];
+                            event.currentTarget.value = "";
+                            if (!file) return;
+                            setIsReferencePhotoSubmitting(true);
+                            await Promise.resolve(onReferencePhotoReplace(photo.id, file));
+                            setIsReferencePhotoSubmitting(false);
+                          }}
+                        />
+                      </label>
+                    ) : null}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="mt-4 text-sm text-[var(--muted)]">説明画像はまだありません。</p>
@@ -5971,39 +6063,81 @@ function TaskDetailModal({
 
           {task.status === "done" ? (
             <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold text-[var(--ink)]">完了写真</p>
-                  <p className="mt-1 text-xs text-[var(--muted)]">
-                    最大3枚まで登録できます。
-                  </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-[var(--ink)]">完了写真</p>
+                <div className="flex items-center gap-2">
+                  {photoSelectMode ? (
+                    <>
+                      {selectedPhotoIds2.size > 0 ? (
+                        <button
+                          className="rounded-2xl bg-[var(--danger)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                          disabled={isPhotoSubmitting}
+                          onClick={async () => {
+                            setIsPhotoSubmitting(true);
+                            await onBatchPhotoDelete([...selectedPhotoIds2]);
+                            setSelectedPhotoIds2(new Set());
+                            setPhotoSelectMode(false);
+                            setIsPhotoSubmitting(false);
+                          }}
+                          type="button"
+                        >
+                          削除 ({selectedPhotoIds2.size})
+                        </button>
+                      ) : null}
+                      <button
+                        className={secondaryButtonClass}
+                        onClick={() => { setPhotoSelectMode(false); setSelectedPhotoIds2(new Set()); }}
+                        type="button"
+                      >
+                        キャンセル
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {(task.photos?.length ?? 0) > 0 ? (
+                        <button className={secondaryButtonClass} onClick={() => setPhotoSelectMode(true)} type="button">選択</button>
+                      ) : null}
+                      {(task.photos?.length ?? 0) < 3 ? (
+                        <button
+                          className={`${secondaryButtonClass} ${isPhotoSubmitting ? "pointer-events-none opacity-50" : ""}`}
+                          onClick={() => completePhotoInputRef.current?.click()}
+                          type="button"
+                        >
+                          {isPhotoSubmitting ? "保存中…" : "写真追加"}
+                        </button>
+                      ) : (
+                        <span className="text-xs font-semibold text-[var(--muted)]">3 / 3枚</span>
+                      )}
+                    </>
+                  )}
                 </div>
-                {(task.photos?.length ?? 0) < 3 ? (
-                  <button
-                    className={`${secondaryButtonClass} ${isPhotoSubmitting ? "pointer-events-none opacity-50" : ""}`}
-                    onClick={() => completePhotoInputRef.current?.click()}
-                    type="button"
-                  >
-                    {isPhotoSubmitting ? "保存中…" : "写真追加"}
-                  </button>
-                ) : (
-                  <span className="text-xs font-semibold text-[var(--muted)]">3 / 3枚</span>
-                )}
               </div>
 
               {isPhotoSubmitting ? (
                 <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl bg-[var(--chip)] py-6 text-sm text-[var(--ink-soft)]">
                   <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[var(--muted)] border-t-[var(--ink)]" />
-                  保存中…
+                  {photoSelectMode ? "削除中…" : "保存中…"}
                 </div>
               ) : null}
               {task.photos?.length ? (
                 <div className="mt-4 grid grid-cols-3 gap-3">
-                  {task.photos.map((photo) => (
+                  {task.photos.map((photo) => {
+                    const isSelected = selectedPhotoIds2.has(photo.id);
+                    return (
                     <div key={photo.id} className="relative">
                       <button
-                        className="block w-full overflow-hidden rounded-2xl bg-white"
-                        onClick={() => photo.preview_url && onPreview(photo.preview_url)}
+                        className={`block w-full overflow-hidden rounded-2xl bg-white transition-opacity ${photoSelectMode && !isSelected ? "opacity-50" : ""}`}
+                        onClick={() => {
+                          if (photoSelectMode) {
+                            setSelectedPhotoIds2((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(photo.id)) next.delete(photo.id); else next.add(photo.id);
+                              return next;
+                            });
+                          } else {
+                            photo.preview_url && onPreview(photo.preview_url);
+                          }
+                        }}
                         type="button"
                       >
                         {photo.preview_url ? (
@@ -6019,7 +6153,11 @@ function TaskDetailModal({
                           </span>
                         )}
                       </button>
-                      {deletingPhotoIds.has(photo.id) ? (
+                      {photoSelectMode ? (
+                        <div className={`pointer-events-none absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border-2 ${isSelected ? "border-[var(--brand)] bg-[var(--brand)]" : "border-white/80 bg-black/20"}`}>
+                          {isSelected ? <span className="text-[10px] font-bold text-white">✓</span> : null}
+                        </div>
+                      ) : deletingPhotoIds.has(photo.id) ? (
                         <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-white/90 px-2 py-1">
                           <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[var(--muted)] border-t-[var(--danger)]" />
                           <span className="text-[11px] font-semibold text-[var(--danger)]">削除中</span>
@@ -6037,25 +6175,28 @@ function TaskDetailModal({
                           削除
                         </button>
                       )}
-                      <label className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--ink-soft)]">
-                        更新
-                        <input
-                          className="hidden"
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          onChange={async (event) => {
-                            const file = event.target.files?.[0];
-                            event.currentTarget.value = "";
-                            if (!file) return;
-                            setIsPhotoSubmitting(true);
-                            await Promise.resolve(onPhotoReplace(photo.id, file));
-                            setIsPhotoSubmitting(false);
-                          }}
-                        />
-                      </label>
+                      {!photoSelectMode ? (
+                        <label className="absolute bottom-2 right-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--ink-soft)]">
+                          更新
+                          <input
+                            className="hidden"
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            onChange={async (event) => {
+                              const file = event.target.files?.[0];
+                              event.currentTarget.value = "";
+                              if (!file) return;
+                              setIsPhotoSubmitting(true);
+                              await Promise.resolve(onPhotoReplace(photo.id, file));
+                              setIsPhotoSubmitting(false);
+                            }}
+                          />
+                        </label>
+                      ) : null}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="mt-4 text-sm text-[var(--muted)]">写真はまだありません。</p>
