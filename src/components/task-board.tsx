@@ -418,6 +418,11 @@ export function TaskBoard({
   const [lineLoginConsuming, setLineLoginConsuming] = useState(false);
   const [lineLoginCompleted, setLineLoginCompleted] = useState(false);
   const [taskSavePending, setTaskSavePending] = useState(false);
+  const [recurrenceDuplicateWarning, setRecurrenceDuplicateWarning] = useState<{
+    similarTitle: string;
+    similarity: number;
+    pendingBody: unknown;
+  } | null>(null);
   const [taskActionPending, setTaskActionPending] = useState<ActionType | null>(null);
   const [taskDeletePendingId, setTaskDeletePendingId] = useState<string | null>(null);
   const [deleteConfirmTaskId, setDeleteConfirmTaskId] = useState<string | null>(null);
@@ -1832,13 +1837,14 @@ export function TaskBoard({
 
     if (!result.ok) {
       setTaskSavePending(false);
-      // 繰り返しタスクの類似重複検知
-      const errJson = result.json as { error?: string; similarTitle?: string } | null;
+      // 繰り返しタスクの類似重複検知 → ユーザーに確認を求める
+      const errJson = result.json as { error?: string; similarTitle?: string; similarity?: number } | null;
       if (errJson && errJson.error === "DUPLICATE_RECURRENCE") {
-        pushToast(
-          "error",
-          `類似の繰り返しタスクが既に存在します（「${errJson.similarTitle ?? ""}」）。登録を中止しました。`,
-        );
+        setRecurrenceDuplicateWarning({
+          similarTitle: errJson.similarTitle ?? "",
+          similarity: errJson.similarity ?? 0,
+          pendingBody: body,
+        });
       } else {
         pushToast("error", editingTaskId ? "タスク更新に失敗しました。" : "タスク作成に失敗しました。");
       }
@@ -1902,6 +1908,27 @@ export function TaskBoard({
 
     setTaskSavePending(false);
     pushToast("success", editingTaskId ? "タスクを更新しました。" : "タスクを作成しました。");
+    setPendingReferenceFiles([]);
+    setCreateTaskOpen(false);
+    await syncLatestState();
+  }
+
+  /** 重複警告を無視してそのまま登録 */
+  async function handleForceRecurrenceSave() {
+    if (!recurrenceDuplicateWarning) return;
+    setRecurrenceDuplicateWarning(null);
+    setTaskSavePending(true);
+    const result = await callJson("/api/tasks", {
+      method: "POST",
+      body: JSON.stringify({ ...(recurrenceDuplicateWarning.pendingBody as object), force: true }),
+    });
+    if (!result.ok) {
+      setTaskSavePending(false);
+      pushToast("error", "タスク作成に失敗しました。");
+      return;
+    }
+    setTaskSavePending(false);
+    pushToast("success", "タスクを作成しました。");
     setPendingReferenceFiles([]);
     setCreateTaskOpen(false);
     await syncLatestState();
@@ -4942,6 +4969,33 @@ export function TaskBoard({
         <ImagePreviewModal imageUrl={previewPhotoUrl} onClose={() => setPreviewPhotoUrl(null)} />
       ) : null}
       {taskSavePending ? <Spinner /> : null}
+      {recurrenceDuplicateWarning ? (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white px-6 py-6 shadow-2xl">
+            <p className="text-sm font-bold text-[var(--ink)]">類似の繰り返しタスクが存在します</p>
+            <p className="mt-2 text-sm leading-6 text-[var(--ink-soft)]">
+              「<span className="font-semibold">{recurrenceDuplicateWarning.similarTitle}</span>」と{recurrenceDuplicateWarning.similarity}%一致する繰り返しタスクがすでに登録されています。
+            </p>
+            <p className="mt-1 text-sm text-[var(--muted)]">それでも登録しますか？</p>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                className="rounded-2xl border border-black/10 bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--ink-soft)] transition-colors hover:bg-black/5"
+                onClick={() => setRecurrenceDuplicateWarning(null)}
+                type="button"
+              >
+                中止
+              </button>
+              <button
+                className="rounded-2xl bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:opacity-90"
+                onClick={() => void handleForceRecurrenceSave()}
+                type="button"
+              >
+                このまま登録
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </Shell>
   );
 }
