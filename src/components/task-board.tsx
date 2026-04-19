@@ -497,6 +497,32 @@ export function TaskBoard({
     return /Line\//i.test(window.navigator.userAgent);
   });
   const isMobile = isIosLike || isAndroid;
+
+  // 招待登録フロー上の潜在的な問題を起動時に検出する
+  const [registrationWarnings] = useState(() => {
+    if (typeof window === "undefined") return { storageBlocked: false, oldIos: false };
+
+    // localStorage が使えないか確認（プライベートブラウズ・Cookieブロック）
+    let storageBlocked = false;
+    try {
+      const key = "__tt_probe__";
+      localStorage.setItem(key, "1");
+      localStorage.removeItem(key);
+    } catch {
+      storageBlocked = true;
+    }
+
+    // iOS 16.4未満かどうか確認（16.4以降でPWA/Safariのストレージが統合）
+    const ua = window.navigator.userAgent;
+    const iosMatch = ua.match(/OS (\d+)_(\d+)/);
+    const iosMajor = iosMatch ? parseInt(iosMatch[1]) : null;
+    const iosMinor = iosMatch ? parseInt(iosMatch[2]) : null;
+    const oldIos =
+      iosMajor !== null && iosMinor !== null &&
+      (iosMajor < 16 || (iosMajor === 16 && iosMinor < 4));
+
+    return { storageBlocked, oldIos };
+  });
   type BeforeInstallPromptEvent = Event & {
     prompt: () => Promise<void>;
     userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
@@ -2685,6 +2711,16 @@ export function TaskBoard({
               <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-800">
                 ⚠️ 申請送信前にホーム画面へ追加すると、招待リンクが引き継がれず申請できなくなる場合があります。必ず先に申請を送信してください。
               </div>
+              {registrationWarnings.storageBlocked && (
+                <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs leading-6 text-red-800">
+                  🔴 プライベートブラウズ、またはCookieがブロックされている可能性があります。通常モードのSafariで招待URLを開き直してください。
+                </div>
+              )}
+              {!registrationWarnings.storageBlocked && registrationWarnings.oldIos && !isPwaMode && (
+                <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs leading-6 text-red-800">
+                  🔴 ご利用のiOSバージョンでは、ホーム画面追加後に招待リンクが引き継がれません。このページを閉じずに申請を送信してください。
+                </div>
+              )}
               <FormField label="登録名">
                 <input
                   className={inputClass}
