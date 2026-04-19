@@ -293,13 +293,15 @@ function sortTasks(tasks: TaskRecord[]) {
     if (aIsActiveUrgent && !bIsActiveUrgent) return -1;
     if (!aIsActiveUrgent && bIsActiveUrgent) return 1;
     if (aIsActiveUrgent && bIsActiveUrgent) {
-      return (a.scheduled_time ?? "").localeCompare(b.scheduled_time ?? "");
+      const timeCmp = (a.scheduled_time ?? "").localeCompare(b.scheduled_time ?? "");
+      return timeCmp !== 0 ? timeCmp : a.id.localeCompare(b.id);
     }
 
     if (a.status === "done" && b.status !== "done") return 1;
     if (a.status !== "done" && b.status === "done") return -1;
     if (rank[a.priority] !== rank[b.priority]) return rank[a.priority] - rank[b.priority];
-    return (a.scheduled_time ?? "").localeCompare(b.scheduled_time ?? "");
+    const timeCmp = (a.scheduled_time ?? "").localeCompare(b.scheduled_time ?? "");
+    return timeCmp !== 0 ? timeCmp : a.id.localeCompare(b.id);
   });
 }
 
