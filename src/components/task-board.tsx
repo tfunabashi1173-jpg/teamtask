@@ -5448,16 +5448,16 @@ function TaskModal({
             </label>
           </div>
           {pendingReferenceFiles.length > 0 ? (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {pendingReferenceFiles.map((file, index) => (
                 <div key={`${file.name}-${index}`} className="relative">
                   <button
-                    className="block w-full overflow-hidden rounded-2xl bg-[var(--surface)]"
+                    className="block w-full overflow-hidden rounded-xl bg-[var(--surface)]"
                     onClick={() => onPreview(URL.createObjectURL(file))}
                     type="button"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img alt={file.name} className="w-full object-contain" src={URL.createObjectURL(file)} />
+                    <img alt={file.name} className="h-[110px] w-full object-contain" src={URL.createObjectURL(file)} />
                   </button>
                   <button
                     className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--danger)]"
@@ -6025,13 +6025,13 @@ function TaskDetailModal({
               </div>
             ) : null}
             {task.reference_photos?.length ? (
-              <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="mt-4 grid grid-cols-3 gap-2">
                 {task.reference_photos.map((photo) => {
                   const isSelected = selectedRefIds.has(photo.id);
                   return (
                   <div key={photo.id} className="relative">
                     <button
-                      className={`block w-full overflow-hidden rounded-2xl bg-white transition-opacity ${refSelectMode && !isSelected ? "opacity-50" : ""}`}
+                      className={`block w-full overflow-hidden rounded-xl bg-[var(--surface)] transition-opacity ${refSelectMode && !isSelected ? "opacity-50" : ""}`}
                       onClick={() => {
                         if (refSelectMode) {
                           setSelectedRefIds((prev) => {
@@ -6049,11 +6049,11 @@ function TaskDetailModal({
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           alt={photo.file_name}
-                          className="w-full object-contain"
+                          className="h-[110px] w-full object-contain"
                           src={photo.preview_url.startsWith("/api/") ? `${photo.preview_url}?thumb=1` : photo.preview_url}
                         />
                       ) : (
-                        <span className="flex items-center justify-center py-4 text-xs text-[var(--muted)]">
+                        <span className="flex h-[110px] items-center justify-center text-xs text-[var(--muted)]">
                           画像
                         </span>
                       )}
@@ -6185,13 +6185,13 @@ function TaskDetailModal({
                 </div>
               ) : null}
               {task.photos?.length ? (
-                <div className="mt-4 grid grid-cols-3 gap-3">
+                <div className="mt-4 grid grid-cols-3 gap-2">
                   {task.photos.map((photo) => {
                     const isSelected = selectedPhotoIds2.has(photo.id);
                     return (
                     <div key={photo.id} className="relative">
                       <button
-                        className={`block w-full overflow-hidden rounded-2xl bg-white transition-opacity ${photoSelectMode && !isSelected ? "opacity-50" : ""}`}
+                        className={`block w-full overflow-hidden rounded-xl bg-[var(--surface)] transition-opacity ${photoSelectMode && !isSelected ? "opacity-50" : ""}`}
                         onClick={() => {
                           if (photoSelectMode) {
                             setSelectedPhotoIds2((prev) => {
@@ -6209,11 +6209,11 @@ function TaskDetailModal({
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             alt={photo.file_name}
-                            className="w-full object-contain"
+                            className="h-[110px] w-full object-contain"
                             src={photo.preview_url.startsWith("/api/") ? `${photo.preview_url}?thumb=1` : photo.preview_url}
                           />
                         ) : (
-                          <span className="flex items-center justify-center py-4 text-xs text-[var(--muted)]">
+                          <span className="flex h-[110px] items-center justify-center text-xs text-[var(--muted)]">
                             画像
                           </span>
                         )}

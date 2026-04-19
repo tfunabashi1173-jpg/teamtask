@@ -54,8 +54,8 @@ export async function GET(
     if (!imageResponse.ok) throw new Error("fetch failed");
     const buffer = Buffer.from(await imageResponse.arrayBuffer());
     const compressed = await sharp(buffer)
-      .resize({ width: 600, withoutEnlargement: true })
-      .jpeg({ quality: 65 })
+      .resize({ width: 320, height: 320, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 60 })
       .toBuffer();
     return new NextResponse(compressed as unknown as BodyInit, {
       headers: {
