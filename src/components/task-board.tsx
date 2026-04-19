@@ -5153,6 +5153,9 @@ function LoginScreen({
             ログインが完了しました。画面が切り替わらない場合は一度だけ再読み込みしてください。
           </p>
         ) : null}
+        <div className="mt-5 rounded-2xl bg-[var(--chip)] px-4 py-3 text-xs leading-6 text-[var(--muted)]">
+          💡 LINEより「PINコード認証」の通知が届いた場合は、先にPINを確認・入力してからログインしてください。
+        </div>
       </Card>
     </Shell>
   );
