@@ -2027,9 +2027,52 @@ export function TaskBoard({
     }
   }
 
+  async function compressImage(file: File, maxWidth = 1920, quality = 0.82): Promise<File> {
+    if (!file.type.startsWith("image/") && !file.name.match(/\.(heic|heif)$/i)) return file;
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        let { width, height } = img;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(file);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              resolve(file);
+              return;
+            }
+            const outName = file.name.replace(/\.[^.]+$/, ".jpg");
+            resolve(new File([blob], outName, { type: "image/jpeg" }));
+          },
+          "image/jpeg",
+          quality,
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(file);
+      };
+      img.src = url;
+    });
+  }
+
   async function handlePhotoUpload(taskId: string, file: File) {
+    const compressed = await compressImage(file);
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", compressed);
 
     try {
       const response = await fetch(`/api/tasks/${taskId}/photos`, {
@@ -2087,8 +2130,9 @@ export function TaskBoard({
   }
 
   async function handleReferencePhotoUpload(taskId: string, file: File, silent?: boolean): Promise<TaskPhotoRecord | null> {
+    const compressed = await compressImage(file);
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", compressed);
 
     try {
       const response = await fetch(`/api/tasks/${taskId}/reference-photos`, {
@@ -2101,7 +2145,10 @@ export function TaskBoard({
         | null;
 
       if (!response.ok || !json || !("photo" in json) || !json.photo) {
-        if (!silent) pushToast("error", "説明画像の保存に失敗しました。");
+        const errCode = json && "error" in json ? (json as { error?: string }).error : null;
+        const errMsg = errCode ? `説明画像の保存に失敗しました（${errCode}）。` : "説明画像の保存に失敗しました。";
+        if (!silent) pushToast("error", errMsg);
+        console.error("[refPhoto upload]", response.status, errCode);
         return null;
       }
 
@@ -2119,8 +2166,9 @@ export function TaskBoard({
       }));
       if (!silent) pushToast("success", "説明画像を保存しました。");
       return createdPhoto;
-    } catch {
+    } catch (err) {
       if (!silent) pushToast("error", "説明画像の保存に失敗しました。");
+      console.error("[refPhoto upload] exception", err);
       return null;
     }
   }
