@@ -1000,6 +1000,14 @@ export function TaskBoard({
     };
   }, [refreshDevicePermissionNotice]);
 
+  // invite tokenがURLに含まれていたらlocalStorageに即時保存。
+  // ホーム画面から起動した場合（URLにtokenなし）でも復元できるようにする。
+  useEffect(() => {
+    if (typeof window === "undefined" || !activeInviteToken) return;
+    window.localStorage.setItem(PENDING_INVITE_STORAGE_KEY, activeInviteToken);
+  }, [activeInviteToken]);
+
+  // localStorageにpending inviteがあればactiveInviteTokenに復元する。
   useEffect(() => {
     if (typeof window === "undefined" || activeInviteToken) {
       return;
@@ -2643,8 +2651,19 @@ export function TaskBoard({
               申請名: {state.pendingOwnRequest.requested_name}
             </div>
             {isMobile && !isPwaMode ? (
-              <div className="mt-4 rounded-2xl bg-[var(--chip)] px-4 py-4 text-sm leading-6 text-[var(--muted)]">
-                承認後はホーム画面に追加したアプリから起動してください。
+              <div className="mt-4 space-y-3 rounded-2xl bg-[var(--chip)] px-4 py-4 text-sm leading-7 text-[var(--muted)]">
+                <p className="font-semibold text-[var(--ink)]">次のステップ</p>
+                <p>承認されたら、ホーム画面にアプリを追加して起動してください。</p>
+                {isIosLike ? (
+                  <ol className="space-y-1">
+                    <li>1. Safariで開く</li>
+                    <li>2. 画面下部の共有ボタン（<span className="font-semibold">□↑</span>）をタップ</li>
+                    <li>3.「<span className="font-semibold">ホーム画面に追加</span>」を選択</li>
+                    <li>4.「<span className="font-semibold">追加</span>」をタップ</li>
+                  </ol>
+                ) : (
+                  <p>ブラウザメニューから「ホーム画面に追加」を選択してください。</p>
+                )}
               </div>
             ) : null}
           </Card>
@@ -2657,9 +2676,15 @@ export function TaskBoard({
         <Card title="登録申請">
           {state.activeInvite || activeInviteToken ? (
             <>
-              <p className="mb-4 text-sm leading-7 text-[var(--muted)]">
-                招待リンクを確認しました。名前を入力して登録申請を送信してください。
-              </p>
+              <ol className="mb-4 space-y-1 rounded-2xl bg-[var(--chip)] px-4 py-4 text-sm leading-7 text-[var(--muted)]">
+                <li className="font-semibold text-[var(--ink)]">登録の手順</li>
+                <li>1. 名前を入力して申請を送信する</li>
+                <li>2. 管理者の承認を待つ</li>
+                <li>3. 承認後にホーム画面へアプリを追加する</li>
+              </ol>
+              <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-800">
+                ⚠️ 申請送信前にホーム画面へ追加すると、招待リンクが引き継がれず申請できなくなる場合があります。必ず先に申請を送信してください。
+              </div>
               <FormField label="登録名">
                 <input
                   className={inputClass}
