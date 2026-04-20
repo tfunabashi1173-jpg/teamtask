@@ -127,6 +127,7 @@ export type AppState = {
   pendingRequests: MembershipRequestRecord[];
   activeInvite: InviteRecord | null;
   pendingOwnRequest: MembershipRequestRecord | null;
+  rejectedOwnRequest: MembershipRequestRecord | null;
   needsBootstrap: boolean;
   bootstrapAllowed: boolean;
   authConfigured: boolean;
@@ -155,6 +156,7 @@ export async function getAppState({
       pendingRequests: [],
       activeInvite: null,
       pendingOwnRequest: null,
+      rejectedOwnRequest: null,
       needsBootstrap: false,
       bootstrapAllowed: false,
       authConfigured: false,
@@ -205,18 +207,29 @@ export async function getAppState({
   }
 
   let pendingOwnRequest: MembershipRequestRecord | null = null;
+  let rejectedOwnRequest: MembershipRequestRecord | null = null;
   if (sessionLineUserId) {
-    const ownRequestResult = await supabase
-      .from("membership_requests")
-      .select("id,group_id,requested_name,status,created_at,line_user_id")
-      .eq("line_user_id", sessionLineUserId)
-      .eq("status", "pending")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const [pendingResult, rejectedResult] = await Promise.all([
+      supabase
+        .from("membership_requests")
+        .select("id,group_id,requested_name,status,created_at,line_user_id")
+        .eq("line_user_id", sessionLineUserId)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("membership_requests")
+        .select("id,group_id,requested_name,status,created_at,line_user_id")
+        .eq("line_user_id", sessionLineUserId)
+        .eq("status", "rejected")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
-    pendingOwnRequest =
-      (ownRequestResult.data as MembershipRequestRecord | null) ?? null;
+    pendingOwnRequest = (pendingResult.data as MembershipRequestRecord | null) ?? null;
+    rejectedOwnRequest = (rejectedResult.data as MembershipRequestRecord | null) ?? null;
   }
 
   if (!appUser || !appUser.is_active) {
@@ -231,6 +244,7 @@ export async function getAppState({
       pendingRequests: [],
       activeInvite,
       pendingOwnRequest,
+      rejectedOwnRequest,
       needsBootstrap,
       bootstrapAllowed,
       authConfigured,
@@ -265,6 +279,7 @@ export async function getAppState({
       pendingRequests: [],
       activeInvite,
       pendingOwnRequest,
+      rejectedOwnRequest,
       needsBootstrap,
       bootstrapAllowed,
       authConfigured,
@@ -496,6 +511,7 @@ export async function getAppState({
       (pendingRequestsResult.data as MembershipRequestRecord[] | null) ?? [],
     activeInvite,
     pendingOwnRequest,
+    rejectedOwnRequest,
     needsBootstrap,
     bootstrapAllowed,
     authConfigured,

@@ -8,7 +8,7 @@ export async function POST() {
     const supabase = createSupabaseAdminClient();
     const state = createLineState();
     const nonce = createLineState();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + 20 * 60 * 1000).toISOString();
 
     const insertResult = await supabase
       .from("line_login_attempts")

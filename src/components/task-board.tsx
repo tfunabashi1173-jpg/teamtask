@@ -800,7 +800,11 @@ export function TaskBoard({
       if (status === "expired" || status === "failed" || status === "not_found") {
         window.localStorage.removeItem(LINE_LOGIN_ATTEMPT_STORAGE_KEY);
         consumedLoginAttemptRef.current = attemptId;
-        pushToast("error", "LINEログインを完了できませんでした。もう一度お試しください。");
+        if (status === "expired") {
+          pushToast("error", "LINEログインがタイムアウトしました。「LINEでログイン」を再度タップしてください。");
+        } else {
+          pushToast("error", "LINEログインを完了できませんでした。もう一度お試しください。");
+        }
         return false;
       }
 
@@ -1406,7 +1410,16 @@ export function TaskBoard({
     setIsSubmitting(false);
 
     if (!result.ok) {
-      pushToast("error", "登録申請に失敗しました。");
+      const errorCode = (result.json as { error?: string } | null)?.error;
+      if (errorCode === "INVALID_INVITE") {
+        pushToast("error", "招待リンクが無効または期限切れです。新しい招待URLを受け取ってください。");
+      } else if (errorCode === "ALREADY_MEMBER") {
+        pushToast("info", "すでにこのグループのメンバーです。");
+      } else if (errorCode === "DUPLICATE_REQUEST") {
+        pushToast("info", "すでに申請済みです。管理者の承認をお待ちください。");
+      } else {
+        pushToast("error", "登録申請に失敗しました。時間をおいて再度お試しください。");
+      }
       return;
     }
 
@@ -2670,7 +2683,69 @@ export function TaskBoard({
     );
   }
 
+  if (state.appUser && !state.appUser.is_active) {
+    return (
+      <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts} isProcessing={isProcessing}>
+        <Card title="アカウントが無効化されています">
+          <p className="text-sm leading-7 text-[var(--muted)]">
+            このアカウントは管理者によって無効化されています。詳細は管理者にお問い合わせください。
+          </p>
+          <button
+            className={primaryButtonClass + " mt-4"}
+            type="button"
+            onClick={() => void handleLogout()}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "処理中..." : "ログアウト"}
+          </button>
+        </Card>
+      </Shell>
+    );
+  }
+
   if (!state.appUser) {
+    if (!state.pendingOwnRequest && state.rejectedOwnRequest) {
+      return (
+        <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts} isProcessing={isProcessing}>
+          <Card title="申請が却下されました">
+            <p className="text-sm leading-7 text-[var(--muted)]">
+              「{state.rejectedOwnRequest.requested_name}」の登録申請が管理者に却下されました。
+            </p>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              再度申請する場合は、グループメンバーから新しい招待URLを受け取り、以下に貼り付けてください。
+            </p>
+            <div className="mt-4 space-y-2">
+              <input
+                className={inputClass}
+                type="url"
+                placeholder="https://..."
+                value={inviteUrlInput}
+                onChange={(e) => { setInviteUrlInput(e.target.value); setInviteUrlError(false); }}
+              />
+              {inviteUrlError && (
+                <p className="text-xs text-[var(--danger)]">招待リンクが見つかりませんでした。URLを確認してください。</p>
+              )}
+              <button
+                className={primaryButtonClass + " w-full"}
+                type="button"
+                onClick={() => {
+                  try {
+                    const parsed = new URL(inviteUrlInput.trim());
+                    const token = parsed.searchParams.get("invite");
+                    if (token) { setActiveInviteToken(token); setInviteUrlError(false); }
+                    else setInviteUrlError(true);
+                  } catch { setInviteUrlError(true); }
+                }}
+                disabled={!inviteUrlInput.trim()}
+              >
+                招待リンクを適用
+              </button>
+            </div>
+          </Card>
+        </Shell>
+      );
+    }
+
     if (state.pendingOwnRequest) {
       return (
         <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts} isProcessing={isProcessing}>
@@ -6166,7 +6241,7 @@ function TaskDetailModal({
             </div>
           ) : null}
 
-          {task.status !== "done" ? (
+          {task.status !== "done" && task.status !== "awaiting_confirmation" ? (
             <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
               <p className="text-xs font-semibold text-[var(--ink)]">完了写真</p>
               <p className="mt-2 text-sm text-[var(--ink-soft)]">
@@ -6175,7 +6250,7 @@ function TaskDetailModal({
             </div>
           ) : null}
 
-          {task.status === "done" ? (
+          {(task.status === "done" || task.status === "awaiting_confirmation") ? (
             <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs font-semibold text-[var(--ink)]">完了写真</p>
