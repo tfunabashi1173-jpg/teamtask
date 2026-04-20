@@ -1,5 +1,4 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
-import { purgeExpiredCompletedTasks, purgeExpiredTaskLogs } from "@/lib/tasks/cleanup";
 
 export type AppUser = {
   id: string;
@@ -285,9 +284,6 @@ export async function getAppState({
       authConfigured,
     };
   }
-
-  await purgeExpiredCompletedTasks(workspace.id);
-  await purgeExpiredTaskLogs();
 
   const activeGroupMembershipResult =
     appUser.role === "admin"
