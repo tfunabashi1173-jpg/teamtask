@@ -116,179 +116,181 @@ export async function PATCH(
       .eq("id", currentRecurrenceRuleId);
   }
 
-  if (body.recurrence?.enabled) {
-    if (!body.recurrence.frequency || !body.recurrence.endDate) {
-      return NextResponse.json({ error: "INVALID_RECURRENCE" }, { status: 400 });
-    }
-
-    const recurrence = normalizeRecurrence({
-      frequency: body.recurrence.frequency,
-      interval: body.recurrence.interval ?? 1,
-      startDate: updatedTask.scheduled_date,
-      endDate: body.recurrence.endDate,
-      daysOfWeek: body.recurrence.daysOfWeek,
-      dayOfMonth: body.recurrence.dayOfMonth ?? null,
-    });
-
-    if (recurrence.endDate < recurrence.startDate) {
-      return NextResponse.json({ error: "INVALID_RECURRENCE_PERIOD" }, { status: 400 });
-    }
-
-    const rulePayload = {
-      title_template: updatedTask.title,
-      description_template: updatedTask.description,
-      default_priority: updatedTask.priority,
-      frequency: recurrence.frequency,
-      interval_value: recurrence.interval,
-      days_of_week: recurrence.daysOfWeek ?? null,
-      day_of_month: recurrence.dayOfMonth ?? null,
-      time_of_day: updatedTask.scheduled_time,
-      start_date: recurrence.startDate,
-      end_date: recurrence.endDate,
-      is_active: true,
-      updated_by: actorResult.data.id,
-    };
-
-    let recurrenceRuleId = currentRecurrenceRuleId;
-
-    if (recurrenceRuleId) {
-      const ruleUpdateResult = await supabase
-        .from("recurrence_rules")
-        .update(rulePayload)
-        .eq("id", recurrenceRuleId);
-
-      if (ruleUpdateResult.error) {
-        return NextResponse.json({ error: ruleUpdateResult.error.message }, { status: 500 });
+  // updateScope === "single" の場合は繰り返しルール・兄弟タスクを一切触らない
+  if (body.updateScope !== "single") {
+    if (body.recurrence?.enabled) {
+      if (!body.recurrence.frequency || !body.recurrence.endDate) {
+        return NextResponse.json({ error: "INVALID_RECURRENCE" }, { status: 400 });
       }
 
-      await supabase
-        .from("generated_task_sources")
-        .update({ generated_for_date: updatedTask.scheduled_date })
-        .eq("task_id", id);
-    } else {
-      const ruleCreateResult = await supabase
-        .from("recurrence_rules")
-        .insert({
-          workspace_id: beforeResult.data.workspace_id,
-          visibility_type: beforeResult.data.visibility_type,
-          group_id: beforeResult.data.group_id,
-          owner_user_id: beforeResult.data.owner_user_id,
-          created_by: actorResult.data.id,
-          ...rulePayload,
-        })
-        .select("id")
-        .single();
-
-      if (ruleCreateResult.error) {
-        return NextResponse.json({ error: ruleCreateResult.error.message }, { status: 500 });
-      }
-
-      recurrenceRuleId = ruleCreateResult.data.id;
-
-      const mappingInsertResult = await supabase.from("generated_task_sources").insert({
-        task_id: id,
-        recurrence_rule_id: recurrenceRuleId,
-        generated_for_date: updatedTask.scheduled_date,
+      const recurrence = normalizeRecurrence({
+        frequency: body.recurrence.frequency,
+        interval: body.recurrence.interval ?? 1,
+        startDate: updatedTask.scheduled_date,
+        endDate: body.recurrence.endDate,
+        daysOfWeek: body.recurrence.daysOfWeek,
+        dayOfMonth: body.recurrence.dayOfMonth ?? null,
       });
 
-      if (mappingInsertResult.error) {
-        return NextResponse.json({ error: mappingInsertResult.error.message }, { status: 500 });
+      if (recurrence.endDate < recurrence.startDate) {
+        return NextResponse.json({ error: "INVALID_RECURRENCE_PERIOD" }, { status: 400 });
       }
-    }
 
-    const generatedRowsResult = await supabase
-      .from("generated_task_sources")
-      .select("task_id")
-      .eq("recurrence_rule_id", recurrenceRuleId)
-      .neq("task_id", id);
+      const rulePayload = {
+        title_template: updatedTask.title,
+        description_template: updatedTask.description,
+        default_priority: updatedTask.priority,
+        frequency: recurrence.frequency,
+        interval_value: recurrence.interval,
+        days_of_week: recurrence.daysOfWeek ?? null,
+        day_of_month: recurrence.dayOfMonth ?? null,
+        time_of_day: updatedTask.scheduled_time,
+        start_date: recurrence.startDate,
+        end_date: recurrence.endDate,
+        is_active: true,
+        updated_by: actorResult.data.id,
+      };
 
-    const generatedTaskIds =
-      ((generatedRowsResult.data as { task_id: string }[] | null) ?? []).map((row) => row.task_id);
+      let recurrenceRuleId = currentRecurrenceRuleId;
 
-    if (generatedTaskIds.length > 0) {
-      await supabase
-        .from("tasks")
-        .update({
-          deleted_at: new Date().toISOString(),
-          updated_by: actorResult.data.id,
-        })
-        .in("id", generatedTaskIds);
+      if (recurrenceRuleId) {
+        const ruleUpdateResult = await supabase
+          .from("recurrence_rules")
+          .update(rulePayload)
+          .eq("id", recurrenceRuleId);
 
-      await supabase.from("generated_task_sources").delete().in("task_id", generatedTaskIds);
-    }
+        if (ruleUpdateResult.error) {
+          return NextResponse.json({ error: ruleUpdateResult.error.message }, { status: 500 });
+        }
 
-    const futureDates = generateFutureOccurrenceDates(recurrence);
-
-    if (futureDates.length > 0) {
-      const futureInsertResult = await supabase
-        .from("tasks")
-        .insert(
-          futureDates.map((scheduledDate) => ({
-            workspace_id: updatedTask.workspace_id,
-            visibility_type: updatedTask.visibility_type,
-            group_id: updatedTask.group_id,
-            owner_user_id: updatedTask.owner_user_id,
-            title: updatedTask.title,
-            description: updatedTask.description,
-            priority: updatedTask.priority,
-            status: "pending",
-            scheduled_date: scheduledDate,
-            scheduled_time: updatedTask.scheduled_time,
+        await supabase
+          .from("generated_task_sources")
+          .update({ generated_for_date: updatedTask.scheduled_date })
+          .eq("task_id", id);
+      } else {
+        const ruleCreateResult = await supabase
+          .from("recurrence_rules")
+          .insert({
+            workspace_id: beforeResult.data.workspace_id,
+            visibility_type: beforeResult.data.visibility_type,
+            group_id: beforeResult.data.group_id,
+            owner_user_id: beforeResult.data.owner_user_id,
             created_by: actorResult.data.id,
-            updated_by: actorResult.data.id,
-          })),
-        )
-        .select("id,scheduled_date");
+            ...rulePayload,
+          })
+          .select("id")
+          .single();
 
-      if (futureInsertResult.error) {
-        return NextResponse.json({ error: futureInsertResult.error.message }, { status: 500 });
-      }
+        if (ruleCreateResult.error) {
+          return NextResponse.json({ error: ruleCreateResult.error.message }, { status: 500 });
+        }
 
-      const sourceInsertResult = await supabase.from("generated_task_sources").insert(
-        (futureInsertResult.data ?? []).map((task) => ({
-          task_id: task.id,
+        recurrenceRuleId = ruleCreateResult.data.id;
+
+        const mappingInsertResult = await supabase.from("generated_task_sources").insert({
+          task_id: id,
           recurrence_rule_id: recurrenceRuleId,
-          generated_for_date: task.scheduled_date,
-        })),
-      );
+          generated_for_date: updatedTask.scheduled_date,
+        });
 
-      if (sourceInsertResult.error) {
-        return NextResponse.json({ error: sourceInsertResult.error.message }, { status: 500 });
+        if (mappingInsertResult.error) {
+          return NextResponse.json({ error: mappingInsertResult.error.message }, { status: 500 });
+        }
       }
-    }
-  } else if (currentRecurrenceRuleId) {
-    const generatedRowsResult = await supabase
-      .from("generated_task_sources")
-      .select("task_id")
-      .eq("recurrence_rule_id", currentRecurrenceRuleId)
-      .neq("task_id", id);
 
-    const generatedTaskIds =
-      ((generatedRowsResult.data as { task_id: string }[] | null) ?? []).map((row) => row.task_id);
+      const generatedRowsResult = await supabase
+        .from("generated_task_sources")
+        .select("task_id")
+        .eq("recurrence_rule_id", recurrenceRuleId)
+        .neq("task_id", id);
 
-    if (generatedTaskIds.length > 0) {
+      const generatedTaskIds =
+        ((generatedRowsResult.data as { task_id: string }[] | null) ?? []).map((row) => row.task_id);
+
+      if (generatedTaskIds.length > 0) {
+        await supabase
+          .from("tasks")
+          .update({
+            deleted_at: new Date().toISOString(),
+            updated_by: actorResult.data.id,
+          })
+          .in("id", generatedTaskIds);
+
+        await supabase.from("generated_task_sources").delete().in("task_id", generatedTaskIds);
+      }
+
+      const futureDates = generateFutureOccurrenceDates(recurrence);
+
+      if (futureDates.length > 0) {
+        const futureInsertResult = await supabase
+          .from("tasks")
+          .insert(
+            futureDates.map((scheduledDate) => ({
+              workspace_id: updatedTask.workspace_id,
+              visibility_type: updatedTask.visibility_type,
+              group_id: updatedTask.group_id,
+              owner_user_id: updatedTask.owner_user_id,
+              title: updatedTask.title,
+              description: updatedTask.description,
+              priority: updatedTask.priority,
+              status: "pending",
+              scheduled_date: scheduledDate,
+              scheduled_time: updatedTask.scheduled_time,
+              created_by: actorResult.data.id,
+              updated_by: actorResult.data.id,
+            })),
+          )
+          .select("id,scheduled_date");
+
+        if (futureInsertResult.error) {
+          return NextResponse.json({ error: futureInsertResult.error.message }, { status: 500 });
+        }
+
+        const sourceInsertResult = await supabase.from("generated_task_sources").insert(
+          (futureInsertResult.data ?? []).map((task) => ({
+            task_id: task.id,
+            recurrence_rule_id: recurrenceRuleId,
+            generated_for_date: task.scheduled_date,
+          })),
+        );
+
+        if (sourceInsertResult.error) {
+          return NextResponse.json({ error: sourceInsertResult.error.message }, { status: 500 });
+        }
+      }
+    } else if (currentRecurrenceRuleId) {
+      const generatedRowsResult = await supabase
+        .from("generated_task_sources")
+        .select("task_id")
+        .eq("recurrence_rule_id", currentRecurrenceRuleId)
+        .neq("task_id", id);
+
+      const generatedTaskIds =
+        ((generatedRowsResult.data as { task_id: string }[] | null) ?? []).map((row) => row.task_id);
+
+      if (generatedTaskIds.length > 0) {
+        await supabase
+          .from("tasks")
+          .update({
+            deleted_at: new Date().toISOString(),
+            updated_by: actorResult.data.id,
+          })
+          .in("id", generatedTaskIds);
+
+        await supabase.from("generated_task_sources").delete().in("task_id", generatedTaskIds);
+      }
+
+      await supabase.from("generated_task_sources").delete().eq("task_id", id);
       await supabase
-        .from("tasks")
-        .update({
-          deleted_at: new Date().toISOString(),
-          updated_by: actorResult.data.id,
-        })
-        .in("id", generatedTaskIds);
-
-      await supabase.from("generated_task_sources").delete().in("task_id", generatedTaskIds);
+        .from("recurrence_rules")
+        .update({ is_active: false, updated_by: actorResult.data.id })
+        .eq("id", currentRecurrenceRuleId);
     }
-
-    await supabase.from("generated_task_sources").delete().eq("task_id", id);
-    await supabase
-      .from("recurrence_rules")
-      .update({ is_active: false, updated_by: actorResult.data.id })
-      .eq("id", currentRecurrenceRuleId);
   }
 
   await supabase.from("task_activity_logs").insert({
     task_id: id,
     actor_user_id: actorResult.data.id,
-    actor_name: sessionUser.displayName ?? null,
     action_type: body.priority && body.priority !== beforeResult.data.priority ? "priority_changed" : "updated",
     before_value: beforeResult.data,
     after_value: updateResult.data,
@@ -382,7 +384,6 @@ export async function DELETE(
   await supabase.from("task_activity_logs").insert({
     task_id: id,
     actor_user_id: actorResult.data.id,
-    actor_name: sessionUser.displayName ?? null,
     action_type: "deleted",
     before_value: beforeResult.data,
   });

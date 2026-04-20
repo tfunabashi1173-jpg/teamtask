@@ -1692,7 +1692,7 @@ export function TaskBoard({
 
   function openEditTask(task: TaskRecord) {
     setEditingTaskId(task.id);
-    setEditUpdateScope("single");
+    setEditUpdateScope(task.recurrence_rule_id ? "all" : "single");
     setCopySourceTaskId("");
     setPendingReferenceFiles([]);
     setTaskForm({
