@@ -1166,7 +1166,7 @@ export function TaskBoard({
 
     const interval = window.setInterval(() => {
       void tick();
-    }, 5000);
+    }, 60000);
 
     return () => {
       window.clearInterval(interval);
@@ -1247,7 +1247,7 @@ export function TaskBoard({
 
     const interval = window.setInterval(() => {
       void refreshAppStateRef.current?.();
-    }, 3000);
+    }, 15000);
 
     return () => window.clearInterval(interval);
     // refreshAppStateRef is a stable ref — intentionally excluded from deps
@@ -1259,7 +1259,7 @@ export function TaskBoard({
 
     const interval = window.setInterval(() => {
       void refreshAppStateRef.current?.();
-    }, 30000);
+    }, 60000);
 
     return () => window.clearInterval(interval);
     // refreshAppStateRef is a stable ref — intentionally excluded from deps
