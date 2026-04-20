@@ -453,6 +453,8 @@ export function TaskBoard({
     displayName: currentSessionUser?.displayName ?? "",
   });
   const [requestName, setRequestName] = useState("");
+  const [inviteUrlInput, setInviteUrlInput] = useState("");
+  const [inviteUrlError, setInviteUrlError] = useState(false);
   const [taskForm, setTaskForm] = useState<TaskFormState>(createDefaultTaskForm);
   const [notificationTime, setNotificationTime] = useState(
     initialState.workspace?.notification_time?.slice(0, 5) ?? "08:00",
@@ -2741,9 +2743,46 @@ export function TaskBoard({
               </button>
             </>
           ) : (
-            <p className="text-sm leading-7 text-[var(--muted)]">
-              有効な招待リンクがありません。グループメンバーから招待URLを受け取ってください。
-            </p>
+            <div className="space-y-4">
+              <p className="text-sm leading-7 text-[var(--muted)]">
+                有効な招待リンクがありません。グループメンバーから招待URLを受け取ってください。
+              </p>
+              <div className="rounded-2xl bg-[var(--chip)] px-4 py-4 text-sm leading-7 text-[var(--muted)]">
+                <p className="mb-2 font-semibold text-[var(--ink)]">招待URLをお持ちの方</p>
+                <p className="mb-3 text-xs">ホーム画面に追加する前に招待URLを開いていた場合は、以下に招待URLを貼り付けてください。</p>
+                <input
+                  className={inputClass}
+                  type="url"
+                  placeholder="https://..."
+                  value={inviteUrlInput}
+                  onChange={(e) => { setInviteUrlInput(e.target.value); setInviteUrlError(false); }}
+                />
+                {inviteUrlError && (
+                  <p className="mt-1 text-xs text-[var(--danger)]">招待リンクが見つかりませんでした。URLを確認してください。</p>
+                )}
+                <button
+                  className={primaryButtonClass + " mt-3 w-full"}
+                  type="button"
+                  onClick={() => {
+                    try {
+                      const parsed = new URL(inviteUrlInput.trim());
+                      const token = parsed.searchParams.get("invite");
+                      if (token) {
+                        setActiveInviteToken(token);
+                        setInviteUrlError(false);
+                      } else {
+                        setInviteUrlError(true);
+                      }
+                    } catch {
+                      setInviteUrlError(true);
+                    }
+                  }}
+                  disabled={!inviteUrlInput.trim()}
+                >
+                  招待リンクを適用
+                </button>
+              </div>
+            </div>
           )}
         </Card>
       </Shell>
