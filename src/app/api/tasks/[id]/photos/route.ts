@@ -38,7 +38,7 @@ export async function POST(
     return NextResponse.json({ error: "TASK_NOT_FOUND" }, { status: 404 });
   }
 
-  if (taskResult.data.status !== "done") {
+  if (taskResult.data.status !== "done" && taskResult.data.status !== "awaiting_confirmation") {
     return NextResponse.json({ error: "TASK_NOT_COMPLETED" }, { status: 400 });
   }
 
