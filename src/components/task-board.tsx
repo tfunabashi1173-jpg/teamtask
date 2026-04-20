@@ -3232,9 +3232,9 @@ export function TaskBoard({
                 currentGroupName={
                   state.groups.find((group) => group.id === activeGroupId)?.name ?? "グループ未設定"
                 }
-                availableCopyTasks={state.tasks.filter(
-                  (task) => !task.deleted_at && task.group_id === activeGroupId,
-                )}
+                availableCopyTasks={state.tasks
+                  .filter((task) => !task.deleted_at && task.group_id === activeGroupId)
+                  .filter((task, index, arr) => arr.findIndex((t) => t.title === task.title) === index)}
                 copySourceTaskId={copySourceTaskId}
                 form={taskForm}
                 isEditing={Boolean(editingTaskId)}
@@ -5092,9 +5092,9 @@ export function TaskBoard({
             currentGroupName={
               state.groups.find((group) => group.id === activeGroupId)?.name ?? "グループ未設定"
             }
-            availableCopyTasks={state.tasks.filter(
-              (task) => !task.deleted_at && task.group_id === activeGroupId,
-            )}
+            availableCopyTasks={state.tasks
+              .filter((task) => !task.deleted_at && task.group_id === activeGroupId)
+              .filter((task, index, arr) => arr.findIndex((t) => t.title === task.title) === index)}
             copySourceTaskId={copySourceTaskId}
             form={taskForm}
             isEditing={Boolean(editingTaskId)}
@@ -6101,7 +6101,7 @@ function TaskDetailModal({
                   ⧉
                 </button>
               </div>
-              <p className="mt-2 text-sm leading-7 text-[var(--ink-soft)]">{task.description}</p>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-[var(--ink-soft)]">{task.description}</p>
             </div>
           ) : null}
 
