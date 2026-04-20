@@ -80,6 +80,7 @@ export async function POST(
   await supabase.from("task_activity_logs").insert({
     task_id: id,
     actor_user_id: actorResult.data.id,
+    actor_name: sessionUser.displayName ?? null,
     action_type: "photo_added",
     after_value: insertResult.data,
   });

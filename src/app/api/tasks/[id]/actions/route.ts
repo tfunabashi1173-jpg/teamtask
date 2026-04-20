@@ -97,6 +97,7 @@ export async function POST(
   await supabase.from("task_activity_logs").insert({
     task_id: id,
     actor_user_id: actorResult.data.id,
+    actor_name: actorResult.data.display_name ?? null,
     action_type: actionType,
     before_value: beforeResult.data,
     after_value: updateResult.data,

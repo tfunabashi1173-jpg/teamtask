@@ -237,6 +237,7 @@ export async function POST(request: NextRequest) {
   await supabase.from("task_activity_logs").insert({
     task_id: representativeTaskId,
     actor_user_id: actorUserId,
+    actor_name: sessionUser.displayName ?? null,
     action_type: "created",
     after_value: insertResult.data,
   });

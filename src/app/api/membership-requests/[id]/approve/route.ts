@@ -108,6 +108,7 @@ export async function POST(
     supabase.from("task_activity_logs").insert({
       task_id: null,
       actor_user_id: adminResult.data.id,
+      actor_name: sessionUser.displayName ?? null,
       action_type: "member_joined",
       after_value: { memberName: requestResult.data.requested_name },
     }),

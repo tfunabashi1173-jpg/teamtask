@@ -2423,6 +2423,7 @@ export function TaskBoard({
               ? "status_changed"
             : "postponed_to_next_day",
       created_at: new Date().toISOString(),
+      actor_name: memberName || effectiveSessionUser?.displayName || null,
       actor: {
         display_name: memberName || effectiveSessionUser?.displayName || "誰か",
         line_picture_url:
@@ -5331,7 +5332,7 @@ function NotificationBubble({
   onClose: () => void;
   onTaskClick?: () => void;
 }) {
-  const actorName = log.actor?.display_name ?? "誰か";
+  const actorName = log.actor?.display_name ?? log.actor_name ?? "誰か";
   const actorImage = log.actor?.line_picture_url ?? null;
   const touchStartXRef = useRef<number | null>(null);
   const hasTask = Boolean(onTaskClick);

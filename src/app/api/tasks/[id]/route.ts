@@ -288,6 +288,7 @@ export async function PATCH(
   await supabase.from("task_activity_logs").insert({
     task_id: id,
     actor_user_id: actorResult.data.id,
+    actor_name: sessionUser.displayName ?? null,
     action_type: body.priority && body.priority !== beforeResult.data.priority ? "priority_changed" : "updated",
     before_value: beforeResult.data,
     after_value: updateResult.data,
@@ -381,6 +382,7 @@ export async function DELETE(
   await supabase.from("task_activity_logs").insert({
     task_id: id,
     actor_user_id: actorResult.data.id,
+    actor_name: sessionUser.displayName ?? null,
     action_type: "deleted",
     before_value: beforeResult.data,
   });

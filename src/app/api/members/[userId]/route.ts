@@ -50,6 +50,7 @@ export async function DELETE(
       supabase.from("task_activity_logs").insert({
         task_id: null,
         actor_user_id: adminResult.data.id,
+        actor_name: sessionUser.displayName ?? null,
         action_type: "member_removed",
         after_value: { memberName: targetResult.data?.display_name ?? null },
       }),
