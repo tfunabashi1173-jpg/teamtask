@@ -1969,17 +1969,26 @@ export function TaskBoard({
     if (!recurrenceDuplicateWarning) return;
     setRecurrenceDuplicateWarning(null);
     setTaskSavePending(true);
-    const result = await callJson("/api/tasks", {
-      method: "POST",
-      body: JSON.stringify({ ...(recurrenceDuplicateWarning.pendingBody as object), force: true }),
-    });
+    const result = editingTaskId
+      ? await callJson(`/api/tasks/${editingTaskId}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            ...(recurrenceDuplicateWarning.pendingBody as object),
+            force: true,
+            updateScope: editUpdateScope,
+          }),
+        })
+      : await callJson("/api/tasks", {
+          method: "POST",
+          body: JSON.stringify({ ...(recurrenceDuplicateWarning.pendingBody as object), force: true }),
+        });
     if (!result.ok) {
       setTaskSavePending(false);
-      pushToast("error", "タスク作成に失敗しました。");
+      pushToast("error", editingTaskId ? "タスク更新に失敗しました。" : "タスク作成に失敗しました。");
       return;
     }
     setTaskSavePending(false);
-    pushToast("success", "タスクを作成しました。");
+    pushToast("success", editingTaskId ? "タスクを更新しました。" : "タスクを作成しました。");
     setPendingReferenceFiles([]);
     setCreateTaskOpen(false);
     await syncLatestState();
