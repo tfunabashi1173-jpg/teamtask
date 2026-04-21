@@ -37,7 +37,7 @@ export async function GET(
 
   const signedUrlResult = await supabase.storage
     .from(getTaskPhotoBucketName())
-    .createSignedUrl(photoResult.data.storage_path, 300);
+    .createSignedUrl(photoResult.data.storage_path, 86400);
 
   if (signedUrlResult.error || !signedUrlResult.data?.signedUrl) {
     return NextResponse.json({ error: "SIGNED_URL_FAILED" }, { status: 500 });
@@ -45,7 +45,9 @@ export async function GET(
 
   const isThumb = request.nextUrl.searchParams.get("thumb") === "1";
   if (!isThumb) {
-    return NextResponse.redirect(signedUrlResult.data.signedUrl);
+    const response = NextResponse.redirect(signedUrlResult.data.signedUrl);
+    response.headers.set("Cache-Control", "private, max-age=86400");
+    return response;
   }
 
   // Thumbnail: fetch → compress with sharp → return directly
