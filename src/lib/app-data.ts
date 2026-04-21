@@ -134,9 +134,11 @@ export type AppState = {
 
 export async function getAppState({
   sessionLineUserId,
+  sessionPictureUrl,
   inviteToken,
 }: {
   sessionLineUserId: string | null;
+  sessionPictureUrl?: string | null;
   inviteToken: string | null;
 }): Promise<AppState> {
   const authConfigured = Boolean(
@@ -190,6 +192,15 @@ export async function getAppState({
       .maybeSingle();
 
     appUser = (appUserResult.data as AppUser | null) ?? null;
+
+    // セッションに写真URLがあるのにDBがNULLの場合は自動補完
+    if (appUser && !appUser.line_picture_url && sessionPictureUrl) {
+      await supabase
+        .from("app_users")
+        .update({ line_picture_url: sessionPictureUrl })
+        .eq("line_user_id", sessionLineUserId);
+      appUser.line_picture_url = sessionPictureUrl;
+    }
   }
 
   let activeInvite: InviteRecord | null = null;

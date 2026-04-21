@@ -20,6 +20,7 @@ export default async function Home({
   const resolvedSearchParams = await searchParams;
   const appState = await getAppState({
     sessionLineUserId: sessionUser?.lineUserId ?? null,
+    sessionPictureUrl: sessionUser?.pictureUrl ?? null,
     inviteToken: resolvedSearchParams.invite ?? null,
   });
 

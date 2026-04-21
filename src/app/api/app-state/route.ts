@@ -9,6 +9,7 @@ export async function GET(request: Request) {
 
   const state = await getAppState({
     sessionLineUserId: sessionUser?.lineUserId ?? null,
+    sessionPictureUrl: sessionUser?.pictureUrl ?? null,
     inviteToken,
   });
 
