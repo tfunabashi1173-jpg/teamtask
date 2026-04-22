@@ -1,5 +1,25 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
+function toDateOnly(value: unknown): string {
+  if (!value) return "";
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  const stringValue = String(value);
+  return stringValue.slice(0, 10);
+}
+
+function toTimeOnly(value: unknown): string | null {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString().slice(11, 19);
+  const stringValue = String(value);
+  return stringValue.length >= 8 ? stringValue.slice(0, 8) : stringValue;
+}
+
+function toIsoString(value: unknown): string | null {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString();
+  return String(value);
+}
+
 export type AppUser = {
   id: string;
   line_user_id: string;
@@ -370,7 +390,13 @@ export async function getAppState({
         .eq("user_id", appUser.id),
     ]);
 
-  const baseTasks = (tasksResult.data as TaskRecord[] | null) ?? [];
+  const baseTasksRaw = (tasksResult.data as TaskRecord[] | null) ?? [];
+  const baseTasks = baseTasksRaw.map((task) => ({
+    ...task,
+    scheduled_date: toDateOnly(task.scheduled_date),
+    scheduled_time: toTimeOnly(task.scheduled_time),
+    deleted_at: toIsoString(task.deleted_at),
+  }));
   let tasks =
     appUser.role === "admin"
       ? baseTasks
@@ -456,7 +482,14 @@ export async function getAppState({
                 is_active: boolean;
               }[]
             | null) ?? []
-        ).map((rule) => [rule.id, rule]),
+        ).map((rule) => [
+          rule.id,
+          {
+            ...rule,
+            start_date: toDateOnly(rule.start_date),
+            end_date: rule.end_date ? toDateOnly(rule.end_date) : null,
+          },
+        ]),
       );
     }
 
@@ -468,6 +501,7 @@ export async function getAppState({
       const current = photoMap.get(photo.task_id) ?? [];
       current.push({
         ...photo,
+        created_at: toIsoString(photo.created_at) ?? "",
         preview_url: `/api/task-photos/${photo.id}`,
       });
       photoMap.set(photo.task_id, current);
@@ -477,6 +511,7 @@ export async function getAppState({
       const current = referencePhotoMap.get(photo.task_id) ?? [];
       current.push({
         ...photo,
+        created_at: toIsoString(photo.created_at) ?? "",
         preview_url: `/api/task-reference-photos/${photo.id}`,
       });
       referencePhotoMap.set(photo.task_id, current);
@@ -537,7 +572,7 @@ export async function getAppState({
   const logs: TaskLogRecord[] = logRows.map((row) => ({
     id: row.id,
     action_type: row.action_type,
-    created_at: row.created_at,
+    created_at: toIsoString(row.created_at) ?? "",
     before_value: row.before_value ?? null,
     after_value: row.after_value ?? null,
     actor_name: row.actor_name ?? null,
