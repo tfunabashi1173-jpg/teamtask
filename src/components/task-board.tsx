@@ -735,17 +735,17 @@ export function TaskBoard({
     }
 
     setState(nextState);
-    setCurrentSessionUser(
+    setCurrentSessionUser((prev) =>
       nextState.sessionLineUserId
         ? {
             lineUserId: nextState.sessionLineUserId,
-            displayName: nextState.appUser?.display_name ?? currentSessionUser?.displayName ?? null,
-            pictureUrl: nextState.appUser?.line_picture_url ?? currentSessionUser?.pictureUrl ?? null,
+            displayName: nextState.appUser?.display_name ?? prev?.displayName ?? null,
+            pictureUrl: nextState.appUser?.line_picture_url ?? prev?.pictureUrl ?? null,
           }
         : null,
     );
     return true;
-  }, [currentSessionUser?.displayName, currentSessionUser?.pictureUrl, activeInviteToken]);
+  }, [activeInviteToken]);
 
   refreshAppStateRef.current = refreshAppState;
 
