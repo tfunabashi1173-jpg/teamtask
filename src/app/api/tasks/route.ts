@@ -116,7 +116,9 @@ export async function POST(request: NextRequest) {
 
       if (!existingRulesResult.error && existingRulesResult.data) {
         const similar = existingRulesResult.data.find(
-          (rule) => titleSimilarity(rule.title_template as string, trimmedTitle) >= RECURRENCE_DUPLICATE_SIMILARITY_THRESHOLD,
+          (rule: { title_template: string }) =>
+            titleSimilarity(rule.title_template as string, trimmedTitle) >=
+            RECURRENCE_DUPLICATE_SIMILARITY_THRESHOLD,
         );
         if (similar) {
           await supabase.from("tasks").delete().eq("id", insertResult.data.id);
@@ -214,7 +216,7 @@ export async function POST(request: NextRequest) {
       }
 
       const sourceInsertResult = await supabase.from("generated_task_sources").insert(
-        (futureInsertResult.data ?? []).map((task) => ({
+        ((futureInsertResult.data ?? []) as { id: string; scheduled_date: string }[]).map((task) => ({
           task_id: task.id,
           recurrence_rule_id: recurrenceResult.data.id,
           generated_for_date: task.scheduled_date,
@@ -228,7 +230,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: sourceInsertResult.error.message }, { status: 500 });
       }
 
-      siblingTaskIds = (futureInsertResult.data ?? []).map((t) => t.id);
+      siblingTaskIds = ((futureInsertResult.data ?? []) as { id: string }[]).map((t) => t.id);
     }
   }
 

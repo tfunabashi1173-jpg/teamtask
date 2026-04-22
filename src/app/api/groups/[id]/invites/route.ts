@@ -27,7 +27,7 @@ export async function POST(
 
   const groupMembership = await supabase
     .from("group_members")
-    .select("id,groups(workspace_id)")
+    .select("id")
     .eq("group_id", groupId)
     .eq("user_id", actorResult.data.id)
     .eq("is_active", true)
@@ -39,18 +39,21 @@ export async function POST(
 
   const inviteToken = randomBytes(18).toString("base64url");
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-  const relatedWorkspace = Array.isArray(groupMembership.data.groups)
-    ? groupMembership.data.groups[0]
-    : groupMembership.data.groups;
+  const groupResult = await supabase
+    .from("groups")
+    .select("workspace_id")
+    .eq("id", groupId)
+    .eq("is_active", true)
+    .maybeSingle();
 
-  if (!relatedWorkspace?.workspace_id) {
+  if (!groupResult.data?.workspace_id) {
     return NextResponse.json({ error: "GROUP_NOT_FOUND" }, { status: 404 });
   }
 
   const insertResult = await supabase
     .from("member_invites")
     .insert({
-      workspace_id: relatedWorkspace.workspace_id,
+      workspace_id: groupResult.data.workspace_id,
       group_id: groupId,
       invited_by_user_id: actorResult.data.id,
       invite_token: inviteToken,

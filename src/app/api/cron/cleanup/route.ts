@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   const workspaceIds = (workspaces ?? []).map((w: { id: string }) => w.id);
 
-  await Promise.all(workspaceIds.map((id) => purgeExpiredCompletedTasks(id)));
+  await Promise.all(workspaceIds.map((id: string) => purgeExpiredCompletedTasks(id)));
   await purgeExpiredTaskLogs();
 
   return NextResponse.json({ ok: true, workspaces: workspaceIds.length });

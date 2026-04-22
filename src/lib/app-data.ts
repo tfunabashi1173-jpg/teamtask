@@ -142,7 +142,7 @@ export async function getAppState({
   inviteToken: string | null;
 }): Promise<AppState> {
   const authConfigured = Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
+    process.env.NEON_DATABASE_URL,
   );
 
   if (!authConfigured) {
@@ -263,19 +263,22 @@ export async function getAppState({
 
   const workspaceMemberResult = await supabase
     .from("workspace_members")
-    .select(
-      "workspace_id, workspaces(id,name,timezone,notification_time,notification_time_2)",
-    )
+    .select("workspace_id")
     .eq("user_id", appUser.id)
     .eq("is_active", true)
     .is("left_at", null)
     .limit(1)
     .maybeSingle();
 
-  const workspaceRelation = workspaceMemberResult.data?.workspaces;
-  const workspace = Array.isArray(workspaceRelation)
-    ? (workspaceRelation[0] ?? null)
-    : (workspaceRelation ?? null);
+  let workspace: Workspace | null = null;
+  if (workspaceMemberResult.data?.workspace_id) {
+    const workspaceResult = await supabase
+      .from("workspaces")
+      .select("id,name,timezone,notification_time,notification_time_2")
+      .eq("id", workspaceMemberResult.data.workspace_id)
+      .maybeSingle();
+    workspace = (workspaceResult.data as Workspace | null) ?? null;
+  }
 
   if (!workspace) {
     return {
@@ -314,7 +317,7 @@ export async function getAppState({
           (row) => row.group_id,
         );
 
-  const [groupsResult, tasksResult, logsResult, membersResult, pendingRequestsResult, dismissedLogsResult] =
+  const [groupsResult, tasksResult, logsBaseResult, membersBaseResult, pendingRequestsResult, dismissedLogsResult] =
     await Promise.all([
       appUser.role === "admin"
         ? supabase
@@ -342,18 +345,14 @@ export async function getAppState({
         .order("scheduled_time"),
       supabase
         .from("task_activity_logs")
-        .select(
-          "id,action_type,created_at,before_value,after_value,actor_name,actor:app_users!task_activity_logs_actor_user_id_fkey(display_name,line_picture_url),task:tasks!task_activity_logs_task_id_fkey(id,title)",
-        )
+        .select("id,action_type,created_at,before_value,after_value,actor_name,actor_user_id,task_id")
         .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
         .order("created_at", { ascending: false })
         .limit(50),
       appUser.role === "admin"
         ? supabase
             .from("workspace_members")
-            .select(
-              "user:app_users!workspace_members_user_id_fkey(id,display_name,line_picture_url,role,is_active)",
-            )
+            .select("user_id")
             .eq("workspace_id", workspace.id)
             .eq("is_active", true)
         : Promise.resolve({ data: [] }),
@@ -495,11 +494,74 @@ export async function getAppState({
     });
   }
 
-  const members =
-    appUser.role === "admin"
-      ? ((membersResult.data ?? [])
-          .flatMap((row) => (Array.isArray(row.user) ? row.user : row.user ? [row.user] : [])) as MemberRecord[])
-      : [];
+  const logRows = (logsBaseResult.data as
+    | {
+        id: string;
+        action_type: string;
+        created_at: string;
+        before_value?: TaskLogRecord["before_value"];
+        after_value?: TaskLogRecord["after_value"];
+        actor_name?: string | null;
+        actor_user_id: string | null;
+        task_id: string | null;
+      }[]
+    | null) ?? [];
+  const logActorUserIds = Array.from(
+    new Set(logRows.map((row) => row.actor_user_id).filter((value): value is string => Boolean(value))),
+  );
+  const logTaskIds = Array.from(
+    new Set(logRows.map((row) => row.task_id).filter((value): value is string => Boolean(value))),
+  );
+  const [logActorsResult, logTasksResult] = await Promise.all([
+    logActorUserIds.length > 0
+      ? supabase
+          .from("app_users")
+          .select("id,display_name,line_picture_url")
+          .in("id", logActorUserIds)
+      : Promise.resolve({ data: [] }),
+    logTaskIds.length > 0
+      ? supabase
+          .from("tasks")
+          .select("id,title")
+          .in("id", logTaskIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+  const actorMap = new Map(
+    (((logActorsResult.data as { id: string; display_name: string; line_picture_url?: string | null }[] | null) ?? [])
+      .map((row) => [row.id, row])),
+  );
+  const taskMap = new Map(
+    (((logTasksResult.data as { id: string; title: string }[] | null) ?? [])
+      .map((row) => [row.id, row])),
+  );
+  const logs: TaskLogRecord[] = logRows.map((row) => ({
+    id: row.id,
+    action_type: row.action_type,
+    created_at: row.created_at,
+    before_value: row.before_value ?? null,
+    after_value: row.after_value ?? null,
+    actor_name: row.actor_name ?? null,
+    actor: row.actor_user_id ? actorMap.get(row.actor_user_id) ?? null : null,
+    task: row.task_id ? taskMap.get(row.task_id) ?? null : null,
+  }));
+
+  let members: MemberRecord[] = [];
+  if (appUser.role === "admin") {
+    const memberUserIds = Array.from(
+      new Set(
+        (((membersBaseResult.data as { user_id: string }[] | null) ?? [])
+          .map((row) => row.user_id)
+          .filter(Boolean)),
+      ),
+    );
+    if (memberUserIds.length > 0) {
+      const membersResult = await supabase
+        .from("app_users")
+        .select("id,display_name,line_picture_url,role,is_active")
+        .in("id", memberUserIds);
+      members = (membersResult.data as MemberRecord[] | null) ?? [];
+    }
+  }
   const dismissedLogIds = new Set(
     ((dismissedLogsResult.data as { log_id: string }[] | null) ?? []).map((row) => row.log_id),
   );
@@ -510,7 +572,7 @@ export async function getAppState({
     workspace,
     groups: (groupsResult.data as Group[] | null) ?? [],
     tasks,
-    logs: ((logsResult.data as TaskLogRecord[] | null) ?? []).filter(
+    logs: logs.filter(
       (log) => !dismissedLogIds.has(log.id),
     ),
     members,

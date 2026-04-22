@@ -247,7 +247,7 @@ export async function PATCH(
         }
 
         const sourceInsertResult = await supabase.from("generated_task_sources").insert(
-          (futureInsertResult.data ?? []).map((task) => ({
+          ((futureInsertResult.data ?? []) as { id: string; scheduled_date: string }[]).map((task) => ({
             task_id: task.id,
             recurrence_rule_id: recurrenceRuleId,
             generated_for_date: task.scheduled_date,
