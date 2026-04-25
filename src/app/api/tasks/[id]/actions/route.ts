@@ -9,6 +9,18 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
+  try {
+    return await handlePost(request, context);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: "UNHANDLED_ERROR", detail: message }, { status: 500 });
+  }
+}
+
+async function handlePost(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) {
   const { sessionUser, errorResponse } = await requireSession();
   if (errorResponse || !sessionUser) {
     return errorResponse;
@@ -95,14 +107,18 @@ export async function POST(
     return NextResponse.json({ error: updateResult.error.message }, { status: 500 });
   }
 
-  await supabase.from("task_activity_logs").insert({
-    task_id: id,
-    actor_user_id: actorResult.data.id,
-    actor_name: actorResult.data.display_name ?? null,
-    action_type: actionType,
-    before_value: beforeResult.data,
-    after_value: updateResult.data,
-  });
+  try {
+    await supabase.from("task_activity_logs").insert({
+      task_id: id,
+      actor_user_id: actorResult.data.id,
+      actor_name: actorResult.data.display_name ?? null,
+      action_type: actionType,
+      before_value: beforeResult.data,
+      after_value: updateResult.data,
+    });
+  } catch {
+    // ログ記録失敗はタスク更新の成否に影響させない
+  }
 
   const actionLabel =
     body.action === "start"
@@ -133,3 +149,4 @@ export async function POST(
 
   return NextResponse.json({ ok: true, task: updateResult.data });
 }
+
