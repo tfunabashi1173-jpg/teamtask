@@ -77,10 +77,10 @@ export async function POST(
   }
 
   if (body.action === "postpone") {
-    const base = beforeResult.data.scheduled_date ?? new Date().toISOString().slice(0, 10);
-    const currentDate = new Date(`${base}T00:00:00`);
-    currentDate.setDate(currentDate.getDate() + 1);
-    patch.scheduled_date = currentDate.toISOString().slice(0, 10);
+    const dateStr = String(beforeResult.data.scheduled_date ?? new Date().toISOString()).slice(0, 10);
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const next = new Date(y, m - 1, d + 1);
+    patch.scheduled_date = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
     actionType = "postponed_to_next_day";
   }
 
