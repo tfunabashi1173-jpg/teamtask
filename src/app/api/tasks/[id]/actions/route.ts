@@ -77,7 +77,8 @@ export async function POST(
   }
 
   if (body.action === "postpone") {
-    const currentDate = new Date(`${beforeResult.data.scheduled_date}T00:00:00`);
+    const base = beforeResult.data.scheduled_date ?? new Date().toISOString().slice(0, 10);
+    const currentDate = new Date(`${base}T00:00:00`);
     currentDate.setDate(currentDate.getDate() + 1);
     patch.scheduled_date = currentDate.toISOString().slice(0, 10);
     actionType = "postponed_to_next_day";
