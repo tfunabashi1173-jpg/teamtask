@@ -117,15 +117,19 @@ export async function POST(
         ? "中断"
           : "翌日";
 
-  await sendTaskActionNotification({
-    workspaceId: beforeResult.data.workspace_id,
-    actorUserId: actorResult.data.id,
-    actorName: actorResult.data.display_name ?? "誰か",
-    taskTitle: beforeResult.data.title,
-    actionLabel,
-    groupId: beforeResult.data.group_id,
-    baseUrl: new URL("/", request.url).toString(),
-  });
+  try {
+    await sendTaskActionNotification({
+      workspaceId: beforeResult.data.workspace_id,
+      actorUserId: actorResult.data.id,
+      actorName: actorResult.data.display_name ?? "誰か",
+      taskTitle: beforeResult.data.title,
+      actionLabel,
+      groupId: beforeResult.data.group_id,
+      baseUrl: new URL("/", request.url).toString(),
+    });
+  } catch {
+    // 通知失敗はタスク更新の成否に影響させない
+  }
 
   return NextResponse.json({ ok: true, task: updateResult.data });
 }
