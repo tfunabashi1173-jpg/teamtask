@@ -5,6 +5,24 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 type ActionType = "start" | "confirm" | "complete" | "pause" | "postpone";
 
+function toJsonSafe(value: unknown): unknown {
+  return JSON.parse(JSON.stringify(value, (_k, v) => (v instanceof Date ? v.toISOString() : v)));
+}
+
+function nextDateStr(raw: unknown): string {
+  let y: number, m: number, d: number;
+  if (raw instanceof Date) {
+    y = raw.getUTCFullYear();
+    m = raw.getUTCMonth() + 1;
+    d = raw.getUTCDate();
+  } else {
+    const parts = String(raw ?? "").slice(0, 10).split("-").map(Number);
+    [y, m, d] = parts;
+  }
+  const next = new Date(Date.UTC(y, m - 1, d + 1));
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}-${String(next.getUTCDate()).padStart(2, "0")}`;
+}
+
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
@@ -89,10 +107,7 @@ async function handlePost(
   }
 
   if (body.action === "postpone") {
-    const dateStr = String(beforeResult.data.scheduled_date ?? new Date().toISOString()).slice(0, 10);
-    const [y, m, d] = dateStr.split("-").map(Number);
-    const next = new Date(y, m - 1, d + 1);
-    patch.scheduled_date = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
+    patch.scheduled_date = nextDateStr(beforeResult.data.scheduled_date);
     actionType = "postponed_to_next_day";
   }
 
@@ -104,7 +119,10 @@ async function handlePost(
     .single();
 
   if (updateResult.error) {
-    return NextResponse.json({ error: updateResult.error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: updateResult.error.message, detail: updateResult.error.details ?? null },
+      { status: 500 },
+    );
   }
 
   try {
@@ -113,8 +131,8 @@ async function handlePost(
       actor_user_id: actorResult.data.id,
       actor_name: actorResult.data.display_name ?? null,
       action_type: actionType,
-      before_value: beforeResult.data,
-      after_value: updateResult.data,
+      before_value: toJsonSafe(beforeResult.data),
+      after_value: toJsonSafe(updateResult.data),
     });
   } catch {
     // ログ記録失敗はタスク更新の成否に影響させない
