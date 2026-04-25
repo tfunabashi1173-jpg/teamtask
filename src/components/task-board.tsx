@@ -426,6 +426,7 @@ export function TaskBoard({
     pendingBody: unknown;
   } | null>(null);
   const [taskActionPending, setTaskActionPending] = useState<ActionType | null>(null);
+  const taskActionPendingRef = useRef<ActionType | null>(null);
   const [taskDeletePendingId, setTaskDeletePendingId] = useState<string | null>(null);
   const [deleteConfirmTaskId, setDeleteConfirmTaskId] = useState<string | null>(null);
   const [approvalPendingId, setApprovalPendingId] = useState<string | null>(null);
@@ -732,6 +733,10 @@ export function TaskBoard({
     const nextState = (result.json as { state?: AppState }).state;
     if (!nextState) {
       return false;
+    }
+
+    if (taskActionPendingRef.current) {
+      return true;
     }
 
     setState(nextState);
@@ -2472,12 +2477,14 @@ export function TaskBoard({
       return;
     }
 
+    taskActionPendingRef.current = action;
     setTaskActionPending(action);
     const result = await callJson(`/api/tasks/${task.id}/actions`, {
       method: "POST",
       body: JSON.stringify({ action }),
     });
     setTaskActionPending(null);
+    taskActionPendingRef.current = null;
 
     if (!result.ok) {
       pushToast("error", "操作に失敗しました。通信状態を確認してください。");
