@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
+import { getAppBaseUrl } from "@/lib/app-url";
 import { sendPushToUsers } from "@/lib/notifications/web-push";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
     userIds: [actorResult.data.id],
     title: "Team Task テスト通知",
     body: `${delaySeconds}秒後のテスト通知です。ロック画面表示を確認してください。`,
-    url: new URL("/", request.url).toString(),
+    url: getAppBaseUrl(request).toString(),
   });
 
   return NextResponse.json({ ok: true });

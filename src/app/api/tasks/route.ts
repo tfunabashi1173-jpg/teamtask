@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
+import { getAppBaseUrl } from "@/lib/app-url";
 import { sendUrgentTaskCreatedNotification } from "@/lib/notifications/web-push";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import {
@@ -252,7 +253,7 @@ export async function POST(request: NextRequest) {
       taskTitle: trimmedTitle,
       groupId: body.visibilityType === "group" ? body.groupId ?? null : null,
       includeActor: true,
-      baseUrl: new URL("/", request.url).toString(),
+      baseUrl: getAppBaseUrl(request).toString(),
     });
   }
 

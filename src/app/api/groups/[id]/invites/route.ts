@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
+import { getAppBaseUrl } from "@/lib/app-url";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 export async function POST(
@@ -67,7 +68,7 @@ export async function POST(
     return NextResponse.json({ error: insertResult.error.message }, { status: 500 });
   }
 
-  const baseUrl = new URL(request.url);
+  const baseUrl = getAppBaseUrl(request);
   const inviteUrl = `${baseUrl.origin}/?invite=${insertResult.data.invite_token}`;
 
   return NextResponse.json({
