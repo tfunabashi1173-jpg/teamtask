@@ -560,11 +560,20 @@ function getEnv(name: string) {
   return value;
 }
 
+function getDatabaseSslOption(databaseUrl: string) {
+  const sslmode = new URL(databaseUrl).searchParams.get("sslmode");
+  if (sslmode === "disable" || sslmode === "allow" || sslmode === "prefer") {
+    return false;
+  }
+  return "require" as const;
+}
+
 function getNeonSqlClient() {
   if (!neonSqlClient) {
-    neonSqlClient = postgres(getEnv("NEON_DATABASE_URL"), {
+    const databaseUrl = getEnv("NEON_DATABASE_URL");
+    neonSqlClient = postgres(databaseUrl, {
       max: 5,
-      ssl: "require",
+      ssl: getDatabaseSslOption(databaseUrl),
     });
   }
   return neonSqlClient;
