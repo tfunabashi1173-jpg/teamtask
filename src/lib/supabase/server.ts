@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 let supabaseAdminClient: SupabaseClient | null = null;
+const DEFAULT_DB_SCHEMA = process.env.SUPABASE_DB_SCHEMA || "teamtask";
 
 function getEnv(name: string) {
   const value = process.env[name];
@@ -25,6 +26,9 @@ export function createSupabaseAdminClient() {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
+      },
+      db: {
+        schema: DEFAULT_DB_SCHEMA,
       },
     });
   }
