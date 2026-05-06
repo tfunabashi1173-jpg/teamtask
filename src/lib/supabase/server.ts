@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-let supabaseAdminClient: SupabaseClient | null = null;
+let supabaseAdminClient: SupabaseClient<any, any, any, any, any> | null = null;
 const DEFAULT_DB_SCHEMA = process.env.SUPABASE_DB_SCHEMA || "teamtask";
 
 function getEnv(name: string) {
@@ -15,7 +15,7 @@ function getSupabaseUrl() {
   return process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
 }
 
-export function createSupabaseAdminClient() {
+export function createSupabaseAdminClient(): SupabaseClient<any, any, any, any, any> {
   if (!supabaseAdminClient) {
     const supabaseUrl = getSupabaseUrl();
     if (!supabaseUrl) {
