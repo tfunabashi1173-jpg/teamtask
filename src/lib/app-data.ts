@@ -162,7 +162,8 @@ export async function getAppState({
   inviteToken: string | null;
 }): Promise<AppState> {
   const authConfigured = Boolean(
-    process.env.NEON_DATABASE_URL,
+    (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL) &&
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 
   if (!authConfigured) {
