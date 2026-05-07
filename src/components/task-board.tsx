@@ -366,6 +366,10 @@ function formatRecurrenceSummary(task: TaskRecord) {
   return `毎${intervalText}か月 / ${task.recurrence.day_of_month ?? "?"}日`;
 }
 
+function hasRecurringConfig(task: TaskRecord | undefined) {
+  return Boolean(task?.recurrence_rule_id || task?.recurrence?.is_active);
+}
+
 function actorInitial(name: string | null | undefined) {
   const trimmed = name?.trim();
   return trimmed ? trimmed.slice(0, 1) : "?";
@@ -1697,7 +1701,7 @@ export function TaskBoard({
 
   function openEditTask(task: TaskRecord) {
     setEditingTaskId(task.id);
-    setEditUpdateScope(task.recurrence_rule_id ? "all" : "single");
+    setEditUpdateScope(hasRecurringConfig(task) ? "all" : "single");
     setCopySourceTaskId("");
     setPendingReferenceFiles([]);
     setTaskForm({
@@ -3262,7 +3266,7 @@ export function TaskBoard({
                 onPreview={(url) => setPreviewPhotoUrl(url)}
                 setPendingReferenceFiles={setPendingReferenceFiles}
                 setForm={setTaskForm}
-                hasRecurrenceRule={Boolean(editingTaskId && state.tasks.find((t) => t.id === editingTaskId)?.recurrence_rule_id)}
+                hasRecurrenceRule={hasRecurringConfig(state.tasks.find((t) => t.id === editingTaskId))}
                 updateScope={editUpdateScope}
                 onUpdateScopeChange={setEditUpdateScope}
                 inline
@@ -5122,7 +5126,7 @@ export function TaskBoard({
             onPreview={(url) => setPreviewPhotoUrl(url)}
             setPendingReferenceFiles={setPendingReferenceFiles}
             setForm={setTaskForm}
-            hasRecurrenceRule={Boolean(editingTaskId && state.tasks.find((t) => t.id === editingTaskId)?.recurrence_rule_id)}
+            hasRecurrenceRule={hasRecurringConfig(state.tasks.find((t) => t.id === editingTaskId))}
             updateScope={editUpdateScope}
             onUpdateScopeChange={setEditUpdateScope}
           />
