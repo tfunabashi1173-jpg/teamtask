@@ -15,9 +15,22 @@ function getSupabaseUrl() {
   return process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
 }
 
+export function getSupabaseRuntimeConfig() {
+  const supabaseUrl = getSupabaseUrl();
+  const dbSchema = process.env.SUPABASE_DB_SCHEMA || DEFAULT_DB_SCHEMA;
+  const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+  return {
+    supabaseUrl,
+    dbSchema,
+    hasServiceRoleKey,
+    authConfigured: Boolean(supabaseUrl && hasServiceRoleKey),
+  };
+}
+
 export function createSupabaseAdminClient(): SupabaseClient<any, any, any, any, any> {
   if (!supabaseAdminClient) {
-    const supabaseUrl = getSupabaseUrl();
+    const { supabaseUrl, dbSchema } = getSupabaseRuntimeConfig();
     if (!supabaseUrl) {
       throw new Error("NEXT_PUBLIC_SUPABASE_URL is not configured.");
     }
@@ -28,7 +41,7 @@ export function createSupabaseAdminClient(): SupabaseClient<any, any, any, any, 
         autoRefreshToken: false,
       },
       db: {
-        schema: DEFAULT_DB_SCHEMA,
+        schema: dbSchema,
       },
     });
   }

@@ -1,4 +1,4 @@
-import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient, getSupabaseRuntimeConfig } from "@/lib/supabase/server";
 
 function toDateOnly(value: unknown): string {
   if (!value) return "";
@@ -150,7 +150,36 @@ export type AppState = {
   needsBootstrap: boolean;
   bootstrapAllowed: boolean;
   authConfigured: boolean;
+  configError: string | null;
 };
+
+function buildEmptyAppState({
+  sessionLineUserId,
+  authConfigured,
+  configError,
+}: {
+  sessionLineUserId: string | null;
+  authConfigured: boolean;
+  configError: string | null;
+}): AppState {
+  return {
+    sessionLineUserId,
+    appUser: null,
+    workspace: null,
+    groups: [],
+    tasks: [],
+    logs: [],
+    members: [],
+    pendingRequests: [],
+    activeInvite: null,
+    pendingOwnRequest: null,
+    rejectedOwnRequest: null,
+    needsBootstrap: false,
+    bootstrapAllowed: false,
+    authConfigured,
+    configError,
+  };
+}
 
 export async function getAppState({
   sessionLineUserId,
@@ -161,35 +190,58 @@ export async function getAppState({
   sessionPictureUrl?: string | null;
   inviteToken: string | null;
 }): Promise<AppState> {
-  const authConfigured = Boolean(
-    (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL) &&
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-  );
+  const runtimeConfig = getSupabaseRuntimeConfig();
+  const authConfigured = runtimeConfig.authConfigured;
 
   if (!authConfigured) {
-    return {
+    const missing = [
+      runtimeConfig.supabaseUrl ? null : "NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL",
+      runtimeConfig.hasServiceRoleKey ? null : "SUPABASE_SERVICE_ROLE_KEY",
+    ].filter(Boolean);
+
+    return buildEmptyAppState({
       sessionLineUserId,
-      appUser: null,
-      workspace: null,
-      groups: [],
-      tasks: [],
-      logs: [],
-      members: [],
-      pendingRequests: [],
-      activeInvite: null,
-      pendingOwnRequest: null,
-      rejectedOwnRequest: null,
-      needsBootstrap: false,
-      bootstrapAllowed: false,
       authConfigured: false,
-    };
+      configError: `Supabase runtime env is incomplete. Missing: ${missing.join(", ")}.`,
+    });
   }
 
-  const supabase = createSupabaseAdminClient();
+  let supabase: ReturnType<typeof createSupabaseAdminClient>;
+  try {
+    supabase = createSupabaseAdminClient();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown Supabase client error";
+    console.error("[teamtask] failed to create Supabase admin client", {
+      message,
+      schema: runtimeConfig.dbSchema,
+      url: runtimeConfig.supabaseUrl,
+    });
+    return buildEmptyAppState({
+      sessionLineUserId,
+      authConfigured: false,
+      configError: `Failed to initialize Supabase client: ${message}`,
+    });
+  }
 
-  const { count: workspaceCount } = await supabase
+  const workspaceCountResult = await supabase
     .from("workspaces")
     .select("*", { count: "exact", head: true });
+
+  if (workspaceCountResult.error) {
+    console.error("[teamtask] failed to load workspace count", {
+      message: workspaceCountResult.error.message,
+      code: workspaceCountResult.error.code,
+      schema: runtimeConfig.dbSchema,
+      url: runtimeConfig.supabaseUrl,
+    });
+    return buildEmptyAppState({
+      sessionLineUserId,
+      authConfigured: false,
+      configError: `Supabase query failed for schema "${runtimeConfig.dbSchema}": ${workspaceCountResult.error.message}`,
+    });
+  }
+
+  const { count: workspaceCount } = workspaceCountResult;
 
   const needsBootstrap = (workspaceCount ?? 0) === 0;
   const bootstrapAllowedLineUserIds = (process.env.BOOTSTRAP_ALLOWED_LINE_USER_IDS ?? "")
@@ -279,6 +331,7 @@ export async function getAppState({
       needsBootstrap,
       bootstrapAllowed,
       authConfigured,
+      configError: null,
     };
   }
 
@@ -317,6 +370,7 @@ export async function getAppState({
       needsBootstrap,
       bootstrapAllowed,
       authConfigured,
+      configError: null,
     };
   }
 
@@ -620,5 +674,6 @@ export async function getAppState({
     needsBootstrap,
     bootstrapAllowed,
     authConfigured,
+    configError: null,
   };
 }

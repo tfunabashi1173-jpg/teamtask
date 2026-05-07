@@ -2521,10 +2521,10 @@ export function TaskBoard({
   if (!state.authConfigured) {
     return (
       <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts} isProcessing={isProcessing}>
-        <Card title="DB未設定">
+        <Card title={state.configError ? "DB接続エラー" : "DB未設定"}>
           <p className="text-sm text-[var(--muted)]">
-            `NEXT_PUBLIC_SUPABASE_URL` と `SUPABASE_SERVICE_ROLE_KEY` を
-            `.env.local` に設定してください。
+            {state.configError ??
+              "`NEXT_PUBLIC_SUPABASE_URL` と `SUPABASE_SERVICE_ROLE_KEY` を `.env.local` に設定してください。"}
           </p>
         </Card>
       </Shell>
