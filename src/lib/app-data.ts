@@ -20,6 +20,17 @@ function toIsoString(value: unknown): string | null {
   return String(value);
 }
 
+const IN_QUERY_CHUNK_SIZE = 200;
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  if (items.length === 0) return [];
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
 export type AppUser = {
   id: string;
   line_user_id: string;
@@ -491,45 +502,95 @@ export async function getAppState({
 
   if (baseTasks.length > 0) {
     const taskIds = baseTasks.map((task) => task.id);
-    const sourceResult = await supabase
-      .from("generated_task_sources")
-      .select("task_id,recurrence_rule_id")
-      .in("task_id", taskIds);
-    const photoResult = await supabase
-      .from("task_photos")
-      .select("id,task_id,file_name,mime_type,storage_path,created_at")
-      .in("task_id", taskIds)
-      .order("created_at");
-    const referencePhotoResult = await supabase
-      .from("task_reference_photos")
-      .select("id,task_id,file_name,mime_type,storage_path,created_at")
-      .in("task_id", taskIds)
-      .order("created_at");
+    const sourceRows: { task_id: string; recurrence_rule_id: string }[] = [];
+    const photoRows: {
+      id: string;
+      task_id: string;
+      file_name: string;
+      mime_type: string;
+      storage_path: string;
+      created_at: string;
+    }[] = [];
+    const referencePhotoRows: {
+      id: string;
+      task_id: string;
+      file_name: string;
+      mime_type: string;
+      storage_path: string;
+      created_at: string;
+    }[] = [];
 
-    const sourceRows =
-      (sourceResult.data as { task_id: string; recurrence_rule_id: string }[] | null) ?? [];
-    const photoRows =
-      (photoResult.data as
-        | {
-            id: string;
-            task_id: string;
-            file_name: string;
-            mime_type: string;
-            storage_path: string;
-            created_at: string;
-          }[]
-        | null) ?? [];
-    const referencePhotoRows =
-      (referencePhotoResult.data as
-        | {
-            id: string;
-            task_id: string;
-            file_name: string;
-            mime_type: string;
-            storage_path: string;
-            created_at: string;
-          }[]
-        | null) ?? [];
+    const taskIdChunks = chunkArray(taskIds, IN_QUERY_CHUNK_SIZE);
+    for (const taskIdChunk of taskIdChunks) {
+      const [sourceResult, photoResult, referencePhotoResult] = await Promise.all([
+        supabase
+          .from("generated_task_sources")
+          .select("task_id,recurrence_rule_id")
+          .in("task_id", taskIdChunk),
+        supabase
+          .from("task_photos")
+          .select("id,task_id,file_name,mime_type,storage_path,created_at")
+          .in("task_id", taskIdChunk)
+          .order("created_at"),
+        supabase
+          .from("task_reference_photos")
+          .select("id,task_id,file_name,mime_type,storage_path,created_at")
+          .in("task_id", taskIdChunk)
+          .order("created_at"),
+      ]);
+
+      if (sourceResult.error) {
+        console.error("[teamtask] failed to load generated_task_sources chunk", {
+          message: sourceResult.error.message,
+          chunkSize: taskIdChunk.length,
+        });
+      } else {
+        sourceRows.push(
+          ...(((sourceResult.data as { task_id: string; recurrence_rule_id: string }[] | null) ?? [])),
+        );
+      }
+
+      if (photoResult.error) {
+        console.error("[teamtask] failed to load task_photos chunk", {
+          message: photoResult.error.message,
+          chunkSize: taskIdChunk.length,
+        });
+      } else {
+        photoRows.push(
+          ...(((photoResult.data as
+            | {
+                id: string;
+                task_id: string;
+                file_name: string;
+                mime_type: string;
+                storage_path: string;
+                created_at: string;
+              }[]
+            | null) ?? []),
+        );
+      }
+
+      if (referencePhotoResult.error) {
+        console.error("[teamtask] failed to load task_reference_photos chunk", {
+          message: referencePhotoResult.error.message,
+          chunkSize: taskIdChunk.length,
+        });
+      } else {
+        referencePhotoRows.push(
+          ...(((referencePhotoResult.data as
+            | {
+                id: string;
+                task_id: string;
+                file_name: string;
+                mime_type: string;
+                storage_path: string;
+                created_at: string;
+              }[]
+            | null) ?? []),
+        );
+      }
+    }
+
     const recurrenceRuleIds = Array.from(new Set(sourceRows.map((row) => row.recurrence_rule_id)));
 
     let recurrenceMap = new Map<
@@ -546,14 +607,33 @@ export async function getAppState({
     >();
 
     if (recurrenceRuleIds.length > 0) {
-      const recurrenceResult = await supabase
-        .from("recurrence_rules")
-        .select("id,frequency,interval_value,days_of_week,day_of_month,start_date,end_date,is_active")
-        .in("id", recurrenceRuleIds);
+      const recurrenceRows: {
+        id: string;
+        frequency: "daily" | "weekly" | "monthly";
+        interval_value: number;
+        days_of_week: number[] | null;
+        day_of_month: number | null;
+        start_date: string;
+        end_date: string | null;
+        is_active: boolean;
+      }[] = [];
+      const recurrenceRuleIdChunks = chunkArray(recurrenceRuleIds, IN_QUERY_CHUNK_SIZE);
+      for (const recurrenceRuleIdChunk of recurrenceRuleIdChunks) {
+        const recurrenceResult = await supabase
+          .from("recurrence_rules")
+          .select("id,frequency,interval_value,days_of_week,day_of_month,start_date,end_date,is_active")
+          .in("id", recurrenceRuleIdChunk);
 
-      recurrenceMap = new Map(
-        (
-          (recurrenceResult.data as
+        if (recurrenceResult.error) {
+          console.error("[teamtask] failed to load recurrence_rules chunk", {
+            message: recurrenceResult.error.message,
+            chunkSize: recurrenceRuleIdChunk.length,
+          });
+          continue;
+        }
+
+        recurrenceRows.push(
+          ...(((recurrenceResult.data as
             | {
                 id: string;
                 frequency: "daily" | "weekly" | "monthly";
@@ -564,8 +644,12 @@ export async function getAppState({
                 end_date: string | null;
                 is_active: boolean;
               }[]
-            | null) ?? []
-        ).map((rule) => [
+            | null) ?? []),
+        );
+      }
+
+      recurrenceMap = new Map(
+        recurrenceRows.map((rule) => [
           rule.id,
           {
             ...rule,
