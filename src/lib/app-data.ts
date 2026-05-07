@@ -181,6 +181,29 @@ function buildEmptyAppState({
   };
 }
 
+function formatSupabaseQueryError(
+  error: {
+    message?: string | null;
+    code?: string | null;
+    details?: string | null;
+    hint?: string | null;
+  },
+  schema: string,
+) {
+  const parts = [
+    error.message?.trim(),
+    error.details?.trim(),
+    error.hint?.trim(),
+    error.code ? `code=${error.code}` : null,
+  ].filter(Boolean);
+
+  const summary =
+    parts.join(" | ") ||
+    `No error body returned from Supabase for schema "${schema}". Check PostgREST exposed schemas and runtime env.`;
+
+  return `Supabase query failed for schema "${schema}": ${summary}`;
+}
+
 export async function getAppState({
   sessionLineUserId,
   sessionPictureUrl,
@@ -231,13 +254,15 @@ export async function getAppState({
     console.error("[teamtask] failed to load workspace count", {
       message: workspaceCountResult.error.message,
       code: workspaceCountResult.error.code,
+      details: workspaceCountResult.error.details,
+      hint: workspaceCountResult.error.hint,
       schema: runtimeConfig.dbSchema,
       url: runtimeConfig.supabaseUrl,
     });
     return buildEmptyAppState({
       sessionLineUserId,
       authConfigured: false,
-      configError: `Supabase query failed for schema "${runtimeConfig.dbSchema}": ${workspaceCountResult.error.message}`,
+      configError: formatSupabaseQueryError(workspaceCountResult.error, runtimeConfig.dbSchema),
     });
   }
 
