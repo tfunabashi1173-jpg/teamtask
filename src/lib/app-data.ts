@@ -246,27 +246,30 @@ export async function getAppState({
     });
   }
 
-  const workspaceCountResult = await supabase
+  const workspaceProbeResult = await supabase
     .from("workspaces")
-    .select("*", { count: "exact", head: true });
+    .select("id", { count: "exact" })
+    .limit(1);
 
-  if (workspaceCountResult.error) {
+  if (workspaceProbeResult.error) {
     console.error("[teamtask] failed to load workspace count", {
-      message: workspaceCountResult.error.message,
-      code: workspaceCountResult.error.code,
-      details: workspaceCountResult.error.details,
-      hint: workspaceCountResult.error.hint,
+      message: workspaceProbeResult.error.message,
+      code: workspaceProbeResult.error.code,
+      details: workspaceProbeResult.error.details,
+      hint: workspaceProbeResult.error.hint,
+      status: workspaceProbeResult.status,
+      statusText: workspaceProbeResult.statusText,
       schema: runtimeConfig.dbSchema,
       url: runtimeConfig.supabaseUrl,
     });
     return buildEmptyAppState({
       sessionLineUserId,
       authConfigured: false,
-      configError: formatSupabaseQueryError(workspaceCountResult.error, runtimeConfig.dbSchema),
+      configError: formatSupabaseQueryError(workspaceProbeResult.error, runtimeConfig.dbSchema),
     });
   }
 
-  const { count: workspaceCount } = workspaceCountResult;
+  const { count: workspaceCount } = workspaceProbeResult;
 
   const needsBootstrap = (workspaceCount ?? 0) === 0;
   const bootstrapAllowedLineUserIds = (process.env.BOOTSTRAP_ALLOWED_LINE_USER_IDS ?? "")
