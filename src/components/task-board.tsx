@@ -3266,7 +3266,10 @@ export function TaskBoard({
                 onPreview={(url) => setPreviewPhotoUrl(url)}
                 setPendingReferenceFiles={setPendingReferenceFiles}
                 setForm={setTaskForm}
-                hasRecurrenceRule={hasRecurringConfig(state.tasks.find((t) => t.id === editingTaskId))}
+                hasRecurrenceRule={Boolean(
+                  editingTaskId &&
+                    (taskForm.recurrenceEnabled || hasRecurringConfig(state.tasks.find((t) => t.id === editingTaskId))),
+                )}
                 updateScope={editUpdateScope}
                 onUpdateScopeChange={setEditUpdateScope}
                 inline
@@ -5126,7 +5129,10 @@ export function TaskBoard({
             onPreview={(url) => setPreviewPhotoUrl(url)}
             setPendingReferenceFiles={setPendingReferenceFiles}
             setForm={setTaskForm}
-            hasRecurrenceRule={hasRecurringConfig(state.tasks.find((t) => t.id === editingTaskId))}
+            hasRecurrenceRule={Boolean(
+              editingTaskId &&
+                (taskForm.recurrenceEnabled || hasRecurringConfig(state.tasks.find((t) => t.id === editingTaskId))),
+            )}
             updateScope={editUpdateScope}
             onUpdateScopeChange={setEditUpdateScope}
           />
