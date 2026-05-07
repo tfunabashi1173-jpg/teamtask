@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
+import { getAppBaseUrl } from "@/lib/app-url";
 import { sendTaskActionNotification } from "@/lib/notifications/web-push";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
@@ -159,7 +160,7 @@ async function handlePost(
       taskTitle: beforeResult.data.title,
       actionLabel,
       groupId: beforeResult.data.group_id,
-      baseUrl: new URL("/", request.url).toString(),
+      baseUrl: getAppBaseUrl(request).toString(),
     });
   } catch {
     // 通知失敗はタスク更新の成否に影響させない
@@ -167,4 +168,3 @@ async function handlePost(
 
   return NextResponse.json({ ok: true, task: updateResult.data });
 }
-

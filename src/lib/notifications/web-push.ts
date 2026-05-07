@@ -382,7 +382,8 @@ export async function sendEveningTaskNotifications({
     .eq("workspace_id", workspaceId)
     .eq("scheduled_date", targetDate)
     .is("deleted_at", null)
-    .not("status", "in", '("done","skipped")');
+    .neq("status", "done")
+    .neq("status", "skipped");
 
   const tasks =
     (tasksResult.data as { id: string; title: string; status: string; group_id: string | null }[] | null) ?? [];

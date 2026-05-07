@@ -2523,8 +2523,8 @@ export function TaskBoard({
       <Shell appVersion={appVersion} commitSha={commitSha} toasts={toasts} isProcessing={isProcessing}>
         <Card title="DB未設定">
           <p className="text-sm text-[var(--muted)]">
-            `NEON_DATABASE_URL` を `.env.local`
-            に設定してください。
+            `NEXT_PUBLIC_SUPABASE_URL` と `SUPABASE_SERVICE_ROLE_KEY` を
+            `.env.local` に設定してください。
           </p>
         </Card>
       </Shell>

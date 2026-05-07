@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAppBaseUrl } from "@/lib/app-url";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { sendMorningTaskNotifications } from "@/lib/notifications/web-push";
 
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
     (workspacesResult.data as
       | { id: string; name: string; timezone: string; notification_time: string }[]
       | null) ?? [];
-  const baseUrl = new URL("/", request.url).toString();
+  const baseUrl = getAppBaseUrl(request).toString();
   const now = new Date();
 
   const results = await Promise.all(

@@ -9,10 +9,11 @@ import { writeSessionCookie } from "@/lib/auth/server-session";
 import {
   getLineStateCookieName,
 } from "@/lib/auth/session";
+import { getAppBaseUrl } from "@/lib/app-url";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 function redirectWithError(request: NextRequest, message: string) {
-  const url = new URL("/", request.url);
+  const url = getAppBaseUrl(request);
   url.searchParams.set("authError", message);
   const response = NextResponse.redirect(url);
   response.cookies.set(getLineStateCookieName(), "", {
@@ -104,7 +105,7 @@ export async function GET(request: NextRequest) {
       })
       .eq("id", loginAttemptResult.data.id);
 
-    const successUrl = new URL("/", request.url);
+    const successUrl = getAppBaseUrl(request);
     successUrl.searchParams.set("authSuccess", "1");
     successUrl.searchParams.set("loginAttempt", loginAttemptResult.data.id);
 

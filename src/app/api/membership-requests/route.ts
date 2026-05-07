@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
+import { getAppBaseUrl } from "@/lib/app-url";
 import { sendMembershipRequestNotification } from "@/lib/notifications/web-push";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
   await sendMembershipRequestNotification({
     workspaceId: inviteResult.data.workspace_id,
     requestedName,
-    baseUrl: new URL("/", request.url).toString(),
+    baseUrl: getAppBaseUrl(request).toString(),
   });
 
   return NextResponse.json({ ok: true });
