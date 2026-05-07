@@ -556,17 +556,18 @@ export async function getAppState({
           chunkSize: taskIdChunk.length,
         });
       } else {
+        const rows = (photoResult.data as
+          | {
+              id: string;
+              task_id: string;
+              file_name: string;
+              mime_type: string;
+              storage_path: string;
+              created_at: string;
+            }[]
+          | null) ?? [];
         photoRows.push(
-          ...(((photoResult.data as
-            | {
-                id: string;
-                task_id: string;
-                file_name: string;
-                mime_type: string;
-                storage_path: string;
-                created_at: string;
-              }[]
-            | null) ?? []),
+          ...rows,
         );
       }
 
@@ -576,17 +577,18 @@ export async function getAppState({
           chunkSize: taskIdChunk.length,
         });
       } else {
+        const rows = (referencePhotoResult.data as
+          | {
+              id: string;
+              task_id: string;
+              file_name: string;
+              mime_type: string;
+              storage_path: string;
+              created_at: string;
+            }[]
+          | null) ?? [];
         referencePhotoRows.push(
-          ...(((referencePhotoResult.data as
-            | {
-                id: string;
-                task_id: string;
-                file_name: string;
-                mime_type: string;
-                storage_path: string;
-                created_at: string;
-              }[]
-            | null) ?? []),
+          ...rows,
         );
       }
     }
@@ -632,20 +634,19 @@ export async function getAppState({
           continue;
         }
 
-        recurrenceRows.push(
-          ...(((recurrenceResult.data as
-            | {
-                id: string;
-                frequency: "daily" | "weekly" | "monthly";
-                interval_value: number;
-                days_of_week: number[] | null;
-                day_of_month: number | null;
-                start_date: string;
-                end_date: string | null;
-                is_active: boolean;
-              }[]
-            | null) ?? []),
-        );
+        const rows = (recurrenceResult.data as
+          | {
+              id: string;
+              frequency: "daily" | "weekly" | "monthly";
+              interval_value: number;
+              days_of_week: number[] | null;
+              day_of_month: number | null;
+              start_date: string;
+              end_date: string | null;
+              is_active: boolean;
+            }[]
+          | null) ?? [];
+        recurrenceRows.push(...rows);
       }
 
       recurrenceMap = new Map(
