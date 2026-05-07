@@ -1,60 +1,57 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
-import { getTaskPhotoBucketName } from "@/lib/tasks/photos";
 
-const COMPLETED_TASK_RETENTION_DAYS = 7;
-const LOG_RETENTION_DAYS = 7;
+const TASK_ACTIVITY_LOG_RETENTION_DAYS = 7;
+
+function isoDaysAgo(days: number) {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+}
 
 export async function purgeExpiredCompletedTasks(workspaceId: string) {
-  const supabase = createSupabaseAdminClient();
-  const cutoff = new Date(Date.now() - COMPLETED_TASK_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
-
-  const expiredTasksResult = await supabase
-    .from("tasks")
-    .select("id")
-    .eq("workspace_id", workspaceId)
-    .eq("status", "done")
-    .is("deleted_at", null)
-    .not("completed_at", "is", null)
-    .lt("completed_at", cutoff);
-
-  if (expiredTasksResult.error || !expiredTasksResult.data?.length) {
-    return;
-  }
-
-  const taskIds = expiredTasksResult.data.map((task) => task.id);
-
-  const photosResult = await supabase
-    .from("task_photos")
-    .select("storage_path")
-    .in("task_id", taskIds);
-  const referencePhotosResult = await supabase
-    .from("task_reference_photos")
-    .select("storage_path")
-    .in("task_id", taskIds);
-
-  const photoPaths =
-    ((photosResult.data as { storage_path: string }[] | null) ?? [])
-      .map((photo) => photo.storage_path)
-      .filter(Boolean);
-  const referencePhotoPaths =
-    ((referencePhotosResult.data as { storage_path: string }[] | null) ?? [])
-      .map((photo) => photo.storage_path)
-      .filter(Boolean);
-  const allPhotoPaths = [...photoPaths, ...referencePhotoPaths];
-
-  if (allPhotoPaths.length > 0) {
-    await supabase.storage.from(getTaskPhotoBucketName()).remove(allPhotoPaths);
-  }
-
-  await supabase.from("tasks").delete().in("id", taskIds);
+  void workspaceId;
+  return { deletedTasks: 0 };
 }
 
 export async function purgeExpiredTaskLogs() {
   const supabase = createSupabaseAdminClient();
-  const cutoff = new Date(Date.now() - LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const cutoff = isoDaysAgo(TASK_ACTIVITY_LOG_RETENTION_DAYS);
 
-  await supabase
+  const staleLogsResult = await supabase
+    .from("task_activity_logs")
+    .select("id")
+    .lt("created_at", cutoff);
+
+  if (staleLogsResult.error) {
+    throw new Error(`Failed to load stale task logs: ${staleLogsResult.error.message}`);
+  }
+
+  const staleLogIds = ((staleLogsResult.data as { id: string }[] | null) ?? []).map((row) => row.id);
+
+  if (staleLogIds.length === 0) {
+    return { deletedLogs: 0, deletedDismissals: 0 };
+  }
+
+  const dismissalsResult = await supabase
+    .from("task_log_dismissals")
+    .delete()
+    .in("log_id", staleLogIds)
+    .select("log_id");
+
+  if (dismissalsResult.error) {
+    throw new Error(`Failed to purge task log dismissals: ${dismissalsResult.error.message}`);
+  }
+
+  const logsResult = await supabase
     .from("task_activity_logs")
     .delete()
-    .lt("created_at", cutoff);
+    .in("id", staleLogIds)
+    .select("id");
+
+  if (logsResult.error) {
+    throw new Error(`Failed to purge task activity logs: ${logsResult.error.message}`);
+  }
+
+  return {
+    deletedLogs: ((logsResult.data as { id: string }[] | null) ?? []).length,
+    deletedDismissals: ((dismissalsResult.data as { log_id: string }[] | null) ?? []).length,
+  };
 }

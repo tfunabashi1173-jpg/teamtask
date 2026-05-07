@@ -1,16 +1,9 @@
-import packageJson from "../../package.json";
+import { BUILD_APP_VERSION, BUILD_COMMIT_SHA } from "@/lib/build-metadata";
 
 export function resolveCommitSha() {
-  return (
-    process.env.NEXT_PUBLIC_COMMIT_SHA?.slice(0, 7) ??
-    process.env.SOURCE_COMMIT?.slice(0, 7) ??
-    process.env.COMMIT_SHA?.slice(0, 7) ??
-    process.env.GITHUB_SHA?.slice(0, 7) ??
-    process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ??
-    "unknown"
-  );
+  return BUILD_COMMIT_SHA;
 }
 
 export function resolveAppVersion() {
-  return `v${packageJson.version}`;
+  return BUILD_APP_VERSION;
 }
