@@ -2172,7 +2172,11 @@ export function TaskBoard({
     });
   }
 
-  async function handlePhotoUpload(taskId: string, file: File, silent?: boolean): Promise<boolean> {
+  async function handlePhotoUpload(
+    taskId: string,
+    file: File,
+    silent?: boolean,
+  ): Promise<{ ok: boolean; error?: string }> {
     const compressed = await compressImage(file);
     const formData = new FormData();
     formData.append("file", compressed);
@@ -2192,7 +2196,7 @@ export function TaskBoard({
         if (!silent) {
           pushToast("error", detail ? `写真の保存に失敗しました。(${detail})` : "写真の保存に失敗しました。");
         }
-        return false;
+        return { ok: false, error: detail ?? undefined };
       }
 
       const createdPhoto = json.photo as TaskPhotoRecord;
@@ -2206,13 +2210,13 @@ export function TaskBoard({
         ),
       }));
       if (!silent) pushToast("success", "写真を保存しました。");
-      return true;
+      return { ok: true };
     } catch (error) {
       const detail = error instanceof Error ? error.message : null;
       if (!silent) {
         pushToast("error", detail ? `写真の保存に失敗しました。(${detail})` : "写真の保存に失敗しました。");
       }
-      return false;
+      return { ok: false, error: detail ?? undefined };
     }
   }
 
@@ -6073,7 +6077,7 @@ function TaskDetailModal({
   onAction: (action: ActionType) => void;
   onReferencePhotoUpload: (file: File, silent?: boolean) => Promise<boolean>;
   onBatchReferencePhotoDelete: (photoIds: string[]) => Promise<void>;
-  onPhotoUpload: (file: File, silent?: boolean) => Promise<boolean>;
+  onPhotoUpload: (file: File, silent?: boolean) => Promise<{ ok: boolean; error?: string }>;
   onBatchPhotoDelete: (photoIds: string[]) => Promise<void>;
   onPreview: (url: string) => void;
   onPushToast: (type: "success" | "error" | "info", message: string) => void;
@@ -6457,12 +6461,24 @@ function TaskDetailModal({
             const toUpload = files.slice(0, remaining);
             setIsPhotoSubmitting(true);
             const results = await Promise.allSettled(toUpload.map((file) => onPhotoUpload(file, true)));
-            const successCount = results.filter((r) => r.status === "fulfilled" && r.value).length;
+            const successCount = results.filter((r) => r.status === "fulfilled" && r.value.ok).length;
             const failCount = toUpload.length - successCount;
+            let firstError: string | null = null;
+            for (const result of results) {
+              if (result.status === "fulfilled" && !result.value.ok && result.value.error) {
+                firstError = result.value.error;
+                break;
+              }
+            }
             if (failCount > 0 && successCount > 0) {
-              onPushToast("error", `${failCount}枚の保存に失敗しました（${successCount}枚成功）。`);
+              onPushToast(
+                "error",
+                firstError
+                  ? `${failCount}枚の保存に失敗しました（${successCount}枚成功）。(${firstError})`
+                  : `${failCount}枚の保存に失敗しました（${successCount}枚成功）。`,
+              );
             } else if (failCount > 0) {
-              onPushToast("error", "写真の保存に失敗しました。");
+              onPushToast("error", firstError ? `写真の保存に失敗しました。(${firstError})` : "写真の保存に失敗しました。");
             } else {
               onPushToast("success", successCount === 1 ? "写真を保存しました。" : `写真 ${successCount}枚を保存しました。`);
             }
