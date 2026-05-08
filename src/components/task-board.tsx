@@ -1286,11 +1286,8 @@ export function TaskBoard({
 
     const refreshState = async () => {
       if (cancelled) return;
-
       const ok = await refreshAppStateRef.current?.();
-      if (cancelled || !ok) {
-        return;
-      }
+      if (cancelled || !ok) return;
     };
 
     const scheduleRefresh = () => {
@@ -2191,7 +2188,10 @@ export function TaskBoard({
         | null;
 
       if (!response.ok || !json || !("photo" in json) || !json.photo) {
-        if (!silent) pushToast("error", "写真の保存に失敗しました。");
+        const detail = json && "error" in json && typeof json.error === "string" ? json.error : null;
+        if (!silent) {
+          pushToast("error", detail ? `写真の保存に失敗しました。(${detail})` : "写真の保存に失敗しました。");
+        }
         return false;
       }
 
@@ -2207,8 +2207,11 @@ export function TaskBoard({
       }));
       if (!silent) pushToast("success", "写真を保存しました。");
       return true;
-    } catch {
-      if (!silent) pushToast("error", "写真の保存に失敗しました。");
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : null;
+      if (!silent) {
+        pushToast("error", detail ? `写真の保存に失敗しました。(${detail})` : "写真の保存に失敗しました。");
+      }
       return false;
     }
   }

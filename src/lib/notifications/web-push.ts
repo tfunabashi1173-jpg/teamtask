@@ -1,6 +1,5 @@
 import webpush from "web-push";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
-import { sendExpoPushToUsers } from "@/lib/notifications/expo-push";
 
 export type WebPushSubscription = {
   endpoint: string;
@@ -166,12 +165,6 @@ export async function sendPushToUsers({
     }),
   );
 
-  await sendExpoPushToUsers({
-    userIds,
-    title,
-    body,
-    url,
-  });
 }
 
 async function resolveNotificationTargetUserIds({

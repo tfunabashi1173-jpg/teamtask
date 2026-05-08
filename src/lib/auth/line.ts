@@ -29,15 +29,7 @@ function getRequiredEnv(name: string) {
   return value;
 }
 
-export function resolveLineRedirectUri(kind: "web" | "mobile") {
-  if (kind === "mobile") {
-    return (
-      process.env.LINE_MOBILE_REDIRECT_URI ??
-      process.env.LINE_REDIRECT_URI ??
-      "http://localhost:3000/api/auth/mobile/line/callback"
-    );
-  }
-
+export function resolveLineRedirectUri(kind: "web") {
   return (
     process.env.LINE_WEB_REDIRECT_URI ??
     process.env.LINE_REDIRECT_URI ??
