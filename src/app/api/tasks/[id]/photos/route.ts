@@ -30,12 +30,26 @@ export async function POST(
     .single();
 
   if (actorResult.error) {
-    return NextResponse.json({ error: "ACTOR_NOT_FOUND" }, { status: 404 });
+    return NextResponse.json(
+      {
+        error: "ACTOR_NOT_FOUND",
+        stage: "precheck_actor",
+        detail: actorResult.error.message,
+      },
+      { status: 404 },
+    );
   }
 
   const taskResult = await supabase.from("tasks").select("*").eq("id", id).single();
   if (taskResult.error) {
-    return NextResponse.json({ error: "TASK_NOT_FOUND" }, { status: 404 });
+    return NextResponse.json(
+      {
+        error: "TASK_NOT_FOUND",
+        stage: "precheck_task",
+        detail: taskResult.error.message,
+      },
+      { status: 404 },
+    );
   }
 
   if (taskResult.data.status !== "done" && taskResult.data.status !== "awaiting_confirmation") {
@@ -49,7 +63,7 @@ export async function POST(
 
   const currentCount = currentPhotoResult.data?.length ?? 0;
   if (currentCount >= MAX_TASK_PHOTOS) {
-    return NextResponse.json({ error: "PHOTO_LIMIT_REACHED" }, { status: 400 });
+    return NextResponse.json({ error: "PHOTO_LIMIT_REACHED", stage: "precheck_limit" }, { status: 400 });
   }
 
   const storagePath = buildTaskPhotoPath(id, file.name || "photo.jpg");
@@ -61,7 +75,13 @@ export async function POST(
     });
 
   if (uploadResult.error) {
-    return NextResponse.json({ error: uploadResult.error.message }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: uploadResult.error.message,
+        stage: "storage_upload",
+      },
+      { status: 500 },
+    );
   }
 
   const insertResult = await supabase
@@ -78,16 +98,32 @@ export async function POST(
 
   if (insertResult.error) {
     await supabase.storage.from(getTaskPhotoBucketName()).remove([storagePath]);
-    return NextResponse.json({ error: insertResult.error.message }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: insertResult.error.message,
+        stage: "db_insert_task_photos",
+      },
+      { status: 500 },
+    );
   }
 
-  await supabase.from("task_activity_logs").insert({
+  const logInsertResult = await supabase.from("task_activity_logs").insert({
     task_id: id,
     actor_user_id: actorResult.data.id,
     actor_name: sessionUser.displayName ?? null,
     action_type: "photo_added",
     after_value: insertResult.data,
   });
+
+  if (logInsertResult.error) {
+    console.error("[teamtask] photo upload log insert failed", {
+      stage: "db_insert_task_activity_logs",
+      message: logInsertResult.error.message,
+      detail: logInsertResult.error.details,
+      code: logInsertResult.error.code,
+      taskId: id,
+    });
+  }
 
   return NextResponse.json({
     ok: true,
