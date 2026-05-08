@@ -1697,6 +1697,7 @@ export function TaskBoard({
   }
 
   function openEditTask(task: TaskRecord) {
+    setSelectedTaskId(null);
     setEditingTaskId(task.id);
     setEditUpdateScope(hasRecurringConfig(task) ? "all" : "single");
     setCopySourceTaskId("");
@@ -3308,6 +3309,7 @@ export function TaskBoard({
                 actionPending={taskActionPending}
                 task={selectedTask}
                 onClose={() => setSelectedTaskId(null)}
+                onEdit={() => openEditTask(selectedTask)}
                 onCopyText={copyText}
                 onAction={(action) => void performTaskAction(selectedTask, action)}
                 onReferencePhotoUpload={(file, silent) => handleReferencePhotoUpload(selectedTask.id, file, silent).then((r) => r !== null)}
@@ -5170,6 +5172,7 @@ export function TaskBoard({
             actionPending={taskActionPending}
             task={selectedTask}
             onClose={() => setSelectedTaskId(null)}
+            onEdit={() => openEditTask(selectedTask)}
             onCopyText={copyText}
             onAction={(action) => void performTaskAction(selectedTask, action)}
             onReferencePhotoUpload={(file, silent) => handleReferencePhotoUpload(selectedTask.id, file, silent).then((r) => r !== null)}
@@ -6078,6 +6081,7 @@ function TaskDetailModal({
   actionPending,
   task,
   onClose,
+  onEdit,
   onCopyText,
   onAction,
   onReferencePhotoUpload,
@@ -6091,6 +6095,7 @@ function TaskDetailModal({
   actionPending: ActionType | null;
   task: TaskRecord;
   onClose: () => void;
+  onEdit: () => void;
   onCopyText: (label: string, value: string) => Promise<void>;
   onAction: (action: ActionType) => void;
   onReferencePhotoUpload: (file: File, silent?: boolean) => Promise<boolean>;
@@ -6457,6 +6462,13 @@ function TaskDetailModal({
           </div>
         ) : null}
         <div className="mt-3 grid grid-cols-2 gap-3">
+          <button
+            className={secondaryButtonClass}
+            onClick={onEdit}
+            type="button"
+          >
+            編集
+          </button>
           <button
             className={closeWideButtonClass}
             onClick={onClose}
