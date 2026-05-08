@@ -2186,17 +2186,35 @@ export function TaskBoard({
         method: "POST",
         body: formData,
       });
-      const json = (await response.json().catch(() => null)) as
-        | { photo?: TaskPhotoRecord }
-        | { error?: string }
-        | null;
+      const rawText = await response.text().catch(() => "");
+      let json: {
+        photo?: TaskPhotoRecord;
+        error?: string;
+        stage?: string;
+        detail?: string;
+      } | null = null;
+      try {
+        json = (rawText ? JSON.parse(rawText) : null) as
+          | { photo?: TaskPhotoRecord; error?: string; stage?: string; detail?: string }
+          | null;
+      } catch {
+        json = null;
+      }
 
       if (!response.ok || !json || !("photo" in json) || !json.photo) {
-        const detail = json && "error" in json && typeof json.error === "string" ? json.error : null;
+        const errorCode = json && typeof json.error === "string" ? json.error : null;
+        const errorStage = json && typeof json.stage === "string" ? json.stage : null;
+        const errorDetail = json && typeof json.detail === "string" ? json.detail : null;
+        const fallbackText =
+          rawText && rawText.length <= 180 ? rawText : rawText ? rawText.slice(0, 180) : null;
+        const detail =
+          [errorCode, errorStage ? `stage=${errorStage}` : null, errorDetail, fallbackText, `HTTP_${response.status}`]
+            .filter(Boolean)
+            .join(" | ");
         if (!silent) {
           pushToast("error", detail ? `写真の保存に失敗しました。(${detail})` : "写真の保存に失敗しました。");
         }
-        return { ok: false, error: detail ?? undefined };
+        return { ok: false, error: detail || undefined };
       }
 
       const createdPhoto = json.photo as TaskPhotoRecord;
