@@ -186,6 +186,9 @@ create table if not exists public.generated_task_sources (
   created_at timestamptz not null default now()
 );
 
+create unique index if not exists generated_task_sources_rule_date_unique
+  on public.generated_task_sources (recurrence_rule_id, generated_for_date);
+
 create table if not exists public.task_activity_logs (
   id uuid primary key default gen_random_uuid(),
   task_id uuid references public.tasks(id) on delete cascade,

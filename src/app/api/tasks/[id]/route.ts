@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import {
   generateFutureOccurrenceDates,
   normalizeRecurrence,
+  startDateMatchesWeeklyRule,
   type RecurrenceFrequency,
 } from "@/lib/tasks/recurrence";
 
@@ -219,7 +220,11 @@ export async function PATCH(
         await supabase.from("generated_task_sources").delete().in("task_id", generatedTaskIds);
       }
 
-      const futureDates = generateFutureOccurrenceDates(recurrence);
+      const startMatches = startDateMatchesWeeklyRule(recurrence);
+      const allDates = generateFutureOccurrenceDates(recurrence);
+      const futureDates = startMatches
+        ? allDates.filter((scheduledDate) => scheduledDate !== updatedTask.scheduled_date)
+        : allDates;
 
       if (futureDates.length > 0) {
         const futureInsertResult = await supabase
