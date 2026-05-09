@@ -25,7 +25,7 @@ export function buildTaskThumbnailPath(storagePath: string) {
 }
 
 export async function createTaskThumbnailBuffer(input: ArrayBuffer | Buffer) {
-  const buffer = input instanceof Buffer ? input : Buffer.from(input);
+  const buffer = input instanceof Buffer ? input : Buffer.from(new Uint8Array(input));
   return sharp(buffer)
     .rotate()
     .resize({ width: 320, height: 320, fit: "inside", withoutEnlargement: true })
