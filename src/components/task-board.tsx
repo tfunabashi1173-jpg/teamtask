@@ -6142,6 +6142,13 @@ function TaskDetailModal({
               {slotLabel(scheduledTimeToSlot(task.scheduled_time))} / {formatStatus(task.status)}
             </p>
           </div>
+          <button
+            className={`${miniUtilityButtonClass} shrink-0 px-2.5`}
+            onClick={onEdit}
+            type="button"
+          >
+            編集
+          </button>
         </div>
 
         <div className="mt-4 grid gap-3">
@@ -6462,14 +6469,7 @@ function TaskDetailModal({
             最優先のため延期不可
           </div>
         ) : null}
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <button
-            className={secondaryButtonClass}
-            onClick={onEdit}
-            type="button"
-          >
-            編集
-          </button>
+        <div className="mt-3">
           <button
             className={closeWideButtonClass}
             onClick={onClose}
