@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1967,9 +1968,7 @@ export function TaskBoard({
 
     setTaskSavePending(false);
     pushToast("success", editingTaskId ? "タスクを更新しました。" : "タスクを作成しました。");
-    setPendingReferenceFiles([]);
-    setCreateTaskOpen(false);
-    await syncLatestState();
+    setPendingReferenceFiles([]);    setCreateTaskOpen(false);    if (editingTaskId) {      setSelectedTaskId(editingTaskId);      setScreenMode("tasks");    }    await syncLatestState();
   }
 
   /** 重複警告を無視してそのまま登録 */
@@ -1997,9 +1996,7 @@ export function TaskBoard({
     }
     setTaskSavePending(false);
     pushToast("success", editingTaskId ? "タスクを更新しました。" : "タスクを作成しました。");
-    setPendingReferenceFiles([]);
-    setCreateTaskOpen(false);
-    await syncLatestState();
+    setPendingReferenceFiles([]);    setCreateTaskOpen(false);    if (editingTaskId) {      setSelectedTaskId(editingTaskId);      setScreenMode("tasks");    }    await syncLatestState();
   }
 
   async function handleBatchSaveTasks() {
@@ -3279,9 +3276,7 @@ export function TaskBoard({
                 currentGroupName={
                   state.groups.find((group) => group.id === activeGroupId)?.name ?? "グループ未設定"
                 }
-                availableCopyTasks={state.tasks
-                  .filter((task) => !task.deleted_at && task.group_id === activeGroupId)
-                  .filter((task, index, arr) => arr.findIndex((t) => t.title === task.title) === index)}
+                availableCopyTasks={sortTasks(state.tasks.filter((task) => !task.deleted_at && task.group_id === activeGroupId)).filter((task, index, arr) => { const normalizedTitle = task.title.trim(); if (!normalizedTitle) return false; return arr.findIndex((t) => t.title.trim() === normalizedTitle) === index; })}
                 copySourceTaskId={copySourceTaskId}
                 form={taskForm}
                 isEditing={Boolean(editingTaskId)}
@@ -5143,9 +5138,7 @@ export function TaskBoard({
             currentGroupName={
               state.groups.find((group) => group.id === activeGroupId)?.name ?? "グループ未設定"
             }
-            availableCopyTasks={state.tasks
-              .filter((task) => !task.deleted_at && task.group_id === activeGroupId)
-              .filter((task, index, arr) => arr.findIndex((t) => t.title === task.title) === index)}
+            availableCopyTasks={sortTasks(state.tasks.filter((task) => !task.deleted_at && task.group_id === activeGroupId)).filter((task, index, arr) => { const normalizedTitle = task.title.trim(); if (!normalizedTitle) return false; return arr.findIndex((t) => t.title.trim() === normalizedTitle) === index; })}
             copySourceTaskId={copySourceTaskId}
             form={taskForm}
             isEditing={Boolean(editingTaskId)}
