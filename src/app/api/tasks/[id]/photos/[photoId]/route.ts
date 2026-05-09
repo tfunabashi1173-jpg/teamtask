@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
-import { buildTaskPhotoPath, getTaskPhotoBucketName } from "@/lib/tasks/photos";
+import {
+  buildTaskPhotoPath,
+  buildTaskThumbnailPath,
+  createTaskThumbnailBuffer,
+  getTaskPhotoBucketName,
+} from "@/lib/tasks/photos";
 
 export async function PATCH(
   request: NextRequest,
@@ -33,7 +38,7 @@ export async function PATCH(
 
   const photoResult = await supabase
     .from("task_photos")
-    .select("id,task_id,storage_path,file_name,mime_type,created_at")
+    .select("id,task_id,storage_path,thumbnail_storage_path,file_name,mime_type,created_at")
     .eq("id", photoId)
     .eq("task_id", id)
     .single();
@@ -43,6 +48,8 @@ export async function PATCH(
   }
 
   const nextStoragePath = buildTaskPhotoPath(id, file.name || "photo.jpg");
+  const nextThumbnailStoragePath = buildTaskThumbnailPath(nextStoragePath);
+  const thumbnailBuffer = await createTaskThumbnailBuffer(await file.arrayBuffer());
   const uploadResult = await supabase.storage
     .from(getTaskPhotoBucketName())
     .upload(nextStoragePath, file, {
@@ -54,25 +61,43 @@ export async function PATCH(
     return NextResponse.json({ error: uploadResult.error.message }, { status: 500 });
   }
 
+  const thumbnailUploadResult = await supabase.storage
+    .from(getTaskPhotoBucketName())
+    .upload(nextThumbnailStoragePath, thumbnailBuffer, {
+      contentType: "image/jpeg",
+      upsert: false,
+    });
+
+  if (thumbnailUploadResult.error) {
+    await supabase.storage.from(getTaskPhotoBucketName()).remove([nextStoragePath]);
+    return NextResponse.json({ error: thumbnailUploadResult.error.message }, { status: 500 });
+  }
+
   const updateResult = await supabase
     .from("task_photos")
     .update({
       storage_path: nextStoragePath,
+      thumbnail_storage_path: nextThumbnailStoragePath,
       file_name: file.name || "photo.jpg",
       mime_type: file.type,
     })
     .eq("id", photoId)
-    .select("id,task_id,file_name,mime_type,storage_path,created_at")
+    .select("id,task_id,file_name,mime_type,storage_path,thumbnail_storage_path,created_at")
     .single();
 
   if (updateResult.error) {
-    await supabase.storage.from(getTaskPhotoBucketName()).remove([nextStoragePath]);
+    await supabase.storage.from(getTaskPhotoBucketName()).remove([nextStoragePath, nextThumbnailStoragePath]);
     return NextResponse.json({ error: updateResult.error.message }, { status: 500 });
   }
 
   await supabase.storage
     .from(getTaskPhotoBucketName())
-    .remove([photoResult.data.storage_path]);
+    .remove(
+      [
+        photoResult.data.storage_path,
+        photoResult.data.thumbnail_storage_path,
+      ].filter((path): path is string => Boolean(path)),
+    );
 
   await supabase.from("task_activity_logs").insert({
     task_id: id,
@@ -115,7 +140,7 @@ export async function DELETE(
 
   const photoResult = await supabase
     .from("task_photos")
-    .select("id,task_id,storage_path,file_name,mime_type,created_at")
+    .select("id,task_id,storage_path,thumbnail_storage_path,file_name,mime_type,created_at")
     .eq("id", photoId)
     .eq("task_id", id)
     .single();
@@ -124,7 +149,14 @@ export async function DELETE(
     return NextResponse.json({ error: "PHOTO_NOT_FOUND" }, { status: 404 });
   }
 
-  await supabase.storage.from(getTaskPhotoBucketName()).remove([photoResult.data.storage_path]);
+  await supabase.storage
+    .from(getTaskPhotoBucketName())
+    .remove(
+      [
+        photoResult.data.storage_path,
+        photoResult.data.thumbnail_storage_path,
+      ].filter((path): path is string => Boolean(path)),
+    );
 
   const deleteResult = await supabase.from("task_photos").delete().eq("id", photoId);
   if (deleteResult.error) {

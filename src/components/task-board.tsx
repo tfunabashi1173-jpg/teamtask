@@ -1697,6 +1697,7 @@ export function TaskBoard({
   }
 
   function openEditTask(task: TaskRecord) {
+    setScreenMode("create");
     setSelectedTaskId(null);
     setEditingTaskId(task.id);
     setEditUpdateScope(hasRecurringConfig(task) ? "all" : "single");

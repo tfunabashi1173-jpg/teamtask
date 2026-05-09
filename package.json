@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "backfill:task-thumbnails": "node scripts/backfill-task-thumbnails.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.3",

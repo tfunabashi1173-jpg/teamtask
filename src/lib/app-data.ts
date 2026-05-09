@@ -88,6 +88,7 @@ export type TaskPhotoRecord = {
   file_name: string;
   mime_type: string;
   storage_path: string;
+  thumbnail_storage_path?: string | null;
   preview_url: string | null;
   created_at: string;
 };
@@ -509,6 +510,7 @@ export async function getAppState({
       file_name: string;
       mime_type: string;
       storage_path: string;
+      thumbnail_storage_path: string | null;
       created_at: string;
     }[] = [];
     const referencePhotoRows: {
@@ -517,6 +519,7 @@ export async function getAppState({
       file_name: string;
       mime_type: string;
       storage_path: string;
+      thumbnail_storage_path: string | null;
       created_at: string;
     }[] = [];
 
@@ -529,12 +532,12 @@ export async function getAppState({
           .in("task_id", taskIdChunk),
         supabase
           .from("task_photos")
-          .select("id,task_id,file_name,mime_type,storage_path,created_at")
+          .select("id,task_id,file_name,mime_type,storage_path,thumbnail_storage_path,created_at")
           .in("task_id", taskIdChunk)
           .order("created_at"),
         supabase
           .from("task_reference_photos")
-          .select("id,task_id,file_name,mime_type,storage_path,created_at")
+          .select("id,task_id,file_name,mime_type,storage_path,thumbnail_storage_path,created_at")
           .in("task_id", taskIdChunk)
           .order("created_at"),
       ]);
@@ -563,6 +566,7 @@ export async function getAppState({
               file_name: string;
               mime_type: string;
               storage_path: string;
+              thumbnail_storage_path: string | null;
               created_at: string;
             }[]
           | null) ?? [];
@@ -584,6 +588,7 @@ export async function getAppState({
               file_name: string;
               mime_type: string;
               storage_path: string;
+              thumbnail_storage_path: string | null;
               created_at: string;
             }[]
           | null) ?? [];

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
-import { buildTaskReferencePhotoPath, getTaskPhotoBucketName } from "@/lib/tasks/photos";
+import {
+  buildTaskReferencePhotoPath,
+  buildTaskThumbnailPath,
+  createTaskThumbnailBuffer,
+  getTaskPhotoBucketName,
+} from "@/lib/tasks/photos";
 
 const MAX_REFERENCE_PHOTOS = 5;
 
@@ -49,6 +54,8 @@ export async function POST(
   }
 
   const storagePath = buildTaskReferencePhotoPath(id, file.name || "reference.jpg");
+  const thumbnailStoragePath = buildTaskThumbnailPath(storagePath);
+  const thumbnailBuffer = await createTaskThumbnailBuffer(await file.arrayBuffer());
   const uploadResult = await supabase.storage
     .from(getTaskPhotoBucketName())
     .upload(storagePath, file, {
@@ -60,20 +67,33 @@ export async function POST(
     return NextResponse.json({ error: uploadResult.error.message }, { status: 500 });
   }
 
+  const thumbnailUploadResult = await supabase.storage
+    .from(getTaskPhotoBucketName())
+    .upload(thumbnailStoragePath, thumbnailBuffer, {
+      contentType: "image/jpeg",
+      upsert: false,
+    });
+
+  if (thumbnailUploadResult.error) {
+    await supabase.storage.from(getTaskPhotoBucketName()).remove([storagePath]);
+    return NextResponse.json({ error: thumbnailUploadResult.error.message }, { status: 500 });
+  }
+
   const insertResult = await supabase
     .from("task_reference_photos")
     .insert({
       task_id: id,
       storage_path: storagePath,
+      thumbnail_storage_path: thumbnailStoragePath,
       file_name: file.name || "reference.jpg",
       mime_type: file.type,
       uploaded_by: actorResult.data.id,
     })
-    .select("id,task_id,file_name,mime_type,storage_path,created_at")
+    .select("id,task_id,file_name,mime_type,storage_path,thumbnail_storage_path,created_at")
     .single();
 
   if (insertResult.error) {
-    await supabase.storage.from(getTaskPhotoBucketName()).remove([storagePath]);
+    await supabase.storage.from(getTaskPhotoBucketName()).remove([storagePath, thumbnailStoragePath]);
     return NextResponse.json({ error: insertResult.error.message }, { status: 500 });
   }
 

@@ -1,8 +1,11 @@
-import sharp from "sharp";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
-import { getTaskPhotoBucketName } from "@/lib/tasks/photos";
+import {
+  buildTaskThumbnailPath,
+  createTaskThumbnailBuffer,
+  getTaskPhotoBucketName,
+} from "@/lib/tasks/photos";
 
 export async function GET(
   request: NextRequest,
@@ -27,7 +30,7 @@ export async function GET(
 
   const photoResult = await supabase
     .from("task_reference_photos")
-    .select("storage_path")
+    .select("storage_path,thumbnail_storage_path")
     .eq("id", photoId)
     .single();
 
@@ -50,15 +53,35 @@ export async function GET(
     return response;
   }
 
-  // Thumbnail: fetch → compress with sharp → return directly
+  if (photoResult.data.thumbnail_storage_path) {
+    const thumbnailSignedUrlResult = await supabase.storage
+      .from(getTaskPhotoBucketName())
+      .createSignedUrl(photoResult.data.thumbnail_storage_path, 86400);
+
+    if (!thumbnailSignedUrlResult.error && thumbnailSignedUrlResult.data?.signedUrl) {
+      const response = NextResponse.redirect(thumbnailSignedUrlResult.data.signedUrl);
+      response.headers.set("Cache-Control", "private, max-age=86400");
+      return response;
+    }
+  }
+
+  const nextThumbnailStoragePath = buildTaskThumbnailPath(photoResult.data.storage_path);
+
+  // Fallback for old rows: generate once, persist, then serve.
   try {
     const imageResponse = await fetch(signedUrlResult.data.signedUrl);
     if (!imageResponse.ok) throw new Error("fetch failed");
-    const buffer = Buffer.from(await imageResponse.arrayBuffer());
-    const compressed = await sharp(buffer)
-      .resize({ width: 320, height: 320, fit: "inside", withoutEnlargement: true })
-      .jpeg({ quality: 60 })
-      .toBuffer();
+    const compressed = await createTaskThumbnailBuffer(await imageResponse.arrayBuffer());
+    await supabase.storage
+      .from(getTaskPhotoBucketName())
+      .upload(nextThumbnailStoragePath, compressed, {
+        contentType: "image/jpeg",
+        upsert: true,
+      });
+    await supabase
+      .from("task_reference_photos")
+      .update({ thumbnail_storage_path: nextThumbnailStoragePath })
+      .eq("id", photoId);
     return new NextResponse(compressed as unknown as BodyInit, {
       headers: {
         "Content-Type": "image/jpeg",

@@ -48,7 +48,7 @@ export async function POST(
 
   const sourcePhotoResult = await supabase
     .from("task_reference_photos")
-    .select("storage_path,file_name,mime_type")
+    .select("storage_path,thumbnail_storage_path,file_name,mime_type")
     .eq("id", body.sourcePhotoId)
     .single();
 
@@ -56,18 +56,19 @@ export async function POST(
     return NextResponse.json({ error: "SOURCE_PHOTO_NOT_FOUND" }, { status: 404 });
   }
 
-  const { storage_path, file_name, mime_type } = sourcePhotoResult.data;
+  const { storage_path, thumbnail_storage_path, file_name, mime_type } = sourcePhotoResult.data;
 
   const insertResult = await supabase
     .from("task_reference_photos")
     .insert({
       task_id: id,
       storage_path,
+      thumbnail_storage_path,
       file_name,
       mime_type,
       uploaded_by: actorResult.data.id,
     })
-    .select("id,task_id,file_name,mime_type,storage_path,created_at")
+    .select("id,task_id,file_name,mime_type,storage_path,thumbnail_storage_path,created_at")
     .single();
 
   if (insertResult.error) {

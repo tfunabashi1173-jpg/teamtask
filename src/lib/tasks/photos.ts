@@ -1,3 +1,5 @@
+import sharp from "sharp";
+
 export function getTaskPhotoBucketName() {
   return process.env.SUPABASE_TASK_PHOTO_BUCKET || "task-photos";
 }
@@ -16,4 +18,17 @@ export function buildTaskPhotoPath(taskId: string, fileName: string) {
 
 export function buildTaskReferencePhotoPath(taskId: string, fileName: string) {
   return buildTaskAssetPath(taskId, "reference", fileName);
+}
+
+export function buildTaskThumbnailPath(storagePath: string) {
+  return `${storagePath}__thumb.jpg`;
+}
+
+export async function createTaskThumbnailBuffer(input: ArrayBuffer | Buffer) {
+  const buffer = input instanceof Buffer ? input : Buffer.from(input);
+  return sharp(buffer)
+    .rotate()
+    .resize({ width: 320, height: 320, fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 60 })
+    .toBuffer();
 }
