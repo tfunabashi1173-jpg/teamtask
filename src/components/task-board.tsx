@@ -77,6 +77,11 @@ type BatchTaskRow = {
   pendingReferenceFiles: File[];
 };
 
+type TaskEditorOrigin = {
+  screenMode: ScreenMode;
+  selectedTaskId: string | null;
+};
+
 const QUEUE_STORAGE_KEY = "team-task.queue.v2";
 const MEMBER_NAME_STORAGE_KEY = "team-task.member-name";
 const VERSION_CHECK_STORAGE_KEY = "team-task.version-check";
@@ -441,6 +446,10 @@ export function TaskBoard({
   const [inviteLinks, setInviteLinks] = useState<Record<string, string>>({});
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [taskEditorOrigin, setTaskEditorOrigin] = useState<TaskEditorOrigin>({
+    screenMode: "home",
+    selectedTaskId: null,
+  });
   const [editUpdateScope, setEditUpdateScope] = useState<"single" | "all">("single");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
@@ -1698,6 +1707,10 @@ export function TaskBoard({
   }
 
   function openEditTask(task: TaskRecord) {
+    setTaskEditorOrigin({
+      screenMode,
+      selectedTaskId,
+    });
     setScreenMode("create");
     setSelectedTaskId(null);
     setEditingTaskId(task.id);
@@ -1708,6 +1721,14 @@ export function TaskBoard({
       ...buildTaskFormFromTask(task),
     });
     setCreateTaskOpen(true);
+  }
+
+  function closeTaskEditor() {
+    setCreateTaskOpen(false);
+    if (editingTaskId) {
+      setScreenMode(taskEditorOrigin.screenMode);
+      setSelectedTaskId(taskEditorOrigin.selectedTaskId);
+    }
   }
 
   function openCreateTask() {
@@ -1885,8 +1906,9 @@ export function TaskBoard({
     };
 
     setTaskSavePending(true);
-    const result = editingTaskId
-      ? await callJson(`/api/tasks/${editingTaskId}`, {
+    const currentEditingTaskId = editingTaskId;
+    const result = currentEditingTaskId
+      ? await callJson(`/api/tasks/${currentEditingTaskId}`, {
           method: "PATCH",
           body: JSON.stringify({ ...body, updateScope: editUpdateScope }),
         })
@@ -1912,7 +1934,7 @@ export function TaskBoard({
     }
 
     const taskId =
-      editingTaskId ??
+      currentEditingTaskId ??
       (result.json &&
       typeof result.json === "object" &&
       "task" in result.json &&
@@ -1925,14 +1947,14 @@ export function TaskBoard({
 
     if (taskId && pendingReferenceFiles.length > 0) {
       // When bulk-editing all recurring siblings, upload once and link to each sibling
-      const editingTask = editingTaskId ? state.tasks.find((t) => t.id === editingTaskId) : null;
+      const editingTask = currentEditingTaskId ? state.tasks.find((t) => t.id === currentEditingTaskId) : null;
       const siblingIds =
-        editingTaskId && editUpdateScope === "all" && editingTask?.recurrence_rule_id
+        currentEditingTaskId && editUpdateScope === "all" && editingTask?.recurrence_rule_id
           ? state.tasks
               .filter(
                 (t) =>
                   t.recurrence_rule_id === editingTask.recurrence_rule_id &&
-                  t.id !== editingTaskId &&
+                  t.id !== currentEditingTaskId &&
                   !t.deleted_at,
               )
               .map((t) => t.id)
@@ -1967,8 +1989,14 @@ export function TaskBoard({
     }
 
     setTaskSavePending(false);
-    pushToast("success", editingTaskId ? "タスクを更新しました。" : "タスクを作成しました。");
-    setPendingReferenceFiles([]);    setCreateTaskOpen(false);    if (editingTaskId) {      setSelectedTaskId(editingTaskId);      setScreenMode("tasks");    }    await syncLatestState();
+    pushToast("success", currentEditingTaskId ? "タスクを更新しました。" : "タスクを作成しました。");
+    setPendingReferenceFiles([]);
+    if (currentEditingTaskId) {
+      closeTaskEditor();
+    } else {
+      setCreateTaskOpen(false);
+    }
+    await syncLatestState();
   }
 
   /** 重複警告を無視してそのまま登録 */
@@ -1976,8 +2004,9 @@ export function TaskBoard({
     if (!recurrenceDuplicateWarning) return;
     setRecurrenceDuplicateWarning(null);
     setTaskSavePending(true);
-    const result = editingTaskId
-      ? await callJson(`/api/tasks/${editingTaskId}`, {
+    const currentEditingTaskId = editingTaskId;
+    const result = currentEditingTaskId
+      ? await callJson(`/api/tasks/${currentEditingTaskId}`, {
           method: "PATCH",
           body: JSON.stringify({
             ...(recurrenceDuplicateWarning.pendingBody as object),
@@ -1991,12 +2020,18 @@ export function TaskBoard({
         });
     if (!result.ok) {
       setTaskSavePending(false);
-      pushToast("error", editingTaskId ? "タスク更新に失敗しました。" : "タスク作成に失敗しました。");
+      pushToast("error", currentEditingTaskId ? "タスク更新に失敗しました。" : "タスク作成に失敗しました。");
       return;
     }
     setTaskSavePending(false);
-    pushToast("success", editingTaskId ? "タスクを更新しました。" : "タスクを作成しました。");
-    setPendingReferenceFiles([]);    setCreateTaskOpen(false);    if (editingTaskId) {      setSelectedTaskId(editingTaskId);      setScreenMode("tasks");    }    await syncLatestState();
+    pushToast("success", currentEditingTaskId ? "タスクを更新しました。" : "タスクを作成しました。");
+    setPendingReferenceFiles([]);
+    if (currentEditingTaskId) {
+      closeTaskEditor();
+    } else {
+      setCreateTaskOpen(false);
+    }
+    await syncLatestState();
   }
 
   async function handleBatchSaveTasks() {
@@ -3283,7 +3318,7 @@ export function TaskBoard({
                 isSaving={taskSavePending}
                 pendingReferenceFiles={pendingReferenceFiles}
                 onCopySourceChange={handleCopySourceChange}
-                onClose={() => setCreateTaskOpen(false)}
+                onClose={closeTaskEditor}
                 onSave={handleSaveTask}
                 onPreview={(url) => setPreviewPhotoUrl(url)}
                 setPendingReferenceFiles={setPendingReferenceFiles}
@@ -3539,7 +3574,7 @@ export function TaskBoard({
                       <span className="text-sm text-[var(--muted)]">{slotLabel(scheduledTimeToSlot(task.scheduled_time))}</span>
                       <span className={taskStatusChipClass(task.status)}>{formatStatus(task.status)}</span>
                       <div className="flex flex-wrap gap-2">
-                        <button className={miniUtilityButtonClass} onClick={() => { openEditTask(task); setScreenMode("create"); setSelectedTaskId(null); }} type="button">編集</button>
+                        <button className={miniUtilityButtonClass} onClick={() => openEditTask(task)} type="button">編集</button>
                         <button
                           className={miniUtilityButtonClass}
                           onClick={() => {
@@ -5145,7 +5180,7 @@ export function TaskBoard({
             isSaving={taskSavePending}
             pendingReferenceFiles={pendingReferenceFiles}
             onCopySourceChange={handleCopySourceChange}
-            onClose={() => setCreateTaskOpen(false)}
+            onClose={closeTaskEditor}
             onSave={handleSaveTask}
             onPreview={(url) => setPreviewPhotoUrl(url)}
             setPendingReferenceFiles={setPendingReferenceFiles}
