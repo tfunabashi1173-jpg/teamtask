@@ -597,7 +597,6 @@ export async function getAppState({
         );
       }
     }
-
     const recurrenceRuleIds = Array.from(new Set(sourceRows.map((row) => row.recurrence_rule_id)));
 
     let recurrenceMap = new Map<

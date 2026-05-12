@@ -128,7 +128,7 @@ export async function POST(
       {
         error: insertResult.error.message,
         stage: "db_insert_task_photos",
-      },
+        },
       { status: 500 },
     );
   }
