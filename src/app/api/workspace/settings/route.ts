@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import {
+  DEFAULT_FLOOR_RANGE_END,
+  DEFAULT_FLOOR_RANGE_START,
+  normalizeFloorRange,
+  parseFloorLevel,
+} from "@/lib/tasks/floors";
 
 export async function PATCH(request: NextRequest) {
   const { sessionUser, errorResponse } = await requireSession();
@@ -8,7 +14,12 @@ export async function PATCH(request: NextRequest) {
     return errorResponse;
   }
 
-  const body = (await request.json()) as { notificationTime?: string; notificationTime2?: string | null };
+  const body = (await request.json()) as {
+    notificationTime?: string;
+    notificationTime2?: string | null;
+    floorRangeStart?: number | string | null;
+    floorRangeEnd?: number | string | null;
+  };
   const notificationTime = body.notificationTime?.slice(0, 5);
 
   if (!notificationTime || !/^\d{2}:\d{2}$/.test(notificationTime)) {
@@ -20,6 +31,10 @@ export async function PATCH(request: NextRequest) {
     notificationTime2Raw && /^\d{2}:\d{2}$/.test(notificationTime2Raw.slice(0, 5))
       ? notificationTime2Raw.slice(0, 5)
       : null;
+  const normalizedFloorRange = normalizeFloorRange(
+    parseFloorLevel(body.floorRangeStart) ?? DEFAULT_FLOOR_RANGE_START,
+    parseFloorLevel(body.floorRangeEnd) ?? DEFAULT_FLOOR_RANGE_END,
+  );
 
   const supabase = createSupabaseAdminClient();
   const actorResult = await supabase
@@ -51,9 +66,14 @@ export async function PATCH(request: NextRequest) {
 
   const updateResult = await supabase
     .from("workspaces")
-    .update({ notification_time: notificationTime, notification_time_2: notificationTime2 })
+    .update({
+      notification_time: notificationTime,
+      notification_time_2: notificationTime2,
+      floor_range_start: normalizedFloorRange.start,
+      floor_range_end: normalizedFloorRange.end,
+    })
     .eq("id", workspaceMemberResult.data.workspace_id)
-    .select("id,name,timezone,notification_time,notification_time_2")
+    .select("id,name,timezone,notification_time,notification_time_2,floor_range_start,floor_range_end")
     .single();
 
   if (updateResult.error) {

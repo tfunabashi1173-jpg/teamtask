@@ -12,6 +12,12 @@ import type {
 } from "@/lib/app-data";
 import { PwaRegister } from "@/components/pwa-register";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import {
+  buildFloorOptions,
+  DEFAULT_FLOOR_RANGE_END,
+  DEFAULT_FLOOR_RANGE_START,
+  formatFloorLabel,
+} from "@/lib/tasks/floors";
 
 type ActionType = "start" | "confirm" | "complete" | "pause" | "postpone";
 type SyncState = "idle" | "queued" | "syncing" | "error";
@@ -53,6 +59,7 @@ type TaskFormState = {
   priority: TaskRecord["priority"];
   scheduledDate: string;
   scheduledTime: string;
+  floorLevel: string;
   recurrenceEnabled: boolean;
   recurrenceFrequency: "daily" | "weekly" | "monthly";
   recurrenceInterval: number;
@@ -65,6 +72,7 @@ type BatchTaskRow = {
   id: string;
   scheduledDate: string;
   scheduledTime: string;
+  floorLevel: string;
   title: string;
   description: string;
   priority: TaskRecord["priority"];
@@ -180,6 +188,7 @@ function createDefaultTaskForm(): TaskFormState {
     priority: "medium",
     scheduledDate,
     scheduledTime: "09:00",
+    floorLevel: "",
     recurrenceEnabled: false,
     recurrenceFrequency: "daily",
     recurrenceInterval: 1,
@@ -194,6 +203,7 @@ function createBatchTaskRow(date = getDateStringWithOffset(0)): BatchTaskRow {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     scheduledDate: date,
     scheduledTime: "09:00",
+    floorLevel: "",
     title: "",
     description: "",
     priority: "medium",
@@ -233,10 +243,11 @@ function parseBatchTaskRows(raw: string, fallbackDate: string) {
               : scheduledTime?.includes("午前")
                 ? slotToScheduledTime("morning")
                 : slotToScheduledTime("anytime"),
-        title: title?.trim() || "",
-        description: description?.trim() || "",
-        priority: normalizeBatchPriority(priority ?? ""),
-      };
+    title: title?.trim() || "",
+    description: description?.trim() || "",
+    priority: normalizeBatchPriority(priority ?? ""),
+    floorLevel: "",
+  };
     });
 }
 
@@ -248,6 +259,7 @@ function buildTaskFormFromTask(task: TaskRecord): TaskFormState {
     priority: task.priority,
     scheduledDate,
     scheduledTime: task.scheduled_time?.slice(0, 5) ?? "09:00",
+    floorLevel: task.floor_level !== null && task.floor_level !== undefined ? String(task.floor_level) : "",
     recurrenceEnabled: Boolean(task.recurrence_rule_id && task.recurrence?.is_active),
     recurrenceFrequency: task.recurrence?.frequency ?? "daily",
     recurrenceInterval: task.recurrence?.interval_value ?? 1,
@@ -272,6 +284,10 @@ function formatTaskTitleIcon(task: TaskRecord) {
   if (task.status === "awaiting_confirmation") return "👀";
   if (task.status === "done") return "✅";
   return formatPriorityIcon(task.priority);
+}
+
+function formatTaskFloor(task: TaskRecord) {
+  return formatFloorLabel(task.floor_level);
 }
 
 function taskCardSurfaceClass(task: TaskRecord) {
@@ -477,6 +493,12 @@ export function TaskBoard({
   const [notificationTime2, setNotificationTime2] = useState(
     initialState.workspace?.notification_time_2?.slice(0, 5) ?? "",
   );
+  const [floorRangeStart, setFloorRangeStart] = useState(
+    String(initialState.workspace?.floor_range_start ?? DEFAULT_FLOOR_RANGE_START),
+  );
+  const [floorRangeEnd, setFloorRangeEnd] = useState(
+    String(initialState.workspace?.floor_range_end ?? DEFAULT_FLOOR_RANGE_END),
+  );
   const [isSendingTestNotification, setIsSendingTestNotification] = useState(false);
   const [pushSetupNotice, setPushSetupNotice] = useState<PushSetupNotice | null>(null);
   const [devicePermissionNotice, setDevicePermissionNotice] = useState<DevicePermissionNotice | null>(null);
@@ -516,6 +538,18 @@ export function TaskBoard({
     return /Line\//i.test(window.navigator.userAgent);
   });
   const isMobile = isIosLike || isAndroid;
+  const allFloorOptions = useMemo(
+    () => buildFloorOptions(DEFAULT_FLOOR_RANGE_START, DEFAULT_FLOOR_RANGE_END),
+    [],
+  );
+  const taskFloorOptions = useMemo(
+    () =>
+      buildFloorOptions(
+        state.workspace?.floor_range_start ?? DEFAULT_FLOOR_RANGE_START,
+        state.workspace?.floor_range_end ?? DEFAULT_FLOOR_RANGE_END,
+      ),
+    [state.workspace?.floor_range_end, state.workspace?.floor_range_start],
+  );
 
   // 招待登録フロー上の潜在的な問題を起動時に検出する
   const [registrationWarnings] = useState(() => {
@@ -547,6 +581,17 @@ export function TaskBoard({
     userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
   };
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  useEffect(() => {
+    setNotificationTime(state.workspace?.notification_time?.slice(0, 5) ?? "08:00");
+    setNotificationTime2(state.workspace?.notification_time_2?.slice(0, 5) ?? "");
+    setFloorRangeStart(String(state.workspace?.floor_range_start ?? DEFAULT_FLOOR_RANGE_START));
+    setFloorRangeEnd(String(state.workspace?.floor_range_end ?? DEFAULT_FLOOR_RANGE_END));
+  }, [
+    state.workspace?.floor_range_end,
+    state.workspace?.floor_range_start,
+    state.workspace?.notification_time,
+    state.workspace?.notification_time_2,
+  ]);
   const activeGroupId = state.groups.some((group) => group.id === currentGroupId)
     ? currentGroupId
     : (state.groups[0]?.id ?? "");
@@ -1565,23 +1610,59 @@ export function TaskBoard({
       body: JSON.stringify({
         notificationTime,
         notificationTime2: notificationTime2 || null,
+        floorRangeStart,
+        floorRangeEnd,
       }),
     });
     setWorkspaceSettingsPending(false);
 
     if (!result.ok || !result.json || typeof result.json !== "object") {
-      pushToast("error", "通知時刻の保存に失敗しました。");
+      pushToast("error", "ワークスペース設定の保存に失敗しました。");
       return;
     }
 
     const workspace = (result.json as { workspace?: AppState["workspace"] }).workspace;
     if (!workspace) {
-      pushToast("error", "通知時刻の保存に失敗しました。");
+      pushToast("error", "ワークスペース設定の保存に失敗しました。");
       return;
     }
 
     setState((current) => ({ ...current, workspace }));
-    pushToast("success", "通知時刻を更新しました。");
+    pushToast("success", "ワークスペース設定を更新しました。");
+  }
+
+  async function handleShiftTodayFloors(direction: "up" | "down") {
+    if (!state.workspace || !activeGroupId) {
+      pushToast("error", "対象グループが選択されていません。");
+      return;
+    }
+
+    const result = await callJson("/api/tasks/floor-shift", {
+      method: "PATCH",
+      body: JSON.stringify({
+        workspaceId: state.workspace.id,
+        groupId: activeGroupId,
+        scheduledDate: homeDate,
+        direction,
+      }),
+    });
+
+    if (!result.ok) {
+      pushToast("error", "当日タスクのフロア変更に失敗しました。");
+      return;
+    }
+
+    const updatedTaskIds = Array.isArray((result.json as { updatedTaskIds?: string[] } | null)?.updatedTaskIds)
+      ? (((result.json as { updatedTaskIds?: string[] }).updatedTaskIds) ?? [])
+      : [];
+
+    if (updatedTaskIds.length === 0) {
+      pushToast("info", "変更できるフロア付きタスクがありません。");
+      return;
+    }
+
+    pushToast("success", direction === "up" ? "当日タスクのフロアを上げました。" : "当日タスクのフロアを下げました。");
+    await syncLatestState();
   }
 
   async function handlePushSetupAction() {
@@ -1817,6 +1898,7 @@ export function TaskBoard({
           row.title.trim() ||
           row.description.trim() ||
           row.scheduledTime !== slotToScheduledTime("morning") ||
+          row.floorLevel !== "" ||
           row.priority !== "medium" ||
           row.recurrenceEnabled ||
           row.pendingReferenceFiles.length > 0,
@@ -1893,6 +1975,7 @@ export function TaskBoard({
       priority: taskForm.priority,
       scheduledDate: taskForm.scheduledDate,
       scheduledTime: taskForm.scheduledTime,
+      floorLevel: taskForm.floorLevel || null,
       visibilityType: "group",
       groupId: activeGroupId,
       recurrence: {
@@ -2071,6 +2154,7 @@ export function TaskBoard({
           priority: row.priority,
           scheduledDate: row.scheduledDate,
           scheduledTime: row.scheduledTime || null,
+          floorLevel: row.floorLevel || null,
           visibilityType: "group",
           groupId: activeGroupId,
           recurrence: {
@@ -3182,6 +3266,26 @@ export function TaskBoard({
                       翌日
                     </button>
                   </div>
+                  {state.appUser.role === "admin" ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        className={desktopSecondaryButtonClass}
+                        onClick={() => void handleShiftTodayFloors("down")}
+                        type="button"
+                        disabled={!activeGroupId}
+                      >
+                        当日フロア↓
+                      </button>
+                      <button
+                        className={desktopSecondaryButtonClass}
+                        onClick={() => void handleShiftTodayFloors("up")}
+                        type="button"
+                        disabled={!activeGroupId}
+                      >
+                        当日フロア↑
+                      </button>
+                    </div>
+                  ) : null}
                   <div className="mt-5 grid grid-cols-4 gap-3">
                     <SummaryCard label="未着手" value={counts.pending} tone="default" />
                     <SummaryCard label="作業中" value={counts.inProgress} tone="warning" />
@@ -3201,16 +3305,17 @@ export function TaskBoard({
                     <p className="text-sm text-[var(--muted)]">今日のタスクはありません。</p>
                   ) : (
                     <div className="overflow-hidden rounded-md border border-[#e2e8f0] bg-white">
-                      <div className="grid grid-cols-[minmax(0,1.5fr)_120px_120px_110px] bg-[#f8fafc] px-5 py-3 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
+                      <div className="grid grid-cols-[minmax(0,1.5fr)_110px_110px_120px_110px] bg-[#f8fafc] px-5 py-3 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
                         <span>タスク</span>
                         <span>時間帯</span>
+                        <span>フロア</span>
                         <span>状態</span>
                         <span>操作</span>
                       </div>
                       {sortedTasks.map((task) => (
                         <div
                           key={task.id}
-                          className={`grid grid-cols-[minmax(0,1.5fr)_120px_120px_110px] items-center gap-4 border-t border-black/5 px-5 py-4 transition-colors hover:bg-black/[0.02] ${taskCardSurfaceClass(task)}`}
+                          className={`grid grid-cols-[minmax(0,1.5fr)_110px_110px_120px_110px] items-center gap-4 border-t border-black/5 px-5 py-4 transition-colors hover:bg-black/[0.02] ${taskCardSurfaceClass(task)}`}
                         >
                           <button className="min-w-0 text-left" onClick={() => openTaskDetail(task)} type="button">
                             <p className="truncate text-sm font-semibold text-[var(--ink)]">
@@ -3222,6 +3327,7 @@ export function TaskBoard({
                             </p>
                           </button>
                           <span className="text-sm text-[var(--muted)]">{slotLabel(scheduledTimeToSlot(task.scheduled_time))}</span>
+                          <span className="text-sm text-[var(--muted)]">{formatTaskFloor(task) || "フロア未設定"}</span>
                           <span className={taskStatusChipClass(task.status)}>{formatStatus(task.status)}</span>
                           <button className={miniUtilityButtonClass} onClick={() => openTaskDetail(task)} type="button">
                             詳細
@@ -3313,6 +3419,7 @@ export function TaskBoard({
                 }
                 availableCopyTasks={sortTasks(state.tasks.filter((task) => !task.deleted_at && task.group_id === activeGroupId)).filter((task, index, arr) => { const normalizedTitle = task.title.trim(); if (!normalizedTitle) return false; return arr.findIndex((t) => t.title.trim() === normalizedTitle) === index; })}
                 copySourceTaskId={copySourceTaskId}
+                floorOptions={taskFloorOptions}
                 form={taskForm}
                 isEditing={Boolean(editingTaskId)}
                 isSaving={taskSavePending}
@@ -3464,6 +3571,26 @@ export function TaskBoard({
                         onChange={(event) => setNotificationTime2(event.target.value)}
                       />
                     </FormField>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <FormField label="フロア範囲 上限">
+                        <select className={inputClass} value={floorRangeStart} onChange={(event) => setFloorRangeStart(event.target.value)}>
+                          {allFloorOptions.map((option) => (
+                            <option key={`desktop-floor-start-${option.value}`} value={String(option.value)}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </FormField>
+                      <FormField label="フロア範囲 下限">
+                        <select className={inputClass} value={floorRangeEnd} onChange={(event) => setFloorRangeEnd(event.target.value)}>
+                          {allFloorOptions.map((option) => (
+                            <option key={`desktop-floor-end-${option.value}`} value={String(option.value)}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </FormField>
+                    </div>
                     <p className="text-xs text-[var(--muted)]">
                       タイムゾーン: {state.workspace?.timezone ?? "Asia/Tokyo"}
                       {"　"}夕方通知は未完了タスクがある場合のみ送信
@@ -3548,10 +3675,11 @@ export function TaskBoard({
                 </FormField>
               </div>
               <div className="mt-5 overflow-hidden rounded-md border border-[#e2e8f0] bg-white">
-                <div className="grid grid-cols-[minmax(0,1fr)_110px_100px_110px_220px] bg-[#f8fafc] px-5 py-3 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
+                <div className="grid grid-cols-[minmax(0,1fr)_110px_100px_110px_110px_220px] bg-[#f8fafc] px-5 py-3 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">
                   <span>タイトル</span>
                   <span>日付</span>
                   <span>時間帯</span>
+                  <span>フロア</span>
                   <span>状態</span>
                   <span>操作</span>
                 </div>
@@ -3561,7 +3689,7 @@ export function TaskBoard({
                   rangedTasks.map((task) => {
                     const recurrenceSummary = formatRecurrenceSummary(task);
                     return (
-                    <div key={task.id} className={`grid grid-cols-[minmax(0,1fr)_110px_100px_110px_220px] items-center gap-4 border-t border-black/5 px-5 py-3 transition-colors hover:bg-black/[0.02] ${taskCardSurfaceClass(task)}`}>
+                    <div key={task.id} className={`grid grid-cols-[minmax(0,1fr)_110px_100px_110px_110px_220px] items-center gap-4 border-t border-black/5 px-5 py-3 transition-colors hover:bg-black/[0.02] ${taskCardSurfaceClass(task)}`}>
                       <button className="min-w-0 text-left" onClick={() => openTaskDetail(task)} type="button">
                         <p className="truncate text-sm font-semibold text-[var(--ink)]">
                           {formatTaskTitleIcon(task)}{" "}{task.title}
@@ -3572,6 +3700,7 @@ export function TaskBoard({
                       </button>
                       <span className="text-sm text-[var(--muted)]">{task.scheduled_date}</span>
                       <span className="text-sm text-[var(--muted)]">{slotLabel(scheduledTimeToSlot(task.scheduled_time))}</span>
+                      <span className="text-sm text-[var(--muted)]">{formatTaskFloor(task) || "フロア未設定"}</span>
                       <span className={taskStatusChipClass(task.status)}>{formatStatus(task.status)}</span>
                       <div className="flex flex-wrap gap-2">
                         <button className={miniUtilityButtonClass} onClick={() => openEditTask(task)} type="button">編集</button>
@@ -3815,6 +3944,20 @@ export function TaskBoard({
                             </div>
                           </div>
                         </div>
+                        <FormField label="フロア">
+                          <select
+                            className={inputClass}
+                            value={row.floorLevel}
+                            onChange={(event) => updateBatchRow(row.id, { floorLevel: event.target.value })}
+                          >
+                            <option value="">未設定</option>
+                            {taskFloorOptions.map((option) => (
+                              <option key={`${row.id}-desktop-floor-${option.value}`} value={String(option.value)}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </FormField>
 
                         <div>
                           <p className="mb-2 text-sm text-[var(--muted)]">優先度</p>
@@ -4094,7 +4237,7 @@ export function TaskBoard({
                             )}
                           </h2>
                           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                            {slotLabel(scheduledTimeToSlot(task.scheduled_time))} / {formatStatus(task.status)}
+                            {slotLabel(scheduledTimeToSlot(task.scheduled_time))} / {formatTaskFloor(task) || "フロア未設定"} / {formatStatus(task.status)}
                           </p>
                         </div>
                       </div>
@@ -4184,7 +4327,27 @@ export function TaskBoard({
               </div>
             </Card>
 
-            <section className="grid grid-cols-2 gap-3">
+            <section className={`grid gap-3 ${state.appUser.role === "admin" ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-1 lg:grid-cols-2"}`}>
+              {state.appUser.role === "admin" ? (
+                <button
+                  className={bottomActionButtonClass}
+                  onClick={() => void handleShiftTodayFloors("down")}
+                  type="button"
+                  disabled={!activeGroupId}
+                >
+                  フロア↓
+                </button>
+              ) : null}
+              {state.appUser.role === "admin" ? (
+                <button
+                  className={bottomActionButtonClass}
+                  onClick={() => void handleShiftTodayFloors("up")}
+                  type="button"
+                  disabled={!activeGroupId}
+                >
+                  フロア↑
+                </button>
+              ) : null}
               {state.appUser.role === "admin" ? (
                 <button
                   className={bottomActionButtonClass}
@@ -4193,9 +4356,7 @@ export function TaskBoard({
                 >
                   管理
                 </button>
-              ) : (
-                <div />
-              )}
+              ) : null}
               <button
                 className={bottomActionButtonClass}
                 onClick={handleLogout}
@@ -4279,6 +4440,9 @@ export function TaskBoard({
                       </span>
                       <span className="rounded-full bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-[var(--ink-soft)]">
                         {slotLabel(scheduledTimeToSlot(task.scheduled_time))}
+                      </span>
+                      <span className="rounded-full bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-[var(--ink-soft)]">
+                        {formatTaskFloor(task) || "フロア未設定"}
                       </span>
                       <span className={taskStatusChipClass(task.status)}>{formatStatus(task.status)}</span>
                     </div>
@@ -4537,6 +4701,20 @@ export function TaskBoard({
                       ))}
                     </div>
                   </div>
+                  <FormField label="フロア">
+                    <select
+                      className={inputClass}
+                      value={row.floorLevel}
+                      onChange={(event) => updateBatchRow(row.id, { floorLevel: event.target.value })}
+                    >
+                      <option value="">未設定</option>
+                      {taskFloorOptions.map((option) => (
+                        <option key={`${row.id}-mobile-floor-${option.value}`} value={String(option.value)}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </FormField>
 
                   <div className="rounded-3xl bg-[var(--surface)] px-4 py-4">
                     <div className="flex items-center justify-between gap-3">
@@ -4664,11 +4842,12 @@ export function TaskBoard({
                 <col className="w-[16%]" />
                 <col className="w-[19%]" />
                 <col className="w-[13%]" />
-                <col className="w-[10%]" />
-                <col className="w-[10%]" />
+                <col className="w-[9%]" />
+                <col className="w-[9%]" />
+                <col className="w-[9%]" />
                 <col className="w-[9%]" />
                 <col className="w-[8%]" />
-                <col className="w-[7%]" />
+                <col className="w-[6%]" />
                 <col className="w-[3%]" />
               </colgroup>
               <thead>
@@ -4679,6 +4858,7 @@ export function TaskBoard({
                   <th className="px-3 py-2">画像</th>
                   <th className="px-3 py-2">実行日</th>
                   <th className="px-3 py-2">時間帯</th>
+                  <th className="px-3 py-2">フロア</th>
                   <th className="px-3 py-2">優先度</th>
                   <th className="px-3 py-2">繰り返し</th>
                   <th className="px-3 py-2">期間</th>
@@ -4790,6 +4970,20 @@ export function TaskBoard({
                           </button>
                         ))}
                       </div>
+                    </td>
+                    <td className="border-y border-black/5 bg-white px-2 py-4">
+                      <select
+                        className={inputClass}
+                        value={row.floorLevel}
+                        onChange={(event) => updateBatchRow(row.id, { floorLevel: event.target.value })}
+                      >
+                        <option value="">未設定</option>
+                        {taskFloorOptions.map((option) => (
+                          <option key={`${row.id}-table-floor-${option.value}`} value={String(option.value)}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     <td className="border-y border-black/5 bg-white px-2 py-4">
                       <div className="flex flex-wrap gap-2">
@@ -5140,6 +5334,26 @@ export function TaskBoard({
                           onChange={(event) => setNotificationTime2(event.target.value)}
                         />
                       </FormField>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <FormField label="フロア範囲 上限">
+                          <select className={inputClass} value={floorRangeStart} onChange={(event) => setFloorRangeStart(event.target.value)}>
+                            {allFloorOptions.map((option) => (
+                              <option key={`mobile-floor-start-${option.value}`} value={String(option.value)}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </FormField>
+                        <FormField label="フロア範囲 下限">
+                          <select className={inputClass} value={floorRangeEnd} onChange={(event) => setFloorRangeEnd(event.target.value)}>
+                            {allFloorOptions.map((option) => (
+                              <option key={`mobile-floor-end-${option.value}`} value={String(option.value)}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </FormField>
+                      </div>
                       <p className="text-xs text-[var(--muted)]">
                         タイムゾーン: {state.workspace?.timezone ?? "Asia/Tokyo"}
                         {"　"}夕方通知は未完了タスクがある場合のみ送信
@@ -5175,6 +5389,7 @@ export function TaskBoard({
             }
             availableCopyTasks={sortTasks(state.tasks.filter((task) => !task.deleted_at && task.group_id === activeGroupId)).filter((task, index, arr) => { const normalizedTitle = task.title.trim(); if (!normalizedTitle) return false; return arr.findIndex((t) => t.title.trim() === normalizedTitle) === index; })}
             copySourceTaskId={copySourceTaskId}
+            floorOptions={taskFloorOptions}
             form={taskForm}
             isEditing={Boolean(editingTaskId)}
             isSaving={taskSavePending}
@@ -5604,6 +5819,7 @@ function TaskModal({
   currentGroupName,
   availableCopyTasks,
   copySourceTaskId,
+  floorOptions,
   form,
   pendingReferenceFiles,
   setForm,
@@ -5622,6 +5838,7 @@ function TaskModal({
   currentGroupName: string;
   availableCopyTasks: TaskRecord[];
   copySourceTaskId: string;
+  floorOptions: { value: number; label: string }[];
   form: TaskFormState;
   pendingReferenceFiles: File[];
   setForm: React.Dispatch<React.SetStateAction<TaskFormState>>;
@@ -5762,6 +5979,20 @@ function TaskModal({
               </div>
             </div>
           </div>
+          <FormField label="フロア">
+            <select
+              className={inputClass}
+              value={form.floorLevel}
+              onChange={(event) => setForm((current) => ({ ...current, floorLevel: event.target.value }))}
+            >
+              <option value="">未設定</option>
+              {floorOptions.map((option) => (
+                <option key={option.value} value={String(option.value)}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </FormField>
           <div>
             <p className="mb-2 text-sm text-[var(--muted)]">優先度</p>
             <div className="flex flex-wrap gap-2">
@@ -6070,7 +6301,7 @@ function TaskModal({
                   onChange={() => onUpdateScopeChange("all")}
                   className="accent-[var(--brand)]"
                 />
-                <span className="font-semibold text-[var(--warning-ink)]">繰り返し全タスクを変更（タイトル・説明・優先度・時間帯）</span>
+                <span className="font-semibold text-[var(--warning-ink)]">繰り返し全タスクを変更（タイトル・説明・優先度・時間帯・フロア）</span>
               </label>
             </div>
           </div>
@@ -6167,7 +6398,7 @@ function TaskDetailModal({
               {task.title}
             </h3>
             <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-              {slotLabel(scheduledTimeToSlot(task.scheduled_time))} / {formatStatus(task.status)}
+              {slotLabel(scheduledTimeToSlot(task.scheduled_time))} / {formatTaskFloor(task) || "フロア未設定"} / {formatStatus(task.status)}
             </p>
           </div>
           <button
@@ -6180,6 +6411,16 @@ function TaskDetailModal({
         </div>
 
         <div className="mt-4 grid gap-3">
+          <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
+            <p className="text-xs font-semibold text-[var(--ink)]">実行情報</p>
+            <div className="mt-2 flex flex-wrap gap-2 text-sm text-[var(--ink-soft)]">
+              <span>{task.scheduled_date}</span>
+              <span>/</span>
+              <span>{slotLabel(scheduledTimeToSlot(task.scheduled_time))}</span>
+              <span>/</span>
+              <span>{formatTaskFloor(task) || "フロア未設定"}</span>
+            </div>
+          </div>
           {task.description ? (
             <div className="rounded-2xl bg-[var(--surface)] px-4 py-4">
               <div className="flex items-center justify-between gap-2">

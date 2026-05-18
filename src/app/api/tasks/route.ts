@@ -10,6 +10,7 @@ import {
   titleSimilarity,
   type RecurrenceFrequency,
 } from "@/lib/tasks/recurrence";
+import { parseFloorLevel } from "@/lib/tasks/floors";
 
 const RECURRENCE_DUPLICATE_SIMILARITY_THRESHOLD = 0.75;
 
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
     priority?: "urgent" | "high" | "medium" | "low";
     scheduledDate?: string;
     scheduledTime?: string | null;
+    floorLevel?: number | string | null;
     visibilityType?: "group" | "personal";
     groupId?: string | null;
     force?: boolean; // ユーザーが重複警告を無視して登録する場合 true
@@ -44,6 +46,7 @@ export async function POST(request: NextRequest) {
   }
 
   const trimmedTitle = body.title.trim();
+  const floorLevel = parseFloorLevel(body.floorLevel);
 
   const supabase = createSupabaseAdminClient();
   const actorResult = await supabase
@@ -67,6 +70,7 @@ export async function POST(request: NextRequest) {
       status: "pending",
       scheduled_date: body.scheduledDate,
       scheduled_time: body.scheduledTime || null,
+      floor_level: floorLevel,
       visibility_type: body.visibilityType,
       group_id: body.visibilityType === "group" ? body.groupId : null,
       owner_user_id: body.visibilityType === "personal" ? actorUserId : null,
@@ -146,6 +150,7 @@ export async function POST(request: NextRequest) {
         title_template: trimmedTitle,
         description_template: body.description?.trim() || null,
         default_priority: body.priority ?? "medium",
+        floor_level: floorLevel,
         frequency: recurrence.frequency,
         interval_value: recurrence.interval,
         days_of_week: recurrence.daysOfWeek ?? null,
@@ -203,6 +208,7 @@ export async function POST(request: NextRequest) {
             status: "pending",
             scheduled_date: scheduledDate,
             scheduled_time: body.scheduledTime || null,
+            floor_level: floorLevel,
             created_by: actorUserId,
             updated_by: actorUserId,
           })),

@@ -6,6 +6,8 @@ create table if not exists public.workspaces (
   timezone text not null default 'Asia/Tokyo',
   notification_time time not null default '08:00',
   notification_time_2 time default null,
+  floor_range_start smallint not null default 30,
+  floor_range_end smallint not null default -3,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -104,6 +106,7 @@ create table if not exists public.tasks (
   status text not null default 'pending' check (status in ('pending', 'in_progress', 'awaiting_confirmation', 'done', 'skipped')),
   scheduled_date date not null,
   scheduled_time time,
+  floor_level smallint,
   completed_at timestamptz,
   created_by uuid not null references public.app_users(id) on delete restrict,
   updated_by uuid not null references public.app_users(id) on delete restrict,
@@ -159,6 +162,7 @@ create table if not exists public.recurrence_rules (
   title_template text not null,
   description_template text,
   default_priority text not null default 'medium' check (default_priority in ('urgent', 'high', 'medium', 'low')),
+  floor_level smallint,
   frequency text not null check (frequency in ('daily', 'weekly', 'monthly')),
   interval_value integer not null default 1 check (interval_value > 0),
   days_of_week smallint[],

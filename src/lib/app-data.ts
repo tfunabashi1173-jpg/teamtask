@@ -46,6 +46,8 @@ export type Workspace = {
   timezone: string;
   notification_time: string;
   notification_time_2: string | null;
+  floor_range_start: number | null;
+  floor_range_end: number | null;
 };
 
 export type Group = {
@@ -64,6 +66,7 @@ export type TaskRecord = {
   status: "pending" | "in_progress" | "awaiting_confirmation" | "done" | "skipped";
   scheduled_date: string;
   scheduled_time: string | null;
+  floor_level: number | null;
   visibility_type: "group" | "personal";
   group_id: string | null;
   owner_user_id: string | null;
@@ -79,6 +82,7 @@ export type TaskRecord = {
     start_date: string;
     end_date: string | null;
     is_active: boolean;
+    floor_level: number | null;
   } | null;
 };
 
@@ -388,7 +392,7 @@ export async function getAppState({
   if (workspaceMemberResult.data?.workspace_id) {
     const workspaceResult = await supabase
       .from("workspaces")
-      .select("id,name,timezone,notification_time,notification_time_2")
+      .select("id,name,timezone,notification_time,notification_time_2,floor_range_start,floor_range_end")
       .eq("id", workspaceMemberResult.data.workspace_id)
       .maybeSingle();
     workspace = (workspaceResult.data as Workspace | null) ?? null;
@@ -452,7 +456,7 @@ export async function getAppState({
       supabase
         .from("tasks")
         .select(
-          "id,title,description,priority,status,scheduled_date,scheduled_time,visibility_type,group_id,owner_user_id,deleted_at",
+          "id,title,description,priority,status,scheduled_date,scheduled_time,floor_level,visibility_type,group_id,owner_user_id,deleted_at",
         )
         .eq("workspace_id", workspace.id)
         .is("deleted_at", null)
@@ -609,6 +613,7 @@ export async function getAppState({
         start_date: string;
         end_date: string | null;
         is_active: boolean;
+        floor_level: number | null;
       }
     >();
 
@@ -622,12 +627,13 @@ export async function getAppState({
         start_date: string;
         end_date: string | null;
         is_active: boolean;
+        floor_level: number | null;
       }[] = [];
       const recurrenceRuleIdChunks = chunkArray(recurrenceRuleIds, IN_QUERY_CHUNK_SIZE);
       for (const recurrenceRuleIdChunk of recurrenceRuleIdChunks) {
         const recurrenceResult = await supabase
           .from("recurrence_rules")
-          .select("id,frequency,interval_value,days_of_week,day_of_month,start_date,end_date,is_active")
+          .select("id,frequency,interval_value,days_of_week,day_of_month,start_date,end_date,is_active,floor_level")
           .in("id", recurrenceRuleIdChunk);
 
         if (recurrenceResult.error) {
@@ -648,6 +654,7 @@ export async function getAppState({
               start_date: string;
               end_date: string | null;
               is_active: boolean;
+              floor_level: number | null;
             }[]
           | null) ?? [];
         recurrenceRows.push(...rows);

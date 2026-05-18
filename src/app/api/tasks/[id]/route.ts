@@ -7,6 +7,7 @@ import {
   startDateMatchesWeeklyRule,
   type RecurrenceFrequency,
 } from "@/lib/tasks/recurrence";
+import { parseFloorLevel } from "@/lib/tasks/floors";
 
 export async function PATCH(
   request: NextRequest,
@@ -24,6 +25,7 @@ export async function PATCH(
     priority?: "urgent" | "high" | "medium" | "low";
     scheduledDate?: string;
     scheduledTime?: string | null;
+    floorLevel?: number | string | null;
     updateScope?: "single" | "all";
     recurrence?: {
       enabled?: boolean;
@@ -58,6 +60,7 @@ export async function PATCH(
     .maybeSingle();
 
   const currentRecurrenceRuleId = currentSourceResult.data?.recurrence_rule_id ?? null;
+  const parsedFloorLevel = body.floorLevel !== undefined ? parseFloorLevel(body.floorLevel) : undefined;
 
   const updateResult = await supabase
     .from("tasks")
@@ -69,6 +72,7 @@ export async function PATCH(
       scheduled_date: body.scheduledDate ?? beforeResult.data.scheduled_date,
       scheduled_time:
         body.scheduledTime !== undefined ? body.scheduledTime : beforeResult.data.scheduled_time,
+      floor_level: parsedFloorLevel !== undefined ? parsedFloorLevel : beforeResult.data.floor_level,
       updated_by: actorResult.data.id,
     })
     .eq("id", id)
@@ -99,6 +103,7 @@ export async function PATCH(
           description: updatedTask.description,
           priority: updatedTask.priority,
           scheduled_time: updatedTask.scheduled_time,
+          floor_level: updatedTask.floor_level,
           updated_by: actorResult.data.id,
         })
         .in("id", siblingIds)
@@ -112,6 +117,7 @@ export async function PATCH(
         description_template: updatedTask.description,
         default_priority: updatedTask.priority,
         time_of_day: updatedTask.scheduled_time,
+        floor_level: updatedTask.floor_level,
         updated_by: actorResult.data.id,
       })
       .eq("id", currentRecurrenceRuleId);
@@ -141,6 +147,7 @@ export async function PATCH(
         title_template: updatedTask.title,
         description_template: updatedTask.description,
         default_priority: updatedTask.priority,
+        floor_level: updatedTask.floor_level,
         frequency: recurrence.frequency,
         interval_value: recurrence.interval,
         days_of_week: recurrence.daysOfWeek ?? null,
@@ -241,6 +248,7 @@ export async function PATCH(
               status: "pending",
               scheduled_date: scheduledDate,
               scheduled_time: updatedTask.scheduled_time,
+              floor_level: updatedTask.floor_level,
               created_by: actorResult.data.id,
               updated_by: actorResult.data.id,
             })),
