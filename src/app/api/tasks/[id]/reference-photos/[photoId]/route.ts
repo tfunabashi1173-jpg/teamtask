@@ -49,13 +49,47 @@ export async function PATCH(
 
   const nextStoragePath = buildTaskReferencePhotoPath(id, file.name || "reference.jpg");
   const nextThumbnailStoragePath = buildTaskThumbnailPath(nextStoragePath);
-  const thumbnailBuffer = await createTaskThumbnailBuffer(await file.arrayBuffer());
-  const uploadResult = await supabase.storage
+  const uploadResultPromise = supabase.storage
     .from(getTaskPhotoBucketName())
     .upload(nextStoragePath, file, {
       contentType: file.type,
       upsert: false,
     });
+  const thumbnailBufferPromise = file.arrayBuffer().then((buffer) => createTaskThumbnailBuffer(buffer));
+  const [uploadResultSettled, thumbnailBufferSettled] = await Promise.allSettled([
+    uploadResultPromise,
+    thumbnailBufferPromise,
+  ]);
+
+  if (uploadResultSettled.status === "rejected") {
+    return NextResponse.json(
+      {
+        error: uploadResultSettled.reason instanceof Error ? uploadResultSettled.reason.message : "STORAGE_UPLOAD_FAILED",
+        stage: "storage_upload",
+      },
+      { status: 500 },
+    );
+  }
+
+  const uploadResult = uploadResultSettled.value;
+
+  if (thumbnailBufferSettled.status === "rejected") {
+    if (!uploadResult.error) {
+      await supabase.storage.from(getTaskPhotoBucketName()).remove([nextStoragePath]);
+    }
+    return NextResponse.json(
+      {
+        error:
+          thumbnailBufferSettled.reason instanceof Error
+            ? thumbnailBufferSettled.reason.message
+            : "THUMBNAIL_GENERATION_FAILED",
+        stage: "thumbnail_generation",
+      },
+      { status: 500 },
+    );
+  }
+
+  const thumbnailBuffer = thumbnailBufferSettled.value;
 
   if (uploadResult.error) {
     return NextResponse.json({ error: uploadResult.error.message }, { status: 500 });

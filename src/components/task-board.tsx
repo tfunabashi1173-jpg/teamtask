@@ -2248,8 +2248,9 @@ export function TaskBoard({
     }
   }
 
-  async function compressImage(file: File, maxWidth = 1920, quality = 0.82): Promise<File> {
+  async function compressImage(file: File, maxWidth = 1600, quality = 0.78): Promise<File> {
     if (!file.type.startsWith("image/") && !file.name.match(/\.(heic|heif)$/i)) return file;
+    if (file.size <= 700_000 && !file.name.match(/\.(heic|heif)$/i)) return file;
     return new Promise((resolve) => {
       const img = new Image();
       const url = URL.createObjectURL(file);
@@ -2494,8 +2495,9 @@ export function TaskBoard({
   }
 
   async function handleReferencePhotoReplace(taskId: string, photoId: string, file: File) {
+    const compressed = await compressImage(file);
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", compressed);
 
     try {
       const response = await fetch(`/api/tasks/${taskId}/reference-photos/${photoId}`, {
@@ -2533,8 +2535,9 @@ export function TaskBoard({
   }
 
   async function handlePhotoReplace(taskId: string, photoId: string, file: File) {
+    const compressed = await compressImage(file);
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", compressed);
 
     try {
       const response = await fetch(`/api/tasks/${taskId}/photos/${photoId}`, {
@@ -6531,8 +6534,8 @@ function TaskDetailModal({
                             if (next.has(photo.id)) next.delete(photo.id); else next.add(photo.id);
                             return next;
                           });
-                        } else {
-                          photo.preview_url && onPreview(photo.preview_url);
+                        } else if (photo.preview_url) {
+                          onPreview(photo.preview_url);
                         }
                       }}
                       type="button"
@@ -6542,7 +6545,10 @@ function TaskDetailModal({
                         <img
                           alt={photo.file_name}
                           className="h-[110px] w-full object-contain"
-                          src={photo.preview_url.startsWith("/api/") ? `${photo.preview_url}?thumb=1` : photo.preview_url}
+                          src={
+                            photo.thumbnail_url ??
+                            (photo.preview_url.startsWith("/api/") ? `${photo.preview_url}?thumb=1` : photo.preview_url)
+                          }
                         />
                       ) : (
                         <span className="flex h-[110px] items-center justify-center text-xs text-[var(--muted)]">
@@ -6656,8 +6662,8 @@ function TaskDetailModal({
                               if (next.has(photo.id)) next.delete(photo.id); else next.add(photo.id);
                               return next;
                             });
-                          } else {
-                            photo.preview_url && onPreview(photo.preview_url);
+                          } else if (photo.preview_url) {
+                            onPreview(photo.preview_url);
                           }
                         }}
                         type="button"
@@ -6667,7 +6673,10 @@ function TaskDetailModal({
                           <img
                             alt={photo.file_name}
                             className="h-[110px] w-full object-contain"
-                            src={photo.preview_url.startsWith("/api/") ? `${photo.preview_url}?thumb=1` : photo.preview_url}
+                            src={
+                              photo.thumbnail_url ??
+                              (photo.preview_url.startsWith("/api/") ? `${photo.preview_url}?thumb=1` : photo.preview_url)
+                            }
                           />
                         ) : (
                           <span className="flex h-[110px] items-center justify-center text-xs text-[var(--muted)]">
