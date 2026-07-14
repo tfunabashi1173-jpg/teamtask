@@ -139,11 +139,16 @@ export async function POST(
     after_value: insertResult.data,
   });
 
+  const thumbnailSignedUrlResult = await supabase.storage
+    .from(getTaskPhotoBucketName())
+    .createSignedUrl(thumbnailStoragePath, 86400);
+
   return NextResponse.json({
     ok: true,
     photo: {
       ...insertResult.data,
       preview_url: `/api/task-reference-photos/${insertResult.data.id}`,
+      thumbnail_url: thumbnailSignedUrlResult.data?.signedUrl ?? `/api/task-reference-photos/${insertResult.data.id}?thumb=1`,
     },
   });
 }

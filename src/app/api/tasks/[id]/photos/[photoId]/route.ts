@@ -142,11 +142,16 @@ export async function PATCH(
     after_value: updateResult.data,
   });
 
+  const thumbnailSignedUrlResult = await supabase.storage
+    .from(getTaskPhotoBucketName())
+    .createSignedUrl(nextThumbnailStoragePath, 86400);
+
   return NextResponse.json({
     ok: true,
     photo: {
       ...updateResult.data,
       preview_url: `/api/task-photos/${updateResult.data.id}`,
+      thumbnail_url: thumbnailSignedUrlResult.data?.signedUrl ?? `/api/task-photos/${updateResult.data.id}?thumb=1`,
     },
   });
 }

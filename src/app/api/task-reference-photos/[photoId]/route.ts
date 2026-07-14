@@ -38,22 +38,8 @@ export async function GET(
     return NextResponse.json({ error: "PHOTO_NOT_FOUND" }, { status: 404 });
   }
 
-  const signedUrlResult = await supabase.storage
-    .from(getTaskPhotoBucketName())
-    .createSignedUrl(photoResult.data.storage_path, 86400);
-
-  if (signedUrlResult.error || !signedUrlResult.data?.signedUrl) {
-    return NextResponse.json({ error: "SIGNED_URL_FAILED" }, { status: 500 });
-  }
-
   const isThumb = request.nextUrl.searchParams.get("thumb") === "1";
-  if (!isThumb) {
-    const response = NextResponse.redirect(signedUrlResult.data.signedUrl);
-    response.headers.set("Cache-Control", "private, max-age=86400");
-    return response;
-  }
-
-  if (photoResult.data.thumbnail_storage_path) {
+  if (isThumb && photoResult.data.thumbnail_storage_path) {
     const thumbnailSignedUrlResult = await supabase.storage
       .from(getTaskPhotoBucketName())
       .createSignedUrl(photoResult.data.thumbnail_storage_path, 86400);
@@ -63,6 +49,20 @@ export async function GET(
       response.headers.set("Cache-Control", "private, max-age=86400");
       return response;
     }
+  }
+
+  const signedUrlResult = await supabase.storage
+    .from(getTaskPhotoBucketName())
+    .createSignedUrl(photoResult.data.storage_path, 86400);
+
+  if (signedUrlResult.error || !signedUrlResult.data?.signedUrl) {
+    return NextResponse.json({ error: "SIGNED_URL_FAILED" }, { status: 500 });
+  }
+
+  if (!isThumb) {
+    const response = NextResponse.redirect(signedUrlResult.data.signedUrl);
+    response.headers.set("Cache-Control", "private, max-age=86400");
+    return response;
   }
 
   const nextThumbnailStoragePath = buildTaskThumbnailPath(photoResult.data.storage_path);
