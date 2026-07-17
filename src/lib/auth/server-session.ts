@@ -4,10 +4,11 @@ import {
   getSessionCookieName,
   getSessionMaxAge,
   parseSessionCookieValue,
+  shouldRefreshSession,
   type SessionUser,
 } from "@/lib/auth/session";
 
-export async function readSessionUser() {
+export async function readSession() {
   const requestHeaders = await headers();
   const authorization = requestHeaders.get("authorization");
   const bearerToken = authorization?.startsWith("Bearer ")
@@ -23,10 +24,19 @@ export async function readSessionUser() {
   }
 
   return {
-    lineUserId: session.lineUserId,
-    displayName: session.displayName,
-    pictureUrl: session.pictureUrl ?? null,
+    user: {
+      lineUserId: session.lineUserId,
+      displayName: session.displayName,
+      pictureUrl: session.pictureUrl ?? null,
+    },
+    issuedAt: session.issuedAt,
+    expiresAt: session.expiresAt,
   };
+}
+
+export async function readSessionUser() {
+  const session = await readSession();
+  return session?.user ?? null;
 }
 
 export function createSessionToken(user: SessionUser) {
@@ -42,6 +52,14 @@ export async function writeSessionCookie(user: SessionUser) {
     path: "/",
     maxAge: getSessionMaxAge(),
   });
+}
+
+export async function refreshSessionCookieIfNeeded(session: { user: SessionUser; expiresAt: number } | null) {
+  if (!session || !shouldRefreshSession(session.expiresAt)) {
+    return;
+  }
+
+  await writeSessionCookie(session.user);
 }
 
 export async function clearSessionCookie() {

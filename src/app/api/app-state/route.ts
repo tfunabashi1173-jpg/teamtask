@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
-import { readSessionUser } from "@/lib/auth/server-session";
+import { readSession, refreshSessionCookieIfNeeded } from "@/lib/auth/server-session";
 import { getAppState } from "@/lib/app-data";
 
 export async function GET(request: Request) {
   try {
-    const sessionUser = await readSessionUser();
+    const session = await readSession();
+    const sessionUser = session?.user ?? null;
+    await refreshSessionCookieIfNeeded(session);
     const url = new URL(request.url);
     const inviteToken = url.searchParams.get("invite");
 

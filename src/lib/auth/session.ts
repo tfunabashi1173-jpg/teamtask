@@ -2,7 +2,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 const SESSION_COOKIE_NAME = "team_task_session";
 const LINE_STATE_COOKIE_NAME = "team_task_line_state";
-const FOURTEEN_DAYS_IN_SECONDS = 60 * 60 * 24 * 14;
+const DEFAULT_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 180;
 
 export type SessionUser = {
   lineUserId: string;
@@ -33,6 +33,16 @@ function base64UrlDecode(value: string) {
 
 function getSessionSecret() {
   return process.env.APP_SESSION_SECRET || process.env.LINE_CHANNEL_SECRET || "";
+}
+
+function getConfiguredSessionMaxAge() {
+  const rawValue = process.env.APP_SESSION_MAX_AGE_SECONDS;
+  const parsedValue = rawValue ? Number.parseInt(rawValue, 10) : NaN;
+  if (Number.isFinite(parsedValue) && parsedValue > 0) {
+    return parsedValue;
+  }
+
+  return DEFAULT_SESSION_MAX_AGE_SECONDS;
 }
 
 function sign(value: string) {
@@ -93,12 +103,13 @@ function decodeSignedValue(rawValue: string): SessionPayload | null {
 
 export function createSessionCookieValue(user: SessionUser) {
   const now = Math.floor(Date.now() / 1000);
+  const maxAge = getSessionMaxAge();
   const signed = encodeSignedValue({
     lineUserId: user.lineUserId,
     displayName: user.displayName,
     pictureUrl: user.pictureUrl ?? null,
     issuedAt: now,
-    expiresAt: now + FOURTEEN_DAYS_IN_SECONDS,
+    expiresAt: now + maxAge,
   });
 
   return `${signed.payload}.${signed.signature}`;
@@ -132,5 +143,10 @@ export function getLineStateCookieName() {
 }
 
 export function getSessionMaxAge() {
-  return FOURTEEN_DAYS_IN_SECONDS;
+  return getConfiguredSessionMaxAge();
+}
+
+export function shouldRefreshSession(expiresAt: number) {
+  const now = Math.floor(Date.now() / 1000);
+  return expiresAt - now < getSessionMaxAge() / 2;
 }

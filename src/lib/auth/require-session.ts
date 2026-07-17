@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { readSessionUser } from "@/lib/auth/server-session";
+import { readSession, refreshSessionCookieIfNeeded } from "@/lib/auth/server-session";
 
 export async function requireSession() {
-  const sessionUser = await readSessionUser();
+  const session = await readSession();
+  const sessionUser = session?.user ?? null;
 
   if (!sessionUser) {
     return {
@@ -10,6 +11,8 @@ export async function requireSession() {
       errorResponse: NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 }),
     };
   }
+
+  await refreshSessionCookieIfNeeded(session);
 
   return { sessionUser, errorResponse: null };
 }
