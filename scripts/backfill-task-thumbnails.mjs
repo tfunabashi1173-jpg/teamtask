@@ -13,6 +13,8 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const bucketName = process.env.SUPABASE_TASK_PHOTO_BUCKET || DEFAULT_BUCKET;
 const dbSchema = process.env.SUPABASE_DB_SCHEMA || DEFAULT_SCHEMA;
+const concurrency = parsePositiveInt(process.env.BACKFILL_THUMBNAIL_CONCURRENCY, 4);
+const rowLimit = parsePositiveInt(process.env.BACKFILL_THUMBNAIL_LIMIT, 0);
 
 if (!supabaseUrl || !serviceRoleKey) {
   console.error("NEXT_PUBLIC_SUPABASE_URL/SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.");
@@ -37,11 +39,17 @@ let totalUpdated = 0;
 let totalFailed = 0;
 
 for (const target of targets) {
-  const { data, error } = await supabase
+  let query = supabase
     .from(target.table)
     .select("id,storage_path")
     .is("thumbnail_storage_path", null)
     .order("created_at", { ascending: true });
+
+  if (rowLimit > 0) {
+    query = query.limit(rowLimit);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error(`[${target.table}] query failed: ${error.message}`);
@@ -49,43 +57,20 @@ for (const target of targets) {
     continue;
   }
 
-  for (const row of data ?? []) {
-    const thumbnailStoragePath = buildTaskThumbnailPath(row.storage_path);
+  const rows = data ?? [];
+  console.log(`[${target.label}] pending=${rows.length} concurrency=${concurrency}`);
 
-    try {
-      const downloadResult = await supabase.storage.from(bucketName).download(row.storage_path);
-      if (downloadResult.error || !downloadResult.data) {
-        throw new Error(downloadResult.error?.message || "download failed");
+  for (let index = 0; index < rows.length; index += concurrency) {
+    const batch = rows.slice(index, index + concurrency);
+    const results = await Promise.allSettled(batch.map((row) => backfillRow(target, row)));
+
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        totalUpdated += 1;
+      } else {
+        totalFailed += 1;
+        console.error(result.reason instanceof Error ? result.reason.message : String(result.reason));
       }
-
-      const sourceBuffer = Buffer.from(await downloadResult.data.arrayBuffer());
-      const thumbnailBuffer = await createThumbnailBuffer(sourceBuffer);
-
-      const uploadResult = await supabase.storage
-        .from(bucketName)
-        .upload(thumbnailStoragePath, thumbnailBuffer, {
-          contentType: "image/jpeg",
-          upsert: true,
-        });
-
-      if (uploadResult.error) {
-        throw new Error(uploadResult.error.message);
-      }
-
-      const updateResult = await supabase
-        .from(target.table)
-        .update({ thumbnail_storage_path: thumbnailStoragePath })
-        .eq("id", row.id);
-
-      if (updateResult.error) {
-        throw new Error(updateResult.error.message);
-      }
-
-      totalUpdated += 1;
-      console.log(`[${target.label}] ok ${row.id}`);
-    } catch (error) {
-      totalFailed += 1;
-      console.error(`[${target.label}] failed ${row.id}: ${toErrorMessage(error)}`);
     }
   }
 }
@@ -102,6 +87,44 @@ async function createThumbnailBuffer(input) {
     .resize({ width: 320, height: 320, fit: "inside", withoutEnlargement: true })
     .jpeg({ quality: 60 })
     .toBuffer();
+}
+
+async function backfillRow(target, row) {
+  const thumbnailStoragePath = buildTaskThumbnailPath(row.storage_path);
+  const downloadResult = await supabase.storage.from(bucketName).download(row.storage_path);
+  if (downloadResult.error || !downloadResult.data) {
+    throw new Error(`[${target.label}] failed ${row.id}: ${downloadResult.error?.message || "download failed"}`);
+  }
+
+  const sourceBuffer = Buffer.from(await downloadResult.data.arrayBuffer());
+  const thumbnailBuffer = await createThumbnailBuffer(sourceBuffer);
+
+  const uploadResult = await supabase.storage
+    .from(bucketName)
+    .upload(thumbnailStoragePath, thumbnailBuffer, {
+      contentType: "image/jpeg",
+      upsert: true,
+    });
+
+  if (uploadResult.error) {
+    throw new Error(`[${target.label}] failed ${row.id}: ${uploadResult.error.message}`);
+  }
+
+  const updateResult = await supabase
+    .from(target.table)
+    .update({ thumbnail_storage_path: thumbnailStoragePath })
+    .eq("id", row.id);
+
+  if (updateResult.error) {
+    throw new Error(`[${target.label}] failed ${row.id}: ${updateResult.error.message}`);
+  }
+
+  console.log(`[${target.label}] ok ${row.id}`);
+}
+
+function parsePositiveInt(value, fallback) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function loadDotEnv(filePath) {

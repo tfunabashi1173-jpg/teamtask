@@ -1,5 +1,13 @@
-const CACHE_NAME = "team-task-v1";
+const CACHE_NAME = "team-task-v2";
 const APP_SHELL = ["/", "/manifest.webmanifest", "/favicon.ico"];
+const THUMBNAIL_API_PATHS = ["/api/task-photos/", "/api/task-reference-photos/"];
+
+function isThumbnailRequest(requestUrl) {
+  return (
+    requestUrl.searchParams.get("thumb") === "1" &&
+    THUMBNAIL_API_PATHS.some((path) => requestUrl.pathname.startsWith(path))
+  );
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -31,6 +39,31 @@ self.addEventListener("fetch", (event) => {
   }
 
   const requestUrl = new URL(event.request.url);
+  if (isThumbnailRequest(requestUrl)) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then(async (cache) => {
+        const cachedResponse = await cache.match(event.request);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        try {
+          const networkResponse = await fetch(event.request);
+          if (networkResponse && (networkResponse.ok || networkResponse.type === "opaque")) {
+            void cache.put(event.request, networkResponse.clone());
+          }
+          return networkResponse;
+        } catch {
+          return new Response("Offline", {
+            status: 503,
+            statusText: "Offline",
+          });
+        }
+      }),
+    );
+    return;
+  }
+
   if (requestUrl.pathname.startsWith("/api/")) {
     event.respondWith(
       fetch(event.request).catch(() =>
