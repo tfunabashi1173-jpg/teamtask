@@ -147,8 +147,3 @@ function loadDotEnv(filePath) {
     process.env[key] = value;
   }
 }
-
-function toErrorMessage(error) {
-  if (error instanceof Error) return error.message;
-  return String(error);
-}

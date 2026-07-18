@@ -6552,6 +6552,8 @@ function TaskDetailModal({
                         <img
                           alt={photo.file_name}
                           className="h-[110px] w-full object-contain"
+                          decoding="async"
+                          fetchPriority="high"
                           src={
                             photo.thumbnail_url ??
                             (photo.preview_url.startsWith("/api/") ? `${photo.preview_url}?thumb=1` : photo.preview_url)
@@ -6682,6 +6684,8 @@ function TaskDetailModal({
                           <img
                             alt={photo.file_name}
                             className="h-[110px] w-full object-contain"
+                            decoding="async"
+                            fetchPriority="high"
                             src={
                               photo.thumbnail_url ??
                               (photo.preview_url.startsWith("/api/") ? `${photo.preview_url}?thumb=1` : photo.preview_url)
