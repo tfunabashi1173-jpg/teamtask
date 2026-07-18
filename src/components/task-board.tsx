@@ -90,6 +90,9 @@ type TaskEditorOrigin = {
   selectedTaskId: string | null;
 };
 
+const MAX_COMPLETION_PHOTOS = 5;
+const MAX_REFERENCE_PHOTOS = 5;
+
 const QUEUE_STORAGE_KEY = "team-task.queue.v2";
 const MEMBER_NAME_STORAGE_KEY = "team-task.member-name";
 const VERSION_CHECK_STORAGE_KEY = "team-task.version-check";
@@ -2045,7 +2048,7 @@ export function TaskBoard({
 
       // Upload all files in parallel (silent mode — show single summary toast)
       const uploadResults = await Promise.allSettled(
-        pendingReferenceFiles.slice(0, 5).map((file) => handleReferencePhotoUpload(taskId, file, true)),
+        pendingReferenceFiles.slice(0, MAX_REFERENCE_PHOTOS).map((file) => handleReferencePhotoUpload(taskId, file, true)),
       );
       const uploadedPhotos = uploadResults.flatMap((r) =>
         r.status === "fulfilled" && r.value ? [r.value] : [],
@@ -2060,7 +2063,7 @@ export function TaskBoard({
         );
       }
 
-      const failCount = pendingReferenceFiles.slice(0, 5).length - uploadedPhotos.length;
+      const failCount = pendingReferenceFiles.slice(0, MAX_REFERENCE_PHOTOS).length - uploadedPhotos.length;
       if (failCount > 0) {
         pushToast(
           "error",
@@ -2179,7 +2182,9 @@ export function TaskBoard({
 
       if (taskId && row.pendingReferenceFiles.length > 0) {
         const batchUploadResults = await Promise.allSettled(
-          row.pendingReferenceFiles.slice(0, 5).map((file) => handleReferencePhotoUpload(taskId, file, true)),
+          row.pendingReferenceFiles
+            .slice(0, MAX_REFERENCE_PHOTOS)
+            .map((file) => handleReferencePhotoUpload(taskId, file, true)),
         );
         const batchUploadedPhotos = batchUploadResults.flatMap((r) =>
           r.status === "fulfilled" && r.value ? [r.value] : [],
@@ -2342,7 +2347,7 @@ export function TaskBoard({
         ...current,
         tasks: current.tasks.map((task) =>
           task.id === taskId
-            ? { ...task, photos: [...(task.photos ?? []), createdPhoto].slice(0, 3) }
+            ? { ...task, photos: [...(task.photos ?? []), createdPhoto].slice(0, MAX_COMPLETION_PHOTOS) }
             : task,
         ),
       }));
@@ -2425,7 +2430,7 @@ export function TaskBoard({
           task.id === taskId
             ? {
                 ...task,
-                reference_photos: [...(task.reference_photos ?? []), createdPhoto].slice(0, 5),
+                reference_photos: [...(task.reference_photos ?? []), createdPhoto].slice(0, MAX_REFERENCE_PHOTOS),
               }
             : task,
         ),
@@ -3871,7 +3876,7 @@ export function TaskBoard({
                                 onChange={(event) => {
                                   const files = Array.from(event.currentTarget.files ?? []).filter((file) => file.type.startsWith("image/"));
                                   updateBatchRow(row.id, {
-                                    pendingReferenceFiles: [...row.pendingReferenceFiles, ...files].slice(0, 5),
+                                    pendingReferenceFiles: [...row.pendingReferenceFiles, ...files].slice(0, MAX_REFERENCE_PHOTOS),
                                   });
                                   event.currentTarget.value = "";
                                 }}
@@ -4628,7 +4633,7 @@ export function TaskBoard({
                             file.type.startsWith("image/"),
                           );
                           updateBatchRow(row.id, {
-                            pendingReferenceFiles: [...row.pendingReferenceFiles, ...files].slice(0, 5),
+                            pendingReferenceFiles: [...row.pendingReferenceFiles, ...files].slice(0, MAX_REFERENCE_PHOTOS),
                           });
                           event.currentTarget.value = "";
                         }}
@@ -4906,7 +4911,7 @@ export function TaskBoard({
                                 file.type.startsWith("image/"),
                               );
                               updateBatchRow(row.id, {
-                                pendingReferenceFiles: [...row.pendingReferenceFiles, ...files].slice(0, 5),
+                                pendingReferenceFiles: [...row.pendingReferenceFiles, ...files].slice(0, MAX_REFERENCE_PHOTOS),
                               });
                               event.currentTarget.value = "";
                             }}
@@ -5862,7 +5867,7 @@ function TaskModal({
     if (!fileList?.length) return;
     const files = Array.from(fileList).filter((file) => file.type.startsWith("image/"));
     if (files.length === 0) return;
-    setPendingReferenceFiles((current) => [...current, ...files].slice(0, 5));
+    setPendingReferenceFiles((current) => [...current, ...files].slice(0, MAX_REFERENCE_PHOTOS));
   }
 
   const content = (
@@ -6476,7 +6481,7 @@ function TaskDetailModal({
                     {(task.reference_photos?.length ?? 0) > 0 ? (
                       <button className={secondaryButtonClass} onClick={() => setRefSelectMode(true)} type="button">選択</button>
                     ) : null}
-                    {(task.reference_photos?.length ?? 0) < 5 ? (
+                    {(task.reference_photos?.length ?? 0) < MAX_REFERENCE_PHOTOS ? (
                       <label className={`${secondaryButtonClass} cursor-pointer ${isReferencePhotoSubmitting ? "pointer-events-none opacity-50" : ""}`}>
                         {isReferencePhotoSubmitting ? "保存中…" : "追加"}
                         <input
@@ -6488,7 +6493,7 @@ function TaskDetailModal({
                             const files = Array.from(event.target.files ?? []).filter((f) => f.type.startsWith("image/") || /\.(heic|heif)$/i.test(f.name));
                             event.currentTarget.value = "";
                             if (!files.length) return;
-                            const remaining = 5 - (task.reference_photos?.length ?? 0);
+                            const remaining = MAX_REFERENCE_PHOTOS - (task.reference_photos?.length ?? 0);
                             const toUpload = files.slice(0, remaining);
                             setIsReferencePhotoSubmitting(true);
                             const results = await Promise.allSettled(toUpload.map((file) => onReferencePhotoUpload(file, true)));
@@ -6506,7 +6511,9 @@ function TaskDetailModal({
                         />
                       </label>
                     ) : (
-                      <span className="text-xs font-semibold text-[var(--muted)]">5 / 5枚</span>
+                      <span className="text-xs font-semibold text-[var(--muted)]">
+                        {MAX_REFERENCE_PHOTOS} / {MAX_REFERENCE_PHOTOS}枚
+                      </span>
                     )}
                   </>
                 )}
@@ -6625,7 +6632,7 @@ function TaskDetailModal({
                       {(task.photos?.length ?? 0) > 0 ? (
                         <button className={secondaryButtonClass} onClick={() => setPhotoSelectMode(true)} type="button">選択</button>
                       ) : null}
-                      {(task.photos?.length ?? 0) < 3 ? (
+                      {(task.photos?.length ?? 0) < MAX_COMPLETION_PHOTOS ? (
                         <button
                           className={`${secondaryButtonClass} ${isPhotoSubmitting ? "pointer-events-none opacity-50" : ""}`}
                           onClick={() => completePhotoInputRef.current?.click()}
@@ -6634,7 +6641,9 @@ function TaskDetailModal({
                           {isPhotoSubmitting ? "保存中…" : "写真追加"}
                         </button>
                       ) : (
-                        <span className="text-xs font-semibold text-[var(--muted)]">3 / 3枚</span>
+                        <span className="text-xs font-semibold text-[var(--muted)]">
+                          {MAX_COMPLETION_PHOTOS} / {MAX_COMPLETION_PHOTOS}枚
+                        </span>
                       )}
                     </>
                   )}
@@ -6766,7 +6775,7 @@ function TaskDetailModal({
             const files = Array.from(event.target.files ?? []).filter((f) => f.type.startsWith("image/") || /\.(heic|heif)$/i.test(f.name));
             event.currentTarget.value = "";
             if (!files.length) return;
-            const remaining = 3 - (task.photos?.length ?? 0);
+            const remaining = MAX_COMPLETION_PHOTOS - (task.photos?.length ?? 0);
             const toUpload = files.slice(0, remaining);
             setIsPhotoSubmitting(true);
             const results = await Promise.allSettled(toUpload.map((file) => onPhotoUpload(file, true)));

@@ -21,11 +21,6 @@ function toIsoString(value: unknown): string | null {
 }
 
 const IN_QUERY_CHUNK_SIZE = 200;
-const SIGNED_URL_CHUNK_SIZE = 100;
-
-function getTaskPhotoBucketName() {
-  return process.env.SUPABASE_TASK_PHOTO_BUCKET || "task-photos";
-}
 
 function chunkArray<T>(items: T[], size: number): T[][] {
   if (items.length === 0) return [];
@@ -34,6 +29,12 @@ function chunkArray<T>(items: T[], size: number): T[][] {
     chunks.push(items.slice(i, i + size));
   }
   return chunks;
+}
+
+function buildTaskPhotoThumbnailUrl(kind: "completion" | "reference", photo: { id: string; storage_path: string; thumbnail_storage_path?: string | null }) {
+  const basePath = kind === "completion" ? `/api/task-photos/${photo.id}` : `/api/task-reference-photos/${photo.id}`;
+  const versionKey = photo.thumbnail_storage_path || photo.storage_path;
+  return `${basePath}?thumb=1&v=${encodeURIComponent(versionKey)}`;
 }
 
 export type AppUser = {
@@ -681,34 +682,6 @@ export async function getAppState({
     const sourceMap = new Map(sourceRows.map((row) => [row.task_id, row.recurrence_rule_id]));
     const photoMap = new Map<string, TaskPhotoRecord[]>();
     const referencePhotoMap = new Map<string, TaskPhotoRecord[]>();
-    const thumbnailPaths = Array.from(
-      new Set(
-        [...photoRows, ...referencePhotoRows]
-          .map((photo) => photo.thumbnail_storage_path)
-          .filter((path): path is string => Boolean(path)),
-      ),
-    );
-    const thumbnailUrlMap = new Map<string, string>();
-
-    for (const thumbnailPathChunk of chunkArray(thumbnailPaths, SIGNED_URL_CHUNK_SIZE)) {
-      const signedUrlResult = await supabase.storage
-        .from(getTaskPhotoBucketName())
-        .createSignedUrls(thumbnailPathChunk, 86400);
-
-      if (signedUrlResult.error) {
-        console.error("[teamtask] failed to create thumbnail signed URLs", {
-          message: signedUrlResult.error.message,
-          chunkSize: thumbnailPathChunk.length,
-        });
-        continue;
-      }
-
-      for (const signedUrl of signedUrlResult.data ?? []) {
-        if (signedUrl.path && signedUrl.signedUrl) {
-          thumbnailUrlMap.set(signedUrl.path, signedUrl.signedUrl);
-        }
-      }
-    }
 
     for (const photo of photoRows) {
       const current = photoMap.get(photo.task_id) ?? [];
@@ -716,9 +689,7 @@ export async function getAppState({
         ...photo,
         created_at: toIsoString(photo.created_at) ?? "",
         preview_url: `/api/task-photos/${photo.id}`,
-        thumbnail_url: photo.thumbnail_storage_path
-          ? thumbnailUrlMap.get(photo.thumbnail_storage_path) ?? `/api/task-photos/${photo.id}?thumb=1`
-          : `/api/task-photos/${photo.id}?thumb=1`,
+        thumbnail_url: buildTaskPhotoThumbnailUrl("completion", photo),
       });
       photoMap.set(photo.task_id, current);
     }
@@ -729,9 +700,7 @@ export async function getAppState({
         ...photo,
         created_at: toIsoString(photo.created_at) ?? "",
         preview_url: `/api/task-reference-photos/${photo.id}`,
-        thumbnail_url: photo.thumbnail_storage_path
-          ? thumbnailUrlMap.get(photo.thumbnail_storage_path) ?? `/api/task-reference-photos/${photo.id}?thumb=1`
-          : `/api/task-reference-photos/${photo.id}?thumb=1`,
+        thumbnail_url: buildTaskPhotoThumbnailUrl("reference", photo),
       });
       referencePhotoMap.set(photo.task_id, current);
     }

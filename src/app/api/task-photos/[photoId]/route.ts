@@ -46,7 +46,7 @@ export async function GET(
 
     if (!thumbnailSignedUrlResult.error && thumbnailSignedUrlResult.data?.signedUrl) {
       const response = NextResponse.redirect(thumbnailSignedUrlResult.data.signedUrl);
-      response.headers.set("Cache-Control", "private, max-age=86400");
+      response.headers.set("Cache-Control", "private, max-age=86400, immutable");
       return response;
     }
   }
@@ -61,7 +61,7 @@ export async function GET(
 
   if (!isThumb) {
     const response = NextResponse.redirect(signedUrlResult.data.signedUrl);
-    response.headers.set("Cache-Control", "private, max-age=86400");
+    response.headers.set("Cache-Control", "private, max-age=86400, immutable");
     return response;
   }
 
@@ -85,7 +85,7 @@ export async function GET(
     return new NextResponse(compressed as unknown as BodyInit, {
       headers: {
         "Content-Type": "image/jpeg",
-        "Cache-Control": "public, max-age=7200, stale-while-revalidate=86400",
+        "Cache-Control": "private, max-age=86400, immutable",
       },
     });
   } catch {

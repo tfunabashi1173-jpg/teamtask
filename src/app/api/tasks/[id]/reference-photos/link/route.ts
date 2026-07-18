@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
-const MAX_REFERENCE_PHOTOS = 2;
+const MAX_REFERENCE_PHOTOS = 5;
 
 // Creates a task_reference_photos record pointing to an existing storage file.
 // Used to share one uploaded image across all recurring task instances.
@@ -80,6 +80,9 @@ export async function POST(
     photo: {
       ...insertResult.data,
       preview_url: `/api/task-reference-photos/${insertResult.data.id}`,
+      thumbnail_url: `/api/task-reference-photos/${insertResult.data.id}?thumb=1&v=${encodeURIComponent(
+        thumbnail_storage_path || storage_path,
+      )}`,
     },
   });
 }
