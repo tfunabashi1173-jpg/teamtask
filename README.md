@@ -53,17 +53,27 @@ npm run lint
 - タスク操作時のプッシュ通知
 - アプリ版とコミットSHA表示の土台
 
-## Morning Notifications
+## Scheduled Notifications
 
-Vercel Hobby では高頻度 Cron を使えないため、朝通知の定期実行は GitHub Actions で行う。
-ワークフローは毎時実行だが、サーバー側では各ワークスペースの通知時刻から 90 分以内を送信対象として扱うため、
-`08:30` のような分指定でも次の実行タイミングで拾える。
+朝通知と夕方通知の定期実行は、本番 Linux サーバーの systemd timer で行う。
+`teamtask-notifications.timer` が5分ごとに `teamtask-notifications.service` を起動し、
+実行中の Coolify コンテナを `coolify.resourceName=teamtask` ラベルで特定して、コンテナ内部の
+`http://127.0.0.1:3000/api/cron/*-notifications` を直接呼び出す。
+
+通知APIは各ワークスペースの設定時刻から30分以内を送信対象として扱う。
 また、`workspace_id + target_date` 単位で送信済みを記録し、同日の二重送信を防ぐ。
 
-必要な GitHub Secrets:
+systemd 定義は `ops/systemd/` に配置している。
+本番サーバーでは以下のパスへインストールする。
 
-- `APP_BASE_URL` 例: `https://teamtask-nexus.vercel.app`
-- `CRON_SECRET` Vercel 側と同じ値
+- `/usr/local/sbin/teamtask-trigger-notifications.sh`
+- `/etc/systemd/system/teamtask-notifications.service`
+- `/etc/systemd/system/teamtask-notifications.timer`
+
+必要な環境変数:
+
+- `CRON_SECRET` アプリコンテナ側に設定されていること
+- `APP_BASE_URL` アプリコンテナ側に設定されていること
 
 ## 注意
 

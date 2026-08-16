@@ -1,0 +1,8 @@
+[Unit]
+Description=TeamTask scheduled push notification trigger
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/teamtask-trigger-notifications.sh

@@ -1,0 +1,12 @@
+[Unit]
+Description=Run TeamTask scheduled push notification trigger every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Persistent=true
+Unit=teamtask-notifications.service
+
+[Install]
+WantedBy=timers.target
