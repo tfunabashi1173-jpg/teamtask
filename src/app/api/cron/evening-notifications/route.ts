@@ -3,8 +3,9 @@ import { getAppBaseUrl } from "@/lib/app-url";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { sendEveningTaskNotifications } from "@/lib/notifications/web-push";
 
-// Workflow runs every 5min; window covers interval + 2min drift tolerance
-const EVENING_NOTIFICATION_WINDOW_MINUTES = 7;
+// GitHub Actions cron can start late; keep a wider window and rely on
+// evening_notification_deliveries to prevent duplicate sends per day.
+const EVENING_NOTIFICATION_WINDOW_MINUTES = 30;
 
 function isAuthorized(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;

@@ -1,0 +1,36 @@
+name: Scheduled notifications
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger morning notifications
+        run: |
+          curl --fail --show-error --silent \
+            --max-time 30 \
+            --retry 2 \
+            --retry-delay 5 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_BASE_URL}/api/cron/morning-notifications"
+        env:
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL || 'https://teamtask.do-nexus.co.jp' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+      - name: Trigger evening notifications
+        if: ${{ always() }}
+        run: |
+          curl --fail --show-error --silent \
+            --max-time 30 \
+            --retry 2 \
+            --retry-delay 5 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_BASE_URL}/api/cron/evening-notifications"
+        env:
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL || 'https://teamtask.do-nexus.co.jp' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
